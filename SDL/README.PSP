@@ -1,0 +1,111 @@
+SDL port for the Sony PSP contributed by 
+   Marcus R. Brown <mrbrown@ocgnet.org>
+   Jim Paris <jim@jtan.com>
+   Matthew H <matthewh@webone.com.au>
+
+Building
+--------
+To build for the PSP, make sure psp-config is in the path and run:
+
+   ./autogen.sh
+   LDFLAGS="-L$(psp-config --pspsdk-path)/lib" LIBS="-lc -lpspuser" \
+     ./configure --host psp --prefix=$(psp-config --psp-prefix)
+   make
+   make install
+
+Status
+------
+   Video - yes
+           - For accelerated 2D video output using the GE hardware,
+  	     use SDL_SWSURFACE in SDL_SetVideoMode.
+           - For video output via direct framebuffer access, use
+	     SDL_HWSURFACE.
+           - OpenGL is supported with SDL_OPENGL.
+  Timers - yes
+ Threads - yes
+   Input - yes, see "Input" below
+   Audio - yes
+
+
+SDL_main
+--------
+When writing an SDL program, the typical use is to write your main
+function as "SDL_main", then link -lSDLmain which provides the real
+main().  In this implementation, -lSDLmain will:
+  - Define the required PSP_* macros
+  - Set up the "home" button callback.
+  - Initialize the debugging screen
+  - Call the user-supplied SDL_main
+  - When it returns, delay 2.5 seconds, then exit to VSH.
+
+Of course, you can leave off -lSDLmain, and write the real main()
+yourself if you need more control than this.
+
+By default, the PSP "sdl-config --cflags" will define main=SDL_main.
+
+
+Building applications
+---------------------
+Write your source file as you would a normal SDL program.  Use the standard
+Makefile as supplied with any PSPSDK sample program.  Above the final "include"
+line, add:
+
+PSPBIN = $(PSPSDK)/../bin
+CFLAGS += $(shell $(PSPBIN)/sdl-config --cflags)
+LIBS += $(shell $(PSPBIN)/sdl-config --libs)
+
+
+Building autoconf applications
+------------------------------
+The general way to build autoconf applications is to add the psp
+architecture to configure.in, then use --with-sdl-prefix to point to
+the proper sdl-config.  For example, to build the applications in the
+test/ subdirectory, use:
+
+   ./autogen.sh
+   LDFLAGS="-L$(psp-config --pspsdk-path)/lib -lc -lpspuser" \
+     ./configure --host psp --with-sdl-prefix=$(psp-config --psp-prefix)
+
+
+Libc
+----
+SDL is linked against newlib's libc, and your SDL programs should be
+too.  Linking against psplibc will appear to work but may behave
+strangely at runtime.
+
+
+Input
+-----
+Joystick:
+The PSP's controls provide a joystick with a two axes on the analog
+stick and 14 independent buttons.  The button mapping is fixed:
+
+ 0 Triangle
+ 1 Circle
+ 2 Cross
+ 3 Square
+ 4 Left trigger
+ 5 Right trigger
+ 6 Down
+ 7 Left
+ 8 Up
+ 9 Right
+10 Select
+11 Start
+12 Home
+13 Hold
+
+Mouse:
+There is no mouse support, although an application could be written to
+simulate it by receiving joystick events and using SDL_WarpMouse.
+
+Keyboard:
+The headphone remote control is treated as a keyboard that sends the
+following keypresses:
+
+F10 Play/Pause
+F11 Forward
+F12 Back
+F13 Volume Up
+F14 Volume Down
+F15 Hold

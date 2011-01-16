@@ -1,0 +1,56 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 9.00
+# Visual Studio 2005
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "irkeybtest", "irkeybtest\irkeybtest.vcproj", "{122B5B99-DCDF-4FE5-9760-B354AE2894CA}"
+	ProjectSection(ProjectDependencies) = postProject
+		{B7AF4193-85B0-4993-BA16-89C775C5E8ED} = {B7AF4193-85B0-4993-BA16-89C775C5E8ED}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libpspirkeyb", "libpspirkeyb\libpspirkeyb.vcproj", "{B7AF4193-85B0-4993-BA16-89C775C5E8ED}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "asciidemo", "asciidemo\asciidemo.vcproj", "{21CF0EA4-1039-4E58-ADC3-69FDEB8C6D39}"
+	ProjectSection(ProjectDependencies) = postProject
+		{B7AF4193-85B0-4993-BA16-89C775C5E8ED} = {B7AF4193-85B0-4993-BA16-89C775C5E8ED}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pspirkeybprx", "pspirkeybprx\pspirkeybprx.vcproj", "{2B5961FC-8343-46D1-9E56-B1E74468C9D3}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libpspirkeybprx", "libpspirkeybprx\libpspirkeybprx.vcproj", "{F0475124-D12F-497C-842A-E9386ED75ED3}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "asciidemoprx", "asciidemoprx\asciidemoprx.vcproj", "{7A7EA79D-E289-410C-9B0A-8E2F360B1072}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{122B5B99-DCDF-4FE5-9760-B354AE2894CA}.Debug|Win32.ActiveCfg = Debug|Win32
+		{122B5B99-DCDF-4FE5-9760-B354AE2894CA}.Debug|Win32.Build.0 = Debug|Win32
+		{122B5B99-DCDF-4FE5-9760-B354AE2894CA}.Release|Win32.ActiveCfg = Release|Win32
+		{122B5B99-DCDF-4FE5-9760-B354AE2894CA}.Release|Win32.Build.0 = Release|Win32
+		{B7AF4193-85B0-4993-BA16-89C775C5E8ED}.Debug|Win32.ActiveCfg = Debug|Win32
+		{B7AF4193-85B0-4993-BA16-89C775C5E8ED}.Debug|Win32.Build.0 = Debug|Win32
+		{B7AF4193-85B0-4993-BA16-89C775C5E8ED}.Release|Win32.ActiveCfg = Release|Win32
+		{B7AF4193-85B0-4993-BA16-89C775C5E8ED}.Release|Win32.Build.0 = Release|Win32
+		{21CF0EA4-1039-4E58-ADC3-69FDEB8C6D39}.Debug|Win32.ActiveCfg = Debug|Win32
+		{21CF0EA4-1039-4E58-ADC3-69FDEB8C6D39}.Debug|Win32.Build.0 = Debug|Win32
+		{21CF0EA4-1039-4E58-ADC3-69FDEB8C6D39}.Release|Win32.ActiveCfg = Release|Win32
+		{21CF0EA4-1039-4E58-ADC3-69FDEB8C6D39}.Release|Win32.Build.0 = Release|Win32
+		{2B5961FC-8343-46D1-9E56-B1E74468C9D3}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2B5961FC-8343-46D1-9E56-B1E74468C9D3}.Debug|Win32.Build.0 = Debug|Win32
+		{2B5961FC-8343-46D1-9E56-B1E74468C9D3}.Release|Win32.ActiveCfg = Release|Win32
+		{2B5961FC-8343-46D1-9E56-B1E74468C9D3}.Release|Win32.Build.0 = Release|Win32
+		{F0475124-D12F-497C-842A-E9386ED75ED3}.Debug|Win32.ActiveCfg = Debug|Win32
+		{F0475124-D12F-497C-842A-E9386ED75ED3}.Debug|Win32.Build.0 = Debug|Win32
+		{F0475124-D12F-497C-842A-E9386ED75ED3}.Release|Win32.ActiveCfg = Release|Win32
+		{F0475124-D12F-497C-842A-E9386ED75ED3}.Release|Win32.Build.0 = Release|Win32
+		{7A7EA79D-E289-410C-9B0A-8E2F360B1072}.Debug|Win32.ActiveCfg = Debug|Win32
+		{7A7EA79D-E289-410C-9B0A-8E2F360B1072}.Debug|Win32.Build.0 = Debug|Win32
+		{7A7EA79D-E289-410C-9B0A-8E2F360B1072}.Release|Win32.ActiveCfg = Release|Win32
+		{7A7EA79D-E289-410C-9B0A-8E2F360B1072}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

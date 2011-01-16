@@ -1,0 +1,17 @@
+
+  libBulletML port to the PSP.
+
+  See README.en for usage and licensing information.
+
+Website:
+  http://shinh.skr.jp/libbulletml/index_en.html
+
+PSP port by:
+  Marcus R. Brown <mrbrown@ocgnet.org>
+
+Notes:
+  To build, cd into the src/ directory and do `make'.  Do `make install' to
+  install.
+
+TODO:
+  ???

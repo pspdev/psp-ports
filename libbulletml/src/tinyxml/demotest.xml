@@ -1,0 +1,12 @@
+<?xml version="1.0" standalone="no" ?>
+<!-- Our to do list data -->
+<ToDo>
+    <Item priority="1" distance="close">Go to the
+        <bold>Toy store!
+        </bold>
+    </Item>
+    <Item priority="2" distance="none"> Do bills   
+    </Item>
+    <Item priority="2" distance="far">Look for Evil Dinosaurs!
+    </Item>
+</ToDo>

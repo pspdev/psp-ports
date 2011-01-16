@@ -1,0 +1,206 @@
+libBulletML 0.0.5
+
+・概要
+
+弾幕記述言語 BulletML を扱う c++ ライブラリです。
+これを用いることによって、豊富な記述力を持つ BulletML を、
+XML解析の知識がなくても利用することができます。
+
+グラフィックなどのゲームの他の部分とは完全に切り分けられているので、
+安心してどんなソフトにでも使用することができます。
+
+プログラムに埋め込まれた弾幕記述に比べると遅いと思われますが、
+解析時に全ての要素を enum 化しているため、
+実行時の文字列比較などによる速度低下は起こりません。
+
+BulletML は ABAさんがデザインした弾幕記述言語です。
+詳しくはこちらをどうぞ。
+http://www.asahi-net.or.jp/~cs8k-cyu/bulletml/index.html
+
+・使い方
+
+VC と Borland C++ と gcc で動作確認されています。
+
+このドキュメントは多少いい加減なので、わからないことがあれば、
+拙作「白い弾幕くん」が完全な実用例となっています。
+厄介な敵弾の操作が command.cc, command.h という
+短いプログラムに収まっているのがわかるかと思います。
+他に参考にすると良い部分には enemy.cc, enemy.h があります。
+また、html/index.html が簡単な API リファレンスになるかもしれません。
+
+このライブラリは二種類の使い方が想定されています。
+
+* 一つ目、イベント駆動型
+
+こちらの方が簡単な使い方です。
+ただ、少し融通が利かない部分があるのが難点です。
+
+0. BulletML で記述された XML ファイルを用意します。
+
+始めは「白い弾幕くん」や ABAさんの XML ファイルを用いれば良いでしょう。
+また、README.bulletml にリファレンスがあります。
+
+1. 必要なファイルをインクルードします。
+
+#include "bulletml/bulletmlparser.h"
+#include "bulletml/bulletmlparser-tinyxml.h"
+#include "bulletml/bulletmlrunner.h"
+
+2. BulletMLRunner を継承したクラスを作成します。
+
+class BulletCommand : public BulletMLRunner {
+    // ...
+
+	// このクラスは操作する Bullet となんらかの手段で関連付けること。
+    Bullet* bullet_;
+}
+
+3. bulletmlrunner.h に記述されている純粋仮想関数を全て実装します。
+
+例えば、以下のようにします。
+virtual void doVanish() {
+	bullet->die();
+}
+
+注意すべき点は一点だけです。
+それは create で始まる二つのメソッドのオーバーライドについてです。
+
+libBulletML では<action> を持つ弾と持たない弾の二つに分類されます。
+<action> を持たない弾は等速運動を行うだけなので、
+シンプルに実装した方が高速になることが期待されるため、
+このような分類を行っています。
+クライアントコードでも、この二つは区別した方が良いと思われます。
+「白い弾幕くん」では Shot と Enemy という二つのクラスを用いています。
+
+さて、<action> を持たない弾を作成する <fire> エレメントを実行すると、
+BulletMLRunner は createSimpleBullet を呼び出します。
+これは角度と速度が渡されているので、それに従った弾を作成します。
+
+<action> を持つ場合、先程の例に加えて、
+BulletMLState* state というオブジェクトが渡されます。
+これは、BulletML のパース中の情報を残すためのもので、
+クライアントコードでこの内容を気にする必要はありません。
+ただ、新しく生まれた弾の BulletMLRunner 派生クラスを
+作るときにこれを渡す必要があります。
+BulletMLRunner の生成については次の項で説明します。
+
+4. BulletMLRunner 派生クラスの生成
+
+libBulletML では弾源は二種類に分類されます。
+これは、xmlファイルのドキュメント全てを持って生成され、
+全ての弾の源となる一次弾源と、
+他の弾源から <action> を持つ <fire> エレメントによって作成された、
+二次三次…弾源です。
+
+この違いから、BulletMLRunner 派生クラスは
+最低二つのコンストラクタを用意する必要があります。
+
+前者のコンストラクタは例えば以下のように実装します。
+BulletCommand::BulletCommand(BulletMLParser* bp, Bullet* b)
+    : BulletMLRunner(bp), bullet_(b)
+
+後者のコンストラクタは例えば以下のように実装します。
+BulletCommand::BulletCommand(BulletMLState* bs, Bullet* b)
+    : BulletMLRunner(bs), bullet_(b)
+
+5. BulletML ドキュメントを生成します。
+
+BulletMLParser* bp = new BulletMLParserTinyXML("hoge.xml");
+bp->build();
+
+この作業は実際の実行時に行うには重いので、
+プログラムの開始時などにまとめて読みこむことをお勧めします。
+
+6. 先程のドキュメントを用いた一次弾源を生成します。
+
+BulletCommand* bc = new BulletCommand(bp)
+
+7. 各ターンに全ての BulletCommand を実行します。
+
+bc->run();
+
+これだけで、後はイベント駆動式で弾の状態変化を呼びだしてくれます。
+
+また、何か問題が起こった場合、libBulletML は BulletMLError を投げます。
+補足すると便利なこともあるでしょう。
+
+* 二つ目、自力でツリー解析
+
+こちらはあまり想定されていない使い方ですが、それなりの恩恵はあります。
+
+1. 必要なファイルのインクルードをします。
+
+#include "bulletml/bulletmlparser.h"
+#include "bulletml/bulletmlparser-tinyxml.h"
+#include "bulletml/bulletmltree.h"
+
+2. BulletML ドキュメントを生成します。
+
+BulletMLParser* bp = new BulletMLParserTinyXML("hoge.xml");
+bp->build();
+
+3. BulletMLParser からトップのアクションを取得します。
+
+const std::vector<BulletMLNode*>& nodes = bp->getTopActions();
+
+4. 自力でツリーを解析します。
+
+bulletmltree.h 内を参考にツリーを解析して敵弾を動かしてください。
+
+・いろいろ
+
+こんな機能が欲しいとかあればメールお願いします。
+
+修正BSDライセンスに従います。
+
+TinyXMLにお世話になっています。
+http://www.gibaradunn.srac.org/tiny/index.shtml
+
+ドキュメント生成に Doxygen を用いています。
+http://www.stack.nl/~dimitri/doxygen/
+
+・ToDo
+
+1. 仕様との整合
+・<horizontal><vertical>のattribute
+
+2. 独自の拡張をしやすく
+・元仕様にないタグやアトリビュート対応
+
+3. エラーメッセージ、エラーを投げる場面の充実
+
+4. 各種情報を入手しやすく。
+
+・修正BSDライセンス
+
+Copyright (c) 2003, shinichiro.h All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+    * The name of the author may not be used to endorse or promote
+      products derived from this software without specific prior
+      written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+shinichiro.h
+ s31552@mail.ecc.u-tokyo.ac.jp
+ http://user.ecc.u-tokyo.ac.jp/~s31552/wp/

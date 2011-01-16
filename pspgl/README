@@ -1,0 +1,55 @@
+Hi,
+
+pspGL is a pure, minimal, hardware-accelerated implementation of something like
+OpenGL for the Playstation Portable. Before you are able to compile it, you
+need to set up a PSP toolchain and SDK as described on http://pspdev.org.
+
+Export PSP_MOUNTDIR=<your_PSP_mountpoint> and PSP_REVISION=<your_PSP_revision>.
+Then type 'make' to build, 'make -C <demodir> install' to build and install one
+of the demos.  Here an example how to build for a 1.50 PSP on MacOS-X:
+
+   $ export PSP_MOUNTDIR=/Volumes/PSP
+   $ export PSP_REVISION=1.50
+   $ make && make -C tests clean install
+   $ make && make -C test-glut clean install
+
+All OpenGL-ES fixed-point commands are not implemented. Please take a look
+in the GLES/gl.h header file for the OpenGL commands implemented additionally
+to the minimum OpenGL-ES profile. Define PURE_GLES before including this file
+if you want to switch off these extensions.
+
+You can also use the GL/gl.h include set, but should avoid double-precision
+function calls for performance reasons.
+
+Display lists are used internally, but not exposed to the GL API.
+
+Only a minimum set of the core GLUT functions is implemented.
+
+pspgl_misc.[hc] contains some debug functions to dump PSP GE command buffers, 
+the GE register set and the GE matrix stack to the memory stick. In the
+tools/ directory you find a rough disassembler for GE packets, maybe you find
+this useful to debug your problems. Please note that still a lot of commands
+are missing, please send patches if you enhance this functionality.
+
+The PSP has been designed for gaming, so some OpenGL features that are rarely 
+used in games are missing and some have only somewhat limited support by the
+Hardware. Here is a short list of things you should consider when writing 
+GL applications for the PSP:
+
+ - only 4 light sources are supported
+ - antialiasing can get switched on/off only globally
+ - No user-defined clip planes are supported
+ - only single-pixel wide lines and points
+ - We don't know yet whether/how the fog function can get changed.
+ - Only single-sided lighting, for two sided shading you need a CW and a CCW pass.
+ - No wireframe rendering, we don' know whether the PSP supports this.
+
+This list is by no means complete, please report if you encounter other issues.
+
+All files are BSD-licensed, feel free to use it in free or commercial projects.
+enjoy, have fun,
+
+See http://www.goop.org/psp/gl for more documentation about this library.
+
+Holger Waechtler
+Jeremy Fitzhardinge

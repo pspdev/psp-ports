@@ -1,0 +1,21 @@
+bugs:
+
+* Scancode mode is not 100% ok - you can't map KEY_Y to KEY_Z and KEY_Z to KEY_Y
+  this is an endless loop :) Probably a won't fix bug.
+
+missing:
+
+* UFT-8 for map files isn't working
+* check if baudrate change works
+* IsKeyDown( raw ), IsModifierDown( struct SModifier ) is missing
+
+nice to have:
+
+* add some pictures of the keyboards to a website
+* add a PSP button emulation mode
+* maybe write a patch for psplink to use it as input
+* maybe write a prx to export keyboard events to the pads (like remotejoy)
+* make ir baudrate change work without kernel - or detect if we run in
+  kernel mode (stack segment position?) and remove he parameter "kernel"
+  from the init function
+* add a power down/up handler

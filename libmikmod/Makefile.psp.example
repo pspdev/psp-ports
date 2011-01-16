@@ -1,0 +1,19 @@
+PSPSDK                 = $(shell psp-config --pspsdk-path)
+PSPDIR                 = $(shell psp-config --psp-prefix)
+
+INCDIR                 := ./include
+CFLAGS                 = -G0 -Wall -O2 -fno-strict-aliasing
+LIBS                   = -lmikmod -lpspaudio
+
+OBJS                   = example.o
+
+TARGET                 = libmikmodtest
+EXTRA_TARGETS          = EBOOT.PBP
+PSP_EBOOT_TITLE        = libmikmodtest
+EXTRA_CLEAN            = clean_kxploit
+
+include $(PSPSDK)/lib/build.mak
+
+clean_kxploit:
+	rm -rf $(TARGET)
+	rm -rf "$(TARGET)%"

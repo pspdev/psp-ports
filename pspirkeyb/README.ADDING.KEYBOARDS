@@ -1,0 +1,12 @@
+1) Get familiar with the keyboard!
+2) Google for pspirdacapture.zip
+	Play around and find out what the keyboard sends to PSP
+	You might have to use your PC if the keyboard has a non 9600
+	baud mode.
+3) Add a new enum to pspirkeyb.h
+4) Add a new function handler to pspirkeyb.c and update pspIrKeybSetKeyboard()
+5) Add a raw mode map to kbdkeyboards.h
+6) Add a new keyboard map to keymap
+7) Test with irkeybtest in RAW mode and SCAN mode
+
+-> Send the patch :)

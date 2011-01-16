@@ -1,0 +1,254 @@
+BulletML Reference ver. 0.21                (c) 長健太(ABA."Saba")    ABA Games
+
+BulletMLの簡易リファレンスです。
+
+<bulletml> - Defines the BulletML's body ━━━━━━━━━━━━━━━━━━━
+
+ ・ Attribute - type = (none | vertical | horizontal)
+   
+ ・ Contents - (bullet | action | fire)*
+   
+BulletML本体を定義します。
+
+type属性は、この弾幕が縦スクロールシューティング用か、横スクロールシューティン
+グ用かを規定します。
+
+<bullet> - Defines attributes of a bullet ━━━━━━━━━━━━━━━━━━ 
+
+ ・ Attribute - label = STRING
+   
+ ・ Contents - direction?, speed?, (action | actionRef)*
+   
+ ・ Exapmle
+   
+    <bullet label="downAccel">
+    <direction>270</direction>
+    <speed>2</speed>
+    <action>
+    <accel>
+     <vertical>3</vertical>
+     <term>120</term>
+    </accel>
+    </action>
+    </bullet>
+
+弾の方向、速度およびアクションを定義します。
+
+ラベル属性でラベル名をつけることができます。ラベル付けされたbullet要素は、
+bulletRef要素によって参照されます。
+
+<action> - Defines the action of bullet ━━━━━━━━━━━━━━━━━━━ 
+
+ ・ Attribute - label = STRING
+   
+ ・ Contents - (repeat | fire | fireRef | changeSpeed | changeDirection | accel
+    | wait | vanish | action | actionRef)*
+   
+ ・ Exapmle
+   
+    <action>
+    <changeSpeed>
+     <speed>0</speed>
+     <term>60</term>
+    </changeSpeed>
+    <wait>60</wait>
+    <fire><bullet/></fire>
+    <fire>
+     <direction type="absolute">330+$rand*25</direction>
+     <bulletRef label="downAccel"/>
+    </fire>
+    <vanish/>
+    </action>
+
+弾のアクションを定義します。ラベル付けされたaction要素は、actionRef要素によって
+参照されます。
+
+<fire> - Fires a bullet ━━━━━━━━━━━━━━━━━━━━━━━━━━━ 
+
+ ・ Attribute - label = STRING
+   
+ ・ Contents - direction?, speed?, (bullet | bulletRef)
+   
+ ・ Exapmle
+   
+    <fire>
+     <direction type="absolute">270</direction>
+     <speed>2</speed>
+     <bulletRef label="rocket"/>
+    </fire>
+
+弾を<direction>度方向に速度<speed>で撃ちます。ラベル付けされたfire要素は、
+fireRef要素によって参照されます。
+
+<changeDirection> - Changes the direction of bullet ━━━━━━━━━━━━━ 
+
+ ・ Contents - direction, term
+   
+弾の方向を<direction>度に<term>フレームかけて曲げます。 1フレームは1/60秒です。
+
+<changeSpeed> - Changes the speed of bullet ━━━━━━━━━━━━━━━━━ 
+
+ ・ Contents - speed, term
+   
+弾の速度を<speed>に<term>フレームかけて変えます。
+
+<accel> - Accelerates a bullet ━━━━━━━━━━━━━━━━━━━━━━━━
+
+ ・ Contents - horizontal?, vertical?, term
+   
+弾を水平方向に<horizontal>、垂直方向に<vertical>、 <term>フレームかけて加速しま
+す。
+
+<wait> - Waits ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ ・ Contents - NUMBER
+   
+NUMBERフレーム待ちます。
+
+<vanish> - Vanishes a bullet ━━━━━━━━━━━━━━━━━━━━━━━━━
+
+弾を消します。
+
+<repeat> - Repeats an action ━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ ・ Contents - times, (action | actionRef)
+   
+ ・ Exapmle
+   
+    <repeat>
+    <times>100</times>
+    <action>
+     <fire>
+      <direction type="absolute">220+$rand*100</direction>
+      <bulletRef label="backBurst"/>
+     </fire>
+     <wait>6</wait>
+    </action>
+    </repeat>
+
+アクションを<times>回繰り返します。
+
+<direction> - Specifies a direction ━━━━━━━━━━━━━━━━━━━━━ 
+
+ ・ Attribute - type = (aim | absolute | relative | sequence)
+   
+ ・ Contents - NUMBER
+   
+方向を度単位で指定します。
+
+typeが"aim"の場合、自機を狙う方向が0の相対値になります。
+
+typeが"absolute"の場合、NUMBERは絶対値（上方向が0で時計回り）です。
+
+typeが"relative"の場合、NUMBERはこの弾の方向が0の相対値になります。
+
+typeが"sequence"の場合、直前の弾を撃った方向が0の相対値になります。
+
+<speed> - Specifies a speed ━━━━━━━━━━━━━━━━━━━━━━━━━ 
+
+ ・ Attribute - type = (absolute | relative | sequence)
+   
+ ・ Contents - NUMBER
+   
+速度を指定します。
+
+typeが"relative"の場合、 changeSpeed要素内では現在の弾の速度との相対値、それ以
+外の要素内ではこの弾の速度との相対値です。
+
+typeが"sequence"の場合、 changeSpeed要素内では弾の速度を連続的に変化させ、それ
+以外の要素内では直前の弾の速度との相対値です。
+
+<horizontal> - Specifies the acceleration in a horizontal line ━━━━━━━━
+
+ ・ Attribute - type = (absolute | relative | sequence)
+   
+ ・ Contents - NUMBER
+   
+水平方向の弾の加速度を指定します。
+
+typeが"relative"の場合、現在の弾の速度との相対値です。 typeが"sequence"の場合、
+加速度を連続的に変化させます。
+
+<vertical> - Specifies the acceleration in a vertical line ━━━━━━━━━━
+
+ ・ Attribute - type = (absolute | relative | sequence)
+   
+ ・ Contents - NUMBER
+   
+垂直方向の弾の加速度を指定します。
+
+typeが"sequence"の場合、現在の弾の速度との相対値です。 typeが"sequence"の場合、
+加速度を連続的に変化させます。
+
+<term> - Specifies a term ━━━━━━━━━━━━━━━━━━━━━━━━━━ 
+
+ ・ Contents - NUMBER
+   
+期間を指定します。
+
+<times> - Specifies the number of times ━━━━━━━━━━━━━━━━━━━ 
+
+ ・ Contents - NUMBER
+   
+繰り返し回数を指定します。
+
+<bulletRef> - Refers to the bullet ━━━━━━━━━━━━━━━━━━━━━━
+
+ ・ Attribute - label = STRING
+   
+ ・ Contents - param*
+   
+ラベル付けされたbullet要素を参照します。この要素は同名のラベルでラベル付けされ
+たbullet要素と同じに扱われます。
+
+参照されたbullet要素内の変数（$1, $2, $3, ...）は、 <param>要素に指定された数値
+に置き換えられます。（最初に出現したparam要素が$1に、次に出現したparam要素が$2
+に、...）
+
+<actionRef> - Refers to the action ━━━━━━━━━━━━━━━━━━━━━━
+
+ ・ Attribute - label = STRING
+   
+ ・ Contents - param*
+   
+ラベル付けされたaction要素を参照します。この要素は同名のラベルでラベル付けされ
+たaction要素と同じに扱われます。
+
+参照されたaction要素内の変数は、<param>要素に指定された数値に置き換えられます。
+
+<fireRef> - Refers to the fire action ━━━━━━━━━━━━━━━━━━━━ 
+
+ ・ Attribute - label = STRING
+   
+ ・ Contents - param*
+   
+ラベル付けされたfire要素を参照します。この要素は同名のラベルでラベル付けされた
+fire要素と同じに扱われます。
+
+参照されたfire要素内の変数は、<param>要素に指定された数値に置き換えられます。
+
+<param> - Specifies the parameter ━━━━━━━━━━━━━━━━━━━━━━ 
+
+ ・ Contents - NUMBER
+   
+パラメタを指定します。
+
+STRING - any string ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 
+
+ラベル用文字列です。
+
+NUMBER - expression ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 
+
+ ・ Exapmles
+   
+    35
+    360/16
+    0.7 + 0.9*$rand
+    180-$rank*20
+    (2+$1)*0.3
+
+数値を指定するための式です。
+
+四則演算と剰余算、括弧、変数（パラメタ用に$1, $2, $3...、乱数（0から1までの値）
+用に$rand、難易度（0から1までの値）用に$rank）が使えます。
+

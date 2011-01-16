@@ -1,0 +1,45 @@
+PSPSDK                 = $(shell psp-config --pspsdk-path)
+PSPDIR                 = $(shell psp-config --psp-prefix)
+
+DEFINES                := DRV_PSP HAVE_FCNTL_H HAVE_MALLOC_H HAVE_UNISTD_H
+DEFINEFLAGS            := $(addprefix -D,$(DEFINES))
+INCDIR                 := ./include $(PSPDIR)/include
+CFLAGS                 = -G0 -Wall -O2 -fno-strict-aliasing $(DEFINEFLAGS)
+MIKMOD_LIB_FILE        = ./libmikmod/libmikmod.a
+
+MMIO_OBJS              = mmio/mmio.o mmio/mmalloc.o mmio/mmerror.o
+
+MIKMOD_PLAYERCODE_OBJS = playercode/mdreg.o playercode/mdriver.o playercode/mdulaw.o playercode/mloader.o playercode/mlreg.o \
+playercode/mlutil.o playercode/mplayer.o playercode/munitrk.o playercode/mwav.o playercode/npertab.o playercode/sloader.o \
+playercode/virtch.o playercode/virtch2.o playercode/virtch_common.o 
+
+MIKMOD_LOADER_OBJS     = loaders/load_669.o loaders/load_amf.o loaders/load_dsm.o loaders/load_far.o loaders/load_gdm.o loaders/load_imf.o \
+loaders/load_it.o loaders/load_m15.o loaders/load_med.o loaders/load_mod.o loaders/load_mtm.o loaders/load_okt.o loaders/load_s3m.o \
+loaders/load_stm.o loaders/load_stx.o loaders/load_ult.o loaders/load_uni.o loaders/load_xm.o
+
+MIKMOD_DRIVER_OBJS     = drivers/drv_nos.o drivers/drv_raw.o drivers/drv_wav.o drivers/drv_stdout.o drivers/drv_psp.o
+
+OBJS                   = $(MIKMOD_PLAYERCODE_OBJS) $(MIKMOD_LOADER_OBJS) $(MIKMOD_DRIVER_OBJS) $(MMIO_OBJS)
+
+TARGET_LIB             = $(MIKMOD_LIB_FILE)
+
+include $(PSPSDK)/lib/build.mak
+
+
+
+####################
+## Makefile rules ##
+####################
+
+install: $(MIKMOD_LIB_FILE)
+	@echo ""
+	@echo "**********************************************************************"
+	@echo "Installing libmikmod into $(PSPDIR)"
+	@mkdir -p $(PSPDIR)/include $(PSPDIR)/lib
+	@cp include/mikmod_build.h $(PSPDIR)/include/mikmod.h
+	@cp libmikmod/libmikmod.a $(PSPDIR)/lib
+	@echo "Done"
+	@echo "**********************************************************************"
+	@echo ""
+
+  

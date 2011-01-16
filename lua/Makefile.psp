@@ -1,0 +1,18 @@
+LUA = .
+
+PSPSDK = $(shell psp-config --pspsdk-path)
+PSPDIR = $(shell psp-config --psp-prefix)
+
+CFLAGS = -O2 -G0 -I$(LUA)/include -D__PSP__
+
+LIBLUA_OBJS = src/lapi.o src/lcode.o src/ldebug.o src/ldo.o src/ldump.o src/lfunc.o src/lgc.o src/llex.o src/lmem.o src/lobject.o src/lopcodes.o src/lparser.o src/lstate.o src/lstring.o src/ltable.o src/ltm.o src/lundump.o src/lvm.o src/lzio.o src/lauxlib.o src/lbaselib.o src/ldblib.o src/liolib.o src/lmathlib.o src/loslib.o src/ltablib.o src/lstrlib.o src/loadlib.o src/linit.o
+
+OBJS = $(LIBLUA_OBJS)
+TARGET_LIB = liblua.a
+
+include $(PSPSDK)/lib/build.mak
+
+install: all
+	mkdir -p $(PSPDIR)/include $(PSPDIR)/lib
+	cp src/lua.h src/luaconf.h src/lualib.h src/lauxlib.h etc/lua.hpp $(PSPDIR)/include
+	cp *.a $(PSPDIR)/lib

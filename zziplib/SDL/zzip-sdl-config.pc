@@ -1,0 +1,10 @@
+prefix=
+sdl_static_libs=
+sdl_libs=
+sdl_cflags=
+ 
+Name: zzip-sdl-config
+Version: 
+Description: SDL Config (for ZZipLib)
+Libs: ${sdl_libs}
+Cflags: ${sdl_cflags}

@@ -1,0 +1,57 @@
+Microsoft Visual Studio Solution File, Format Version 7.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zziptest", "zzcat.vcproj", "{FCEF4E99-72DB-4422-95BB-3C83673B66E9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zzcat", "zzipself.vcproj", "{FCEF4E99-72DB-4422-95BB-3C83673B66E9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zzipsetstub", "zzipsetstub.vcproj", "{FCEF4E99-72DB-4422-95BB-3C83673B66E9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zzdir", "zzdir.vcproj", "{FCEF4E99-72DB-4422-95BB-3C83673B66E9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zziplib", "zziplib.vcproj", "{CB440073-2ED3-48CE-A1A1-B6EACB3A44BD}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zzipself", "zziptest.vcproj", "{FCEF4E99-72DB-4422-95BB-3C83673B66E9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zzipobfuscated", "zzobfuscated.vcproj", "{FCEF4E99-72DB-4422-95BB-3C83673B66E9}"
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		ConfigName.0 = Debug
+		ConfigName.1 = Release
+	EndGlobalSection
+	GlobalSection(ProjectDependencies) = postSolution
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Debug.ActiveCfg = Debug|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Debug.Build.0 = Debug|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Release.ActiveCfg = Release|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Release.Build.0 = Release|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Debug.ActiveCfg = Debug|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Debug.Build.0 = Debug|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Release.ActiveCfg = Release|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Release.Build.0 = Release|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Debug.ActiveCfg = Debug|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Debug.Build.0 = Debug|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Release.ActiveCfg = Release|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Release.Build.0 = Release|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Debug.ActiveCfg = Debug|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Debug.Build.0 = Debug|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Release.ActiveCfg = Release|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Release.Build.0 = Release|Win32
+		{CB440073-2ED3-48CE-A1A1-B6EACB3A44BD}.Debug.ActiveCfg = Debug|Win32
+		{CB440073-2ED3-48CE-A1A1-B6EACB3A44BD}.Debug.Build.0 = Debug|Win32
+		{CB440073-2ED3-48CE-A1A1-B6EACB3A44BD}.Release.ActiveCfg = Release|Win32
+		{CB440073-2ED3-48CE-A1A1-B6EACB3A44BD}.Release.Build.0 = Release|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Debug.ActiveCfg = Debug|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Debug.Build.0 = Debug|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Release.ActiveCfg = Release|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Release.Build.0 = Release|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Debug.ActiveCfg = Debug|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Debug.Build.0 = Debug|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Release.ActiveCfg = Release|Win32
+		{FCEF4E99-72DB-4422-95BB-3C83673B66E9}.Release.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

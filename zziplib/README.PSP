@@ -1,0 +1,11 @@
+Configure with:
+
+LDFLAGS="-L$(psp-config --pspsdk-path)/lib" LIBS="-lc -lpspuser" ./configure --host=psp --prefix=$(psp-config --psp-prefix)
+
+Build with:
+
+make && make install
+
+Have a nice day!
+
+- ooPo (danpeori@oopo.net)

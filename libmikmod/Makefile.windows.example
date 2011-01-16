@@ -1,0 +1,25 @@
+TARGET=winexample
+
+OBJS = winexample.o
+  
+LDFLAGS = -lkernel32 -lmikmod -lwinmm
+CFLAGS = -O2
+
+# Add in PSPSDK includes and libraries.
+INCDIR   := $(INCDIR) $(PSPSDK)/include
+LIBDIR   := $(LIBDIR) /usr/local/lib
+
+CFLAGS   := $(addprefix -I,$(INCDIR)) $(CFLAGS)
+CXXFLAGS := $(CFLAGS) $(CXXFLAGS)
+LDFLAGS  := $(addprefix -L,$(LIBDIR)) $(LDFLAGS)
+
+FINAL_TARGET = $(TARGET).exe
+
+all: $(FINAL_TARGET)
+
+$(TARGET).exe: $(OBJS)
+	$(LINK.c) $^ $(LDFLAGS) -o $@
+    
+clean: 
+	rm -f $(TARGET).exe $(OBJS)
+  

@@ -1,0 +1,296 @@
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT(README)
+
+dnl Set various version strings - taken gratefully from the GTk sources
+
+# Making releases:
+#   MICRO_VERSION += 1;
+#   INTERFACE_AGE += 1;
+#   BINARY_AGE += 1;
+# if any functions have been added, set INTERFACE_AGE to 0.
+# if backwards compatibility has been broken,
+# set BINARY_AGE and INTERFACE_AGE to 0.
+
+MAJOR_VERSION=1
+MINOR_VERSION=2
+MICRO_VERSION=6
+INTERFACE_AGE=4
+BINARY_AGE=6
+VERSION=$MAJOR_VERSION.$MINOR_VERSION.$MICRO_VERSION
+
+AC_SUBST(MAJOR_VERSION)
+AC_SUBST(MINOR_VERSION)
+AC_SUBST(MICRO_VERSION)
+AC_SUBST(INTERFACE_AGE)
+AC_SUBST(BINARY_AGE)
+AC_SUBST(VERSION)
+
+# libtool versioning
+LT_RELEASE=$MAJOR_VERSION.$MINOR_VERSION
+LT_CURRENT=`expr $MICRO_VERSION - $INTERFACE_AGE`
+LT_REVISION=$INTERFACE_AGE
+LT_AGE=`expr $BINARY_AGE - $INTERFACE_AGE`
+
+AC_SUBST(LT_RELEASE)
+AC_SUBST(LT_CURRENT)
+AC_SUBST(LT_REVISION)
+AC_SUBST(LT_AGE)
+
+dnl Detect the canonical host and target build environment
+AC_CANONICAL_SYSTEM
+
+dnl Setup for automake
+AM_INIT_AUTOMAKE(SDL_mixer, $VERSION)
+
+dnl Check for tools
+
+AC_PROG_MAKE_SET
+AC_PROG_CC
+AC_LIBTOOL_WIN32_DLL
+AM_PROG_LIBTOOL
+AC_PROG_INSTALL
+
+dnl The alpha architecture needs special flags for binary portability
+case "$target" in
+    alpha*-*-linux*)
+        CFLAGS="$CFLAGS -mcpu=ev4 -Wa,-mall"
+        ;;
+    *-*-beos*)
+        ac_default_prefix=/boot/develop/tools/gnupro
+        ;;
+    *-*-cygwin* | *-*-mingw32*)
+        if test "$build" != "$target"; then # cross-compiling
+            # Default cross-compile location
+            ac_default_prefix=/usr/local/cross-tools/i386-mingw32msvc
+        else
+            # Look for the location of the tools and install there
+            if [ "$BUILD_PREFIX" != "" ]; then
+                ac_default_prefix=$BUILD_PREFIX
+            fi
+        fi
+        ;;
+    *-*-darwin*)
+        AC_DEFINE(MACOSX)
+        ;;
+    m68k-atari-mint*)
+        CFLAGS="$CFLAGS -Dunix"
+        ;;
+esac
+
+dnl Check for SDL
+SDL_VERSION=1.2.4
+AM_PATH_SDL($SDL_VERSION,
+            :,
+	    AC_MSG_ERROR([*** SDL version $SDL_VERSION not found!])
+)
+CFLAGS="$CFLAGS $SDL_CFLAGS"
+
+dnl Flag for using SDL_RWops
+dnl Matt Campbell (matt@campbellhome.dhs.org)
+CFLAGS="$CFLAGS -DUSE_RWOPS"
+
+dnl Check command-line options
+
+AC_ARG_ENABLE(music-cmd,
+[  --enable-music-cmd      support an external music player [default=yes]],
+              , enable_music_cmd=yes)
+if test x$enable_music_cmd = xyes; then
+    CFLAGS="$CFLAGS -DCMD_MUSIC"
+fi
+AC_ARG_ENABLE(music-wave,
+[  --enable-music-wave     enable streaming WAVE music [default=yes]],
+              , enable_music_wave=yes)
+if test x$enable_music_wave = xyes; then
+    CFLAGS="$CFLAGS -DWAV_MUSIC"
+fi
+no_libmikmod=no
+libmikmod_maj=3
+libmikmod_min=1
+libmikmod_rev=10
+libmikmod_ver="$libmikmod_maj.$libmikmod_min.$libmikmod_rev"
+AC_ARG_ENABLE(music-libmikmod,
+[  --enable-music-libmikmod  enable MOD music via externl libmikmod [default=yes]],
+              , enable_music_libmikmod=yes)
+if test x$enable_music_libmikmod = xyes; then
+	AC_PATH_PROG(LIBMIKMOD_CONFIG, libmikmod-config, no, [$PATH])
+	if test "$LIBMIKMOD_CONFIG" = "no" ; then
+		no_libmikmod=yes
+	else
+		CFLAGS_SAVED="$CFLAGS"
+		LIBS_SAVED="$LIBS"
+		CFLAGS="$CFLAGS -DLIBMIKMOD_MUSIC `$LIBMIKMOD_CONFIG --cflags`"
+		LIBS="$LIBS `$LIBMIKMOD_CONFIG --libs`"
+		AC_MSG_CHECKING([for libmikmod - version >= $libmikmod_ver])
+		AC_TRY_RUN([
+#include "mikmod.h"
+#include "stdio.h"
+
+int main(int argc, char **argv)
+{
+	long maj=$libmikmod_maj,min=$libmikmod_min,rev=$libmikmod_rev,ver=MikMod_GetVersion();
+	/*printf("(%d.%d.%d) ",ver>>16,(ver>>8)&0xff,ver&0xff);*/
+	if(ver>=((maj<<16)|(min<<8)|(rev))) {
+		printf("yes\n");
+		return 0;
+	}
+	printf("no\n*** libmikmod is older than %d.%d.%d, not using.\n",maj,min,rev);
+	return 1;
+}
+],, no_libmikmod=yes;CFLAGS="$CFLAGS_SAVED";LIBS="$LIBS_SAVED",
+[echo $ac_n "cross compiling; assumed OK... $ac_c"])
+	fi
+fi
+
+AC_ARG_ENABLE(music-mod,
+[  --enable-music-mod      enable MOD music via mikmod [default=yes]],
+, enable_music_mod=$no_libmikmod)
+if test x$enable_music_mod = xyes; then
+    CFLAGS="$CFLAGS -DMOD_MUSIC -I\$(top_srcdir)/mikmod"
+    MUSIC_SUBDIRS="$MUSIC_SUBDIRS mikmod"
+fi
+AC_ARG_ENABLE(music-midi,
+[  --enable-music-midi     enable MIDI music via timidity [default=yes]],
+              , enable_music_midi=yes)
+if test x$enable_music_midi = xyes; then
+    CFLAGS="$CFLAGS -DMID_MUSIC"
+    AC_ARG_ENABLE(music-timidity-midi,
+[  --enable-music-timidity-midi  enable timidity MIDI output [default=yes]],
+                  , enable_music_timidity_midi=yes)
+    if test x$enable_music_timidity_midi = xyes; then
+        CFLAGS="$CFLAGS -DUSE_TIMIDITY_MIDI -I\$(top_srcdir)/timidity"
+        MUSIC_SUBDIRS="$MUSIC_SUBDIRS timidity"
+    fi
+    AC_ARG_ENABLE(music-native-midi,
+[  --enable-music-native-midi  enable native MIDI music output [default=yes]],
+                  , enable_music_native_midi=yes)
+    if test x$enable_music_native_midi = xyes; then
+        use_music_native_midi=no
+        case "$target" in
+            *-*-cygwin* | *-*-mingw32*)
+                use_music_native_midi=yes
+                SYSTEM_LIBS="$SYSTEM_LIBS -lwinmm"
+                ;;
+            *-*-darwin*)
+                use_music_native_midi=yes
+                SYSTEM_LIBS="$SYSTEM_LIBS -framework QuickTime"
+                ;;
+        esac
+        if test x$use_music_native_midi = xyes; then
+            CFLAGS="$CFLAGS -DUSE_NATIVE_MIDI -I\$(top_srcdir)/native_midi"
+            MUSIC_SUBDIRS="$MUSIC_SUBDIRS native_midi"
+        fi
+    fi
+    AC_ARG_ENABLE(music-native-midi-gpl,
+[  --enable-music-native-midi-gpl  enable native MIDI on UNIX using GPL code [default=no]],
+                  , enable_music_native_midi_gpl=no)
+    if test x$enable_music_native_midi_gpl = xyes; then
+        use_music_native_midi_gpl=no
+        case "$target" in
+            *-*-linux* | *-*-freebsd*)
+                use_music_native_midi_gpl=yes
+                ;;
+        esac
+        if test x$use_music_native_midi_gpl = xyes; then
+            CFLAGS="$CFLAGS -DUSE_NATIVE_MIDI -I\$(top_srcdir)/native_midi"
+            MUSIC_SUBDIRS="$MUSIC_SUBDIRS native_midi_gpl"
+        fi
+    fi
+fi
+AC_ARG_ENABLE(music-ogg,
+[  --enable-music-ogg      enable Ogg Vorbis music [default=yes]],
+              , enable_music_ogg=yes)
+if test x$enable_music_ogg = xyes; then
+    AC_MSG_CHECKING(for Ogg Vorbis headers and libraries)
+    have_vorbis=no
+    AC_TRY_COMPILE([
+     #include <vorbis/vorbisfile.h>
+    ],[
+    ],[
+    have_vorbis=yes
+    ])
+    AC_MSG_RESULT($have_vorbis)
+    if test x$have_vorbis = xyes; then
+        CFLAGS="$CFLAGS -DOGG_MUSIC"
+        SYSTEM_LIBS="$SYSTEM_LIBS -lvorbisfile -lvorbis -logg"
+    fi
+fi
+AC_ARG_ENABLE(music-ogg-tremor,
+[  --enable-music-ogg-tremor use libTremor instead of libogg and libvorbis [default=yes]],
+              , enable_music_ogg_tremor=yes)
+if test x$enable_music_ogg_tremor = xyes; then
+    AC_MSG_CHECKING(for Tremor headers and libraries)
+    have_tremor=no
+    AC_TRY_COMPILE([
+     #include <tremor/ivorbisfile.h>
+    ],[
+    ],[
+    have_tremor=yes
+    ])
+    AC_MSG_RESULT($have_tremor)
+    if test x$have_tremor = xyes; then
+	if test x$enable_music_ogg = xyes; then
+	    # Remove the vorbis libraries if it was detected.
+	    SYSTEM_LIBS=`echo $SYSTEM_LIBS | sed 's/-lvorbisfile -lvorbis -logg//'`
+	fi
+	CFLAGS="$CFLAGS -DOGG_MUSIC -DUSE_TREMOR"
+	SYSTEM_LIBS="$SYSTEM_LIBS -lvorbisidec"
+    fi
+fi
+AC_ARG_ENABLE(music-mp3,
+[  --enable-music-mp3      enable MP3 music via smpeg [default=yes]],
+              , enable_music_mp3=yes)
+if test x$enable_music_mp3 = xyes; then
+    SMPEG_VERSION=0.4.3
+    AM_PATH_SMPEG($SMPEG_VERSION, have_smpeg=yes, have_smpeg=no)
+    if test x$have_smpeg = xyes; then
+        CFLAGS="$CFLAGS -DMP3_MUSIC $SMPEG_CFLAGS"
+        SYSTEM_LIBS="$SYSTEM_LIBS $SMPEG_LIBS"
+    fi
+fi
+
+dnl Check for a valid PSPSDK installation
+CheckPSPSDK()
+{
+    AC_CHECK_PROG(psp_config, psp-config, psp-config, no)
+    if test x$psp_config = xno; then
+        AC_MSG_ERROR(Couldn't locate psp-config.)
+    fi
+
+    AC_MSG_CHECKING(for PSPSDK)
+    pspsdk_path=`$psp_config --pspsdk-path`
+    if test ! -d $pspsdk_path -o -z $pspsdk_path; then
+        AC_MSG_RESULT(not found)
+        AC_MSG_ERROR(Couldn't locate PSPSDK.)
+    fi
+    AC_MSG_RESULT($pspsdk_path)
+
+    # Compile SDL with -G0 to disable the $gp register.
+    CFLAGS="$CFLAGS -G0 -I\"${pspsdk_path}/include\""
+}
+
+case "$target" in
+    *-psp-*)
+        CheckPSPSDK
+	;;
+esac
+
+dnl Add Makefile conditionals
+AC_SUBST(MUSIC_SUBDIRS)
+AM_CONDITIONAL(USE_MIKMOD, test x$enable_music_mod = xyes)
+AM_CONDITIONAL(USE_TIMIDITY, test x$enable_music_timidity_midi = xyes)
+AM_CONDITIONAL(USE_NATIVE_MIDI, test x$use_music_native_midi = xyes || test x$use_music_native_midi_gpl = xyes)
+AM_CONDITIONAL(USE_NATIVE_MIDI_GPL, test x$use_music_native_midi_gpl = xyes)
+
+dnl Expand the libraries needed for static and dynamic linking
+AC_SUBST(SYSTEM_LIBS)
+
+# Finally create all the generated files
+AC_OUTPUT([
+Makefile
+mikmod/Makefile
+timidity/Makefile
+native_midi/Makefile
+native_midi_gpl/Makefile
+SDL_mixer.spec
+SDL_mixer.qpg
+])

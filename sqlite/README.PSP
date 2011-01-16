@@ -1,0 +1,25 @@
+SQLite port for Sony PSP
+	Nicolas R. <nikolas.robin@gmail.com>
+
+Building
+--------
+
+PSPDEV environment variable must be set.
+
+$ LDFLAGS="-L$(psp-config --pspsdk-path)/lib" LIBS="-lc -lpspuser" \
+  ./configure --host=psp --disable-readline --disable-tcl \
+  --prefix=$(psp-config --psp-prefix)
+$ make
+$ make install
+
+Status
+------
+Please report bugs at <nikolas.robin@gmail.com>
+
+This release does not handle :
+ - multi-threading access to the database
+ - load of extension
+
+Building applications
+---------------------
+Link your application with "-lsqlite3" 

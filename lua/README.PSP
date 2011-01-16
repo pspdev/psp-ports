@@ -1,0 +1,11 @@
+Requirements:
+
+    
+
+To install, run:
+   
+    make -f Makefile.psp
+    make -f Makefile.psp install
+
+
+You'll find a small example how to use it with the PSPSDK in the "sample" directory.

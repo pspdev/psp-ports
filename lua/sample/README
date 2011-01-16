@@ -1,0 +1,2 @@
+Compile the EBOOT.PBP with "make EBOOT.PBP" and copy
+"script.lua" into the same directory on memory stick.
