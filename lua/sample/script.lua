@@ -1,4 +1,5 @@
 -- A simple test script
+print("Hello from " .. _VERSION .. " !")
 print("Lua test program by Shine", "Press circle for testing and cross for exit")
 
 lastPad = 0
