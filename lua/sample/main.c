@@ -131,7 +131,7 @@ int main(int argc, char** argv)
 	strcat(scriptFilename, scriptName);
 
 	// init Lua and load all libraries
-	lua_State *L = lua_open();
+	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
 	
 	// register our own functions
