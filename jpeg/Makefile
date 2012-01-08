@@ -1,14 +1,14 @@
 PSPSDK=$(shell psp-config --pspsdk-path)
 PSPDIR=$(shell psp-config --psp-prefix)
 TARGET_LIB = libjpeg.a
-OBJS =	jcmainct.o jctrans.o jdhuff.o jdsample.o jidctint.o jcapimin.o \
-	jcmarker.o jdapimin.o jdinput.o  jdtrans.o jidctred.o jcapistd.o \
-	jcmaster.o jdapistd.o jdmainct.o jerror.o jmemmgr.o jccoefct.o \
-	jcomapi.o jdatadst.o jdmarker.o jfdctflt.o jmemnobs.o jccolor.o \
-	jcparam.o jdatasrc.o jdmaster.o jfdctfst.o jquant1.o jcdctmgr.o \
-	jcphuff.o jdcoefct.o jdmerge.o jfdctint.o jquant2.o jchuff.o \
-	jcprepct.o jdcolor.o jdphuff.o jidctflt.o jutils.o jcinit.o \
-	jcsample.o jddctmgr.o jdpostct.o jidctfst.o
+OBJS = jaricom.o jcomapi.o jutils.o jerror.o jmemmgr.o jmemnobs.o jcapimin.o   \
+       jcapistd.o jcarith.o jctrans.o jcparam.o jdatadst.o jcinit.o jcmaster.o \
+       jcmarker.o jcmainct.o jcprepct.o jccoefct.o jccolor.o jcsample.o        \
+       jchuff.o jcdctmgr.o jfdctfst.o jfdctflt.o jfdctint.o jdapimin.o         \
+       jdapistd.o jdarith.o jdtrans.o jdatasrc.o jdmaster.o jdinput.o          \
+       jdmarker.o jdhuff.o jdmainct.o jdcoefct.o jdpostct.o jddctmgr.o         \
+       jidctfst.o jidctflt.o jidctint.o jdsample.o jdcolor.o jquant1.o         \
+       jquant2.o jdmerge.o
 
 CFLAGS = -O2 -G0
 
