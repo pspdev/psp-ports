@@ -11,20 +11,19 @@
 ## Where zlib.h, zconf.h and zlib.lib are
 ZLIB_DIR=..\zlib
 
-
 ## Compiler, linker and lib stuff
 CC=bcc32
 LD=bcc32
 LIB=tlib
 
-#TARGET_CPU=6
-# 3 = 386, 4 = 486, 5 = Pentium etc.
+# -3 = 386, -4 = 486, -5 = Pentium etc.
 !ifndef TARGET_CPU
-TARGET_CPU=5
+#TARGET_CPU=-6
 !endif
 
 # Use this if you don't want Borland's fancy exception handling
-NOEHLIB=noeh32.lib
+# (Caution: doesn't work with CBuilderX)
+#NOEHLIB=noeh32.lib
 
 !ifdef DEBUG
 CDEBUG=-v
@@ -40,15 +39,14 @@ CDEBUG=$(CDEBUG) -N
 LDEBUG=$(LDEBUG) -N
 !endif
 
-# -X- turn on dependency generation in the object file
-# -w  set all warnings on
 # -O2 optimize for speed
-# -Z  global optimization
-CFLAGS=-O2 -Z -X- -w -I$(ZLIB_DIR) -$(TARGET_CPU) $(CDEBUG)
+# -d  merge duplicate strings
+# -k- turn off standard stack frame
+# -w  display all warnings
+CFLAGS=-I$(ZLIB_DIR) -O2 -d -k- -w $(TARGET_CPU) $(CDEBUG)
 
 # -M  generate map file
-LDFLAGS=-M -L$(ZLIB_DIR) $(LDEBUG)
-
+LDFLAGS=-L$(ZLIB_DIR) -M $(LDEBUG)
 
 ## Variables
 OBJS = \
@@ -87,7 +85,6 @@ LIBOBJS = \
 
 LIBNAME=libpng.lib
 
-
 ## Implicit rules
 # Braces let make "batch" calls to the compiler,
 # 2 calls instead of 12; space is important.
@@ -100,7 +97,6 @@ LIBNAME=libpng.lib
 .obj.exe:
 	$(LD) $(LDFLAGS) $*.obj $(LIBNAME) zlib.lib $(NOEHLIB)
 
-
 ## Major targets
 all: libpng pngtest
 
@@ -111,25 +107,29 @@ pngtest: pngtest.exe
 test: pngtest.exe
 	pngtest
 
-
 ## Minor Targets
 
-png.obj: png.c
-pngerror.obj: pngerror.c
-pngget.obj: pngget.c
-pngmem.obj: pngmem.c
-pngpread.obj: pngpread.c
-pngread.obj: pngread.c
-pngrio.obj: pngrio.c
-pngrtran.obj: pngrtran.c
-pngrutil.obj: pngrutil.c
-pngset.obj: pngset.c
-pngtrans.obj: pngtrans.c
-pngwio.obj: pngwio.c
-pngwrite.obj: pngwrite.c
-pngwtran.obj: pngwtran.c
-pngwutil.obj: pngwutil.c
+# see scripts\pnglibconf.mak for how to make this file
+# with different options
+pnglibconf.h: scripts\pnglibconf.h.prebuilt
+	copy scripts\pnglibconf.h.prebuilt $@
 
+png.obj: png.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngerror.obj: pngerror.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngget.obj: pngget.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngmem.obj: pngmem.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngpread.obj: pngpread.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngread.obj: pngread.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngrio.obj: pngrio.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngrtran.obj: pngrtran.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngrutil.obj: pngrutil.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngset.obj: pngset.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngtrans.obj: pngtrans.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngwio.obj: pngwio.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngwrite.obj: pngwrite.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngwtran.obj: pngwtran.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngwutil.obj: pngwutil.c png.h pngconf.h pnglibconf.h pngpriv.h pngstruct.h pnginfo.h pngdebug.h
+pngtest.obj: pngtest.c png.h pngconf.h pnglibconf.h
 
 $(LIBNAME): $(OBJS)
 	-del $(LIBNAME)
@@ -137,15 +137,15 @@ $(LIBNAME): $(OBJS)
 $(LIBOBJS), libpng
 |
 
-
-# Clean up anything else you want
+# Cleanup
 clean:
+	-del pnglibconf.h
 	-del *.obj
-	-del *.exe
-	-del *.lib
+	-del $(LIBNAME)
+	-del pngtest.exe
 	-del *.lst
 	-del *.map
 	-del *.tds
-
+	-del pngout.png
 
 # End of makefile for libpng
