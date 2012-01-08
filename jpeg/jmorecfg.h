@@ -361,11 +361,7 @@ typedef int boolean;
  */
 
 #ifndef FAST_FLOAT
-#ifdef HAVE_PROTOTYPES
 #define FAST_FLOAT  float
-#else
-#define FAST_FLOAT  double
-#endif
 #endif
 
 #endif /* JPEG_INTERNAL_OPTIONS */
