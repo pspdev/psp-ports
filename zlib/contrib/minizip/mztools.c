@@ -248,7 +248,7 @@ uLong* bytesRecovered;
       if (fpOutCD != NULL) {
         int nRead;
         char buffer[8192];
-        while ( (nRead = fread(buffer, 1, sizeof(buffer), fpOutCD)) > 0) {
+        while ( (nRead = (int)fread(buffer, 1, sizeof(buffer), fpOutCD)) > 0) {
           if ((int)fwrite(buffer, 1, nRead, fpOut) != nRead) {
             err = Z_ERRNO;
             break;
