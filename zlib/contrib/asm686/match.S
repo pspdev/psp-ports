@@ -1,9 +1,23 @@
-/* match.s -- Pentium-Pro-optimized version of longest_match()
- * Written for zlib 1.1.2
- * Copyright (C) 1998 Brian Raiter <breadbox@muppetlabs.com>
+/* match.S -- x86 assembly version of the zlib longest_match() function.
+ * Optimized for the Intel 686 chips (PPro and later).
  *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License.
+ * Copyright (C) 1998, 2007 Brian Raiter <breadbox@muppetlabs.com>
+ *
+ * This software is provided 'as-is', without any express or implied
+ * warranty.  In no event will the author be held liable for any damages
+ * arising from the use of this software.
+ *
+ * Permission is granted to anyone to use this software for any purpose,
+ * including commercial applications, and to alter it and redistribute it
+ * freely, subject to the following restrictions:
+ *
+ * 1. The origin of this software must not be misrepresented; you must not
+ *    claim that you wrote the original software. If you use this software
+ *    in a product, an acknowledgment in the product documentation would be
+ *    appreciated but is not required.
+ * 2. Altered source versions must be plainly marked as such, and must not be
+ *    misrepresented as being the original software.
+ * 3. This notice may not be removed or altered from any source distribution.
  */
 
 #ifndef NO_UNDERLINE
@@ -38,26 +52,28 @@
 #define	deflatestate		56	/* the function arguments	*/
 #define	curmatch		60
 
-/* Offsets for fields in the deflate_state structure. These numbers
- * are calculated from the definition of deflate_state, with the
- * assumption that the compiler will dword-align the fields. (Thus,
- * changing the definition of deflate_state could easily cause this
- * program to crash horribly, without so much as a warning at
- * compile time. Sigh.)
+/* All the +zlib1222add offsets are due to the addition of fields
+ *  in zlib in the deflate_state structure since the asm code was first written
+ * (if you compile with zlib 1.0.4 or older, use "zlib1222add equ (-4)").
+ * (if you compile with zlib between 1.0.5 and 1.2.2.1, use "zlib1222add equ 0").
+ * if you compile with zlib 1.2.2.2 or later , use "zlib1222add equ 8").
  */
-#define	dsWSize			36
-#define	dsWMask			44
-#define	dsWindow		48
-#define	dsPrev			56
-#define	dsMatchLen		88
-#define	dsPrevMatch		92
-#define	dsStrStart		100
-#define	dsMatchStart		104
-#define	dsLookahead		108
-#define	dsPrevLen		112
-#define	dsMaxChainLen		116
-#define	dsGoodMatch		132
-#define	dsNiceMatch		136
+
+#define zlib1222add		(8)
+
+#define	dsWSize			(36+zlib1222add)
+#define	dsWMask			(44+zlib1222add)
+#define	dsWindow		(48+zlib1222add)
+#define	dsPrev			(56+zlib1222add)
+#define	dsMatchLen		(88+zlib1222add)
+#define	dsPrevMatch		(92+zlib1222add)
+#define	dsStrStart		(100+zlib1222add)
+#define	dsMatchStart		(104+zlib1222add)
+#define	dsLookahead		(108+zlib1222add)
+#define	dsPrevLen		(112+zlib1222add)
+#define	dsMaxChainLen		(116+zlib1222add)
+#define	dsGoodMatch		(132+zlib1222add)
+#define	dsNiceMatch		(136+zlib1222add)
 
 
 .file "match.S"
