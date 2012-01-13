@@ -1,8 +1,9 @@
 PSPSDK=$(shell psp-config --pspsdk-path)
 PSPDIR=$(shell psp-config --psp-prefix)
 TARGET_LIB = libz.a
-OBJS = 	adler32.o compress.o crc32.o gzio.o uncompr.o deflate.o trees.o \
-	zutil.o inflate.o infback.o inftrees.o inffast.o
+OBJS = adler32.o compress.o crc32.o deflate.o gzclose.o gzlib.o gzread.o \
+       gzwrite.o infback.o inffast.o inflate.o inftrees.o trees.o uncompr.o\
+       zutil.o
 
 CFLAGS = -O2 -G0
 
@@ -14,3 +15,4 @@ install: $(TARGET_LIB)
 	@cp zlib.h zconf.h $(PSPDIR)/include
 	@cp libz.a  $(PSPDIR)/lib
 	@echo "Done"
+

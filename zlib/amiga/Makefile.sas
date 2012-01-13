@@ -13,8 +13,8 @@ SCOPTIONS=OPTSCHED OPTINLINE OPTALIAS OPTTIME OPTINLOCAL STRMERGE \
        NOICONS PARMS=BOTH NOSTACKCHECK UTILLIB NOVERSION ERRORREXX \
        DEF=POSTINC
 
-OBJS = adler32.o compress.o crc32.o gzio.o uncompr.o deflate.o trees.o \
-       zutil.o inflate.o infback.o inftrees.o inffast.o
+OBJS = adler32.o compress.o crc32.o gzclose.o gzlib.o gzread.o gzwrite.o \
+       uncompr.o deflate.o trees.o zutil.o inflate.o infback.o inftrees.o inffast.o
 
 TEST_OBJS = example.o minigzip.o
 
@@ -23,7 +23,7 @@ all: SCOPTIONS example minigzip
 check: test
 test: all
 	example
-	echo hello world | minigzip | minigzip -d 
+	echo hello world | minigzip | minigzip -d
 
 install: z.lib
 	copy clone zlib.h zconf.h INCLUDE:
@@ -54,7 +54,10 @@ compress.o: zlib.h zconf.h
 crc32.o: crc32.h zlib.h zconf.h
 deflate.o: deflate.h zutil.h zlib.h zconf.h
 example.o: zlib.h zconf.h
-gzio.o: zutil.h zlib.h zconf.h
+gzclose.o: zlib.h zconf.h gzguts.h
+gzlib.o: zlib.h zconf.h gzguts.h
+gzread.o: zlib.h zconf.h gzguts.h
+gzwrite.o: zlib.h zconf.h gzguts.h
 inffast.o: zutil.h zlib.h zconf.h inftrees.h inflate.h inffast.h
 inflate.o: zutil.h zlib.h zconf.h inftrees.h inflate.h inffast.h
 infback.o: zutil.h zlib.h zconf.h inftrees.h inflate.h inffast.h

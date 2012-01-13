@@ -22,7 +22,8 @@ below.
 Files:
 
    README             this file
-   LICENSE            terms of distribution and reuse (BSD-like)
+   LICENSE            terms of distribution and reuse (BSD-like or GNU GPL)
+   COPYING            GNU General Public License (GPL)
 
    Makefile.unx       Unix makefile
    Makefile.w32       Windows (MSVC) makefile
@@ -54,17 +55,17 @@ mation and links to the latest version of the source code, and Chapters
 13-15 of the book for detailed discussion of the three programs.
 
 Greg Roelofs
-newt@pobox.com
-30 June 2001
+http://pobox.com/~newt/greg_contact.html
+16 March 2008
 
 
 BUILD INSTRUCTIONS
 
  - Prerequisites (in order of compilation):
 
-      - zlib		http://www.gzip.org/zlib/
-      - libpng		http://www.libpng.org/pub/png/libpng.html
-      - pngbook		http://www.libpng.org/pub/png/book/sources.html
+      - zlib            http://zlib.net/
+      - libpng          http://www.libpng.org/pub/png/libpng.html
+      - pngbook         http://www.libpng.org/pub/png/book/sources.html
 
      The pngbook demo programs are explicitly designed to demonstrate proper
      coding techniques for using the libpng reference library.  As a result,
@@ -103,7 +104,7 @@ BUILD INSTRUCTIONS
      unpacked the source code.
 
      For MSVC, set up the necessary environment variables by invoking
- 
+
         %devstudio%\vc\bin\vcvars32.bat
 
      where where %devstudio% is the installation directory for MSVC /
@@ -150,9 +151,9 @@ BUILD INSTRUCTIONS
      To run the programs, they probably first need to be set up as "foreign
      symbols," with "disk" and "dir" set appropriately:
 
-     $ rpng == "$disk:[dir]rpng-x.exe"
+     $ rpng  == "$disk:[dir]rpng-x.exe"
      $ rpng2 == "$disk:[dir]rpng2-x.exe"
-     $ wpng == "$disk:[dir]wpng.exe"
+     $ wpng  == "$disk:[dir]wpng.exe"
 
      All three will print a basic usage screen when run without any command-
      line arguments; see the book for more details.  Note that the options
@@ -164,19 +165,19 @@ RUNNING THE PROGRAMS:  (VERY) BRIEF INTRO
      rpng is a simple PNG viewer that can display transparent PNGs with a
      specified background color; for example,
 
-	rpng -bgcolor #ff0000 toucan.png
+        rpng -bgcolor \#ff0000 toucan.png
 
      would display the image with a red background.  rpng2 is a progressive
      viewer that simulates a web browser in some respects; it can display
      images against either a background color or a dynamically generated
      background image.  For example:
 
-	rpng2 -bgpat 16 toucan.png
+        rpng2 -bgpat 16 toucan.png
 
      wpng is a purely command-line image converter from binary PBMPLUS/NetPBM
      format (.pgm or .ppm) to PNG; for example,
 
-	wpng -time < toucan.ppm > toucan.png
+        wpng -time < toucan-notrans.ppm > toucan-notrans.png
 
      would convert the specified PPM file (using redirection) to PNG, auto-
      matically setting the PNG modification-time chunk.
