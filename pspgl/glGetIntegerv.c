@@ -80,6 +80,17 @@ void glGetIntegerv (GLenum pname, GLint *params)
 	case GL_ATTRIB_STACK_DEPTH:
 		params[0] = pspgl_curctx->attribstackdepth;
 		break;
+//@@@ added by Edorul for display lists
+	case GL_LIST_BASE:
+		params[0] = pspgl_curctx->displaylists.calllists_base;
+		break;
+	case GL_LIST_MODE:
+		params[0] = pspgl_curctx->displaylists.is_in_glNewList;
+		break;
+	case GL_LIST_INDEX:
+		params[0] = pspgl_curctx->displaylists.index;
+		break;
+//@@@ end of addition
 	default:
 		GLERROR(GL_INVALID_ENUM);
 	}

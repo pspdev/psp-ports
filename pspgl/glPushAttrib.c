@@ -20,6 +20,9 @@ struct pspgl_saved_attrib
 	struct pspgl_matrix_stack *current_matrix_stack;
 	struct viewport viewport;
 	struct vertexblend vertexblend;
+//@@@ added by Edorul for display lists
+	struct displaylists displaylists;
+//@@@ end of addition
 
 	uint32_t regs[256];
 	uint32_t regmask[256/32];
@@ -259,7 +262,12 @@ void glPushAttrib( GLbitfield mask )
 	}
 
 	/* GL_LINE_BIT */
-	/* GL_LIST_BIT */
+//@@@ added by Edorul for display lists
+	if (mask & GL_LIST_BIT) {
+		a->displaylists.calllists_base = c->displaylists.calllists_base;
+	}
+//@@@ end of addition
+
 	/* GL_PIXEL_MODE_BIT */
 	/* GL_POINT_BIT */
 
@@ -478,6 +486,12 @@ void glPopAttrib( void )
 
 	if (mask & GL_VIEWPORT_BIT)
 		c->viewport = a->viewport;
+
+//@@@ added by Edorul for display lists
+	if (mask & GL_LIST_BIT) {
+		c->displaylists.calllists_base = a->displaylists.calllists_base;
+	}
+//@@@ end of addition
 
 	free(a);
 	return;

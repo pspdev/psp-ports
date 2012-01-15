@@ -9,6 +9,26 @@ void glVertex3f (GLfloat x, GLfloat y, GLfloat z)
 	struct pspgl_context *c = pspgl_curctx;
 	struct t2f_c4ub_n3f_v3f *vbuf;
 
+ // @@@ from here it's allways the same code exept for index of the command
+	if (pspgl_curctx->displaylists.is_in_glNewList & GL_COMPILE) { // we must record this command
+		struct stDisplayElement *new;
+		new = (struct stDisplayElement *) malloc (sizeof(struct stDisplayElement));
+		// @@@ put new element at the end of list
+		if (!__pspgl_actuallist->first)
+			__pspgl_actuallist->first = new;
+		if (__pspgl_actuallist->last)
+			__pspgl_actuallist->last->next = new;
+		new->next = NULL;
+		__pspgl_actuallist->last = new;
+		
+		new->command_num = GLVERTEX;
+		new->paramf1 = x;
+		new->paramf2 = y;
+		new->paramf3 = z;
+	}
+	
+	if ((pspgl_curctx->displaylists.is_in_glNewList == GL_COMPILE_AND_EXECUTE)||(pspgl_curctx->displaylists.is_in_glNewList == 0)) {
+ // @@@ from here it's different
 	if (c->beginend.vertex_count == 0)
 		c->beginend.vbuf_adr = __pspgl_dlist_insert_space(BUFSZ * sizeof(struct t2f_c4ub_n3f_v3f));
 
@@ -37,10 +57,7 @@ void glVertex3f (GLfloat x, GLfloat y, GLfloat z)
 		memcpy(&c->beginend.line_loop_start, vbuf, sizeof(*vbuf));
 	}
 
-	c->beginend.vertex_count++;
-
-	if (unlikely(c->beginend.vertex_count == BUFSZ)
-	 || unlikely(c->beginend.primitive == GL_QUADS && c->beginend.vertex_count == 4)) {
+	if (unlikely(++c->beginend.vertex_count == BUFSZ)) {
 		static const char overhang_count [] = {
 			0,	/* GL_POINTS */
 			0,	/* GL_LINES */
@@ -49,8 +66,8 @@ void glVertex3f (GLfloat x, GLfloat y, GLfloat z)
 			0,	/* GL_TRIANGLES */
 			2,	/* GL_TRIANGLE_STRIP */
 			2,	/* GL_TRIANGLE_FAN */
-			0,	/* GL_QUADS (really trifan) */
-			2,	/* GL_QUAD_STRIP (really tristrip) */
+			1,	/* GL_QUADS (really trifan) */
+			1,	/* GL_QUAD_STRIP (really trifan) */
 			1,	/* GL_POLYGON (really trifan) */
 			0	/* GL_SPRITES_PSP */
 		};
@@ -80,6 +97,7 @@ void glVertex3f (GLfloat x, GLfloat y, GLfloat z)
 
 			memcpy(vbuf_start, vbuf - overhang + 1, overhang * sizeof(vbuf[0]));
 		}
+	}
 	}
 	return;
 

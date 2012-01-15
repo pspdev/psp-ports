@@ -112,17 +112,11 @@ mksfo "$PSP_EBOOT_TITLE" $IMAGE.sfo
 psp-fixup-imports $IMAGE -o "$IMAGE".strip
 psp-strip "$IMAGE".strip
 
-DESTDIR="$PSP_MOUNTDIR/PSP"
-
-if [ -d $DESTDIR/GAME150 ] ; then
-	DESTDIR="$DESTDIR/GAME150"
-else
-	DESTDIR="$DESTDIR/GAME"
-fi
 
 if [ "$PSP_REVISION" = "1.00" -o "$PSP_REVISION" == "all" ] ; then
-	DESTDIR="$DESTDIR/$IMAGE"
+	DESTDIR="$PSP_MOUNTDIR/PSP/GAME/$IMAGE"
 	echo "install $IMAGE for rev1.00 on '$DESTDIR/'..."
+	rm -rf "$DESTDIR"
 	mkdir -p "$DESTDIR"
 	pack-pbp "$DESTDIR"/EBOOT.PBP $IMAGE.sfo $PSP_EBOOT_ICON \
 		$PSP_EBOOT_ICON1 $PSP_EBOOT_UNKPNG $PSP_EBOOT_PIC1 \
@@ -139,9 +133,12 @@ if [ "$PSP_REVISION" = "1.50" -o "$PSP_REVISION" == "all" ] ; then
 	    LONG="$IMGDIR"
 	    SHORT="$IMGDIR%"
 	fi
+	DESTDIR="$PSP_MOUNTDIR/PSP/GAME"
 	LONG=$DESTDIR/$LONG
 	SHORT=$DESTDIR/$SHORT
 	echo "install $IMAGE for rev1.50 on '$DESTDIR/$IMGDIR/'..."
+	rm -rf "$LONG"
+	rm -rf "$SHORT"
 	mkdir -p "$LONG"
 	cp "$IMAGE".strip "$LONG"/EBOOT.PBP
 	mkdir -p "$SHORT"

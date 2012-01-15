@@ -4,7 +4,7 @@
 
 void gluPerspectivef (GLfloat fovy, GLfloat aspect, GLfloat zNear, GLfloat zFar)
 {
-        GLfloat f = 1.0f / tanf(fovy * (M_PI/360.0));
+    GLfloat f = 1.0f / tanf(fovy * (M_PI/360.0));
 	GLfloat m [16];
 
 	m[0] = f / aspect;

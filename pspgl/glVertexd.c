@@ -2,12 +2,12 @@
 
 void glVertex2d(GLdouble x, GLdouble y)
 {
-	glVertex2f(x,y);
+	glVertex3f(x,y, 0.0f); // @@@ modified by edorul
 }
 
 void glVertex2dv(const GLdouble *p)
 {
-	glVertex2f(p[0], p[1]);
+	glVertex3f(p[0], p[1], 0.0f); // @@@ modified by edorul
 }
 
 void glVertex3d(GLdouble x, GLdouble y, GLdouble z)

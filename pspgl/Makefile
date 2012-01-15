@@ -62,6 +62,7 @@ API_OBJS = \
 	glDepthMask.o \
 	glDepthRange.o \
 	glDepthRangef.o \
+	glDisplayList.o \
 	glDrawArrays.o \
 	glDrawBuffer.o \
 	glDrawElements.o \
@@ -166,8 +167,7 @@ libGLU.a_OBJS = \
 	pspglu.o
 
 libglut.a_OBJS = \
-	glut.o \
-	glutGetProcAddress.o
+	glut.o
 
 all: $(DEPDIR) $(libGL.a_OBJS) $(libGLU.a_OBJS) $(libglut.a_OBJS) libGL.a libGLU.a libglut.a
 
@@ -186,20 +186,14 @@ all: $(DEPDIR) $(libGL.a_OBJS) $(libGLU.a_OBJS) $(libglut.a_OBJS) libGL.a libGLU
 				}'
 
 
-eglGetProcAddress.o: eglGetProcAddress.c pspgl_proctable_decls.h pspgl_proctable.h
+eglGetProcAddress.o: eglGetProcAddress.c pspgl_proctable.h
 
 # Extract all the public GL and EGL API symbols which are extensions (ends with PSP, ARB or EXT)
 # Symbols must be sorted by name so that bsearch can be used to look for them.
 pspgl_proctable.h: $(API_OBJS) Makefile
 	$(ARCH)nm -fp -g --defined-only $(API_OBJS) | sort -k1 | \
-		awk '$$2=="T" && $$1 ~ /^(gl|egl)[A-Z][a-zA-Z]/ \
-			{ print "\t{ \"" $$1 "\", "$$1 " }," }' > $@ \
-			|| rm -f $@
-
-pspgl_proctable_decls.h: $(API_OBJS) Makefile
-	$(ARCH)nm -fp -g --defined-only $(API_OBJS) | sort -k1 | \
-		awk '$$2=="T" && $$1 ~ /^(gl|egl)[A-Z][a-zA-Z]/ \
-			{ print "extern void " $$1 " (void);" }' > $@ \
+		awk '$$2=="T" && $$1 ~ /^(gl|egl)[A-Z][a-zA-Z]+(PSP|ARB|EXT)/ \
+			{ print "\t{ \"" $$1 "\", (void (*)())"$$1 " }," }' > $@ \
 			|| rm -f $@
 
 $(DEPDIR):
@@ -215,7 +209,7 @@ tar: clean
 	( cd .. && tar cvfz pspgl-`date "+%Y-%m-%d"`.tar.gz pspgl --exclude "*.DS_Store" && cd - )
 
 clean:
-	$(RM) -rf *.o *.a $(DEPDIR) pspgl_proctable.h pspgl_proctable_decls.h
+	$(RM) -rf *.o *.a $(DEPDIR) pspgl_proctable.h
 	make -C tools clean
 	make -C tests clean
 	make -C test-q3 clean
