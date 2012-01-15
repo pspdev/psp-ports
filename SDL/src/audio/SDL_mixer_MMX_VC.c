@@ -1,4 +1,30 @@
-#if defined(USE_ASM_MIXER_VC)
+/*
+    SDL - Simple DirectMedia Layer
+    Copyright (C) 1997-2009 Sam Lantinga
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
+    Sam Lantinga
+    slouken@libsdl.org
+*/
+#include "SDL_config.h"
+
+#include "SDL_mixer_MMX_VC.h"
+
+#if defined(SDL_BUGGY_MMX_MIXERS) /* buggy, so we're disabling them. --ryan. */
+#if ((defined(_MSC_VER) && defined(_M_IX86)) || defined(__WATCOMC__)) && defined(SDL_ASSEMBLY_ROUTINES)
 // MMX assembler version of SDL_MixAudio for signed little endian 16 bit samples and signed 8 bit samples
 // Copyright 2002 Stephane Marchesin (stephane.marchesin@wanadoo.fr)
 // Converted to Intel ASM notation by Cth
@@ -11,9 +37,6 @@
 ////////////////////////////////////////////////
 // Mixing for 16 bit signed buffers
 ////////////////////////////////////////////////
-
-#include <windows.h>
-#include <stdio.h>
 
 void SDL_MixAudio_MMX_S16_VC(char* dst,char* src,unsigned int nSize,int volume)
 {
@@ -41,7 +64,9 @@ void SDL_MixAudio_MMX_S16_VC(char* dst,char* src,unsigned int nSize,int volume)
 		psllq	mm0, 16			//$16,%%mm0
 		por		mm0, mm1		//%%mm1,%%mm0			// mm0 = vol|vol|vol|vol
 
+		#ifndef __WATCOMC__
 		align	16
+		#endif
 mixloopS16:
 		movq	mm1, [esi]		//(%%esi),%%mm1\n" // mm1 = a|b|c|d
 		movq	mm2, mm1		//%%mm1,%%mm2\n" // mm2 = a|b|c|d
@@ -80,7 +105,7 @@ mixloopS16:
 		dec		ebx				//%%ebx\n"
 		jnz mixloopS16
 
-ends16:
+endS16:
 		emms
 		
 		pop		ebx
@@ -107,7 +132,7 @@ void SDL_MixAudio_MMX_S8_VC(char* dst,char* src,unsigned int nSize,int volume)
 		mov		esi, src	//%1,%%esi	// esi = src
 		mov		eax, volume	//%3,%%eax	// eax = volume
 
-		movd	mm0, ebx	//%%ebx,%%mm0
+		movd	mm0, eax	//%%eax,%%mm0
 		movq	mm1, mm0	//%%mm0,%%mm1
 		psllq	mm0, 16		//$16,%%mm0
 		por		mm0, mm1	//%%mm1,%%mm0
@@ -121,7 +146,9 @@ void SDL_MixAudio_MMX_S8_VC(char* dst,char* src,unsigned int nSize,int volume)
 		cmp		ebx, 0		//$0,%%ebx
 		je		endS8
 
+		#ifndef __WATCOMC__
 		align 16
+		#endif
 mixloopS8:
 		pxor	mm2, mm2	//%%mm2,%%mm2		// mm2 = 0
 		movq	mm1, [esi]	//(%%esi),%%mm1	// mm1 = a|b|c|d|e|f|g|h
@@ -152,4 +179,5 @@ endS8:
 	}
 }
 
-#endif /* USE_ASM_MIXER_VC */
+#endif /* SDL_ASSEMBLY_ROUTINES */
+#endif /* SDL_BUGGY_MMX_MIXERS */

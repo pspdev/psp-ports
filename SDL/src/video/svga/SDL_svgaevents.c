@@ -1,50 +1,42 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_svgaevents.c,v 1.6 2004/01/04 16:49:26 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Handle the event stream, converting X11 events into SDL events */
-
-#include <stdio.h>
-#include <stdlib.h>
 
 #include <vga.h>
 #include <vgamouse.h>
 #include <vgakeyboard.h>
-#if defined(linux)
+#if defined(__LINUX__)
 #include <linux/kd.h>
 #include <linux/keyboard.h>
-#elif defined(__FreeBSD__)
+#elif defined(__FREEBSD__)
 #include <sys/kbio.h>
 #else
 #error You must choose your operating system here
 #endif
 
-#include "SDL.h"
-#include "SDL_sysevents.h"
-#include "SDL_events_c.h"
+#include "../../events/SDL_sysevents.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_svgavideo.h"
 #include "SDL_svgaevents_c.h"
 
@@ -52,7 +44,7 @@ static char rcsid =
 #if defined(linux)
 #define NUM_VGAKEYMAPS	(1<<KG_CAPSSHIFT)
 static Uint16 vga_keymap[NUM_VGAKEYMAPS][NR_KEYS];
-#elif defined(__FreeBSD__)
+#elif defined(__FREEBSD__)
 /* FIXME: Free the keymap when we shut down the video mode */
 static keymap_t *vga_keymap = NULL;
 #else
@@ -74,7 +66,7 @@ int SVGA_initkeymaps(int fd)
 
 	/* Load all the keysym mappings */
 	for ( map=0; map<NUM_VGAKEYMAPS; ++map ) {
-		memset(vga_keymap[map], 0, NR_KEYS*sizeof(Uint16));
+		SDL_memset(vga_keymap[map], 0, NR_KEYS*sizeof(Uint16));
 		for ( i=0; i<NR_KEYS; ++i ) {
 			entry.kb_table = map;
 			entry.kb_index = i;
@@ -135,16 +127,16 @@ int SVGA_initkeymaps(int fd)
 	}
 	return(0);
 }
-#elif defined(__FreeBSD__)
+#elif defined(__FREEBSD__)
 int SVGA_initkeymaps(int fd)
 {
-	vga_keymap = malloc(sizeof(keymap_t));
+	vga_keymap = SDL_malloc(sizeof(keymap_t));
 	if ( ! vga_keymap ) {
 		SDL_OutOfMemory();
 		return(-1);
 	}
 	if (ioctl(fd, GIO_KEYMAP, vga_keymap) == -1) {
-		free(vga_keymap);
+		SDL_free(vga_keymap);
 		vga_keymap = NULL;
 		SDL_SetError("Unable to get keyboard map");
 		return(-1);
@@ -219,7 +211,7 @@ void SVGA_InitOSKeymap(_THIS)
 	int i;
 
 	/* Initialize the BeOS key translation table */
-	for ( i=0; i<SDL_TABLESIZE(keymap); ++i )
+	for ( i=0; i<SDL_arraysize(keymap); ++i )
 		keymap[i] = SDLK_UNKNOWN;
 
 	keymap[SCANCODE_ESCAPE] = SDLK_ESCAPE;
@@ -383,7 +375,7 @@ static SDL_keysym *TranslateKey(int scancode, SDL_keysym *keysym)
 	}
 	return(keysym);
 }
-#elif defined(__FreeBSD__)
+#elif defined(__FREEBSD__)
 static SDL_keysym *TranslateKey(int scancode, SDL_keysym *keysym)
 {
 	/* Set the keysym information */

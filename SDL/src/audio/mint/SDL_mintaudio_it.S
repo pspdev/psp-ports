@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002  Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -30,8 +30,6 @@
 
 	.globl	_SDL_MintAudio_Callback
 
-	.globl	_SDL_MintAudio_GsxbInterrupt
-	.globl	_SDL_MintAudio_EmptyGsxbInterrupt
 	.globl	_SDL_MintAudio_XbiosInterrupt
 	.globl	_SDL_MintAudio_XbiosInterruptMeasureClock
 	.globl	_SDL_MintAudio_Dma8Interrupt
@@ -42,6 +40,7 @@
 	.globl	_SDL_MintAudio_numbuf
 	.globl	_SDL_MintAudio_audiosize
 	.globl	_SDL_MintAudio_clocktics
+	.globl	_SDL_MintAudio_hasfpu
 
 	.globl	_SDL_MintAudio_stfa
 
@@ -53,48 +52,8 @@
 	- Then we swap the buffers
 */
 
-/*--- GSXB interrupt vector ---*/
-
-	.text
-_SDL_MintAudio_GsxbInterrupt:
-
-	/* Check if we are not already running */
-	tstw	_SDL_MintAudio_mutex
-	bnes	_SDL_MintAudio_EmptyGsxbInterrupt
-	notw	_SDL_MintAudio_mutex
-	
-	/* Swap buffers */
-	eorw	#1,_SDL_MintAudio_numbuf
-
-	moveml	d0-d2/a0-a2,sp@-
-
-	/* Callback */
-	jsr	_SDL_MintAudio_Callback
-
-	/* Set new buffer */
-
-	moveq	#0,d0
-	movel	_SDL_MintAudio_audiosize,d1
-
-	movew	_SDL_MintAudio_numbuf,d0
-	lsll	#2,d0
-	lea	_SDL_MintAudio_audiobuf,a0
-	movel	a0@(d0:l),a1
-
-	lea	a1@(d1:l),a2
-
-	movel	a2,sp@-
-	movel	a1,sp@-
-	clrw	sp@-
-	movew	#131,sp@-
-	trap	#14
-	lea	sp@(12),sp
-
-	moveml	sp@+,d0-d2/a0-a2
-
-	clrw	_SDL_MintAudio_mutex
-_SDL_MintAudio_EmptyGsxbInterrupt:
-	rts
+#define	savptr	0x4a2
+#define	savamt	0x46
 
 /*--- Xbios interrupt vector to measure Falcon external clock ---*/
 
@@ -119,16 +78,39 @@ _SDL_MintAudio_XbiosInterrupt:
 
 	/* Check if we are not already running */
 	tstw	_SDL_MintAudio_mutex
-	bnes	SDL_MintAudio_XbiosEnd
+	bne	SDL_MintAudio_XbiosEnd
 	notw	_SDL_MintAudio_mutex
 	
 	/* Swap buffers */
 	eorw	#1,_SDL_MintAudio_numbuf
 
-	moveml	d0-d2/a0-a2,sp@-
+	moveml	d0-d7/a0-a6,sp@-
+
+	/* Save FPU if needed */
+	tstw	_SDL_MintAudio_hasfpu
+	beqs	SDL_MintAudio_Xbios_nofpu1
+	.chip	68060
+	fsave	sp@-
+	fmoveml fpcr/fpsr/fpiar,sp@-
+	fmovemx	fp0-fp7,sp@-
+	.chip	68000
+SDL_MintAudio_Xbios_nofpu1:
 
 	/* Callback */
 	jsr	_SDL_MintAudio_Callback
+
+	/* Restore FPU if needed */
+	tstw	_SDL_MintAudio_hasfpu
+	beqs	SDL_MintAudio_Xbios_nofpu2
+	.chip	68060
+	fmovemx	sp@+,fp0-fp7
+	fmoveml	sp@+,fpcr/fpsr/fpiar
+	frestore	sp@+
+	.chip	68000
+SDL_MintAudio_Xbios_nofpu2:
+
+	/* Reserve space for registers */
+	subl	#savamt,savptr
 
 	/* Set new buffer */
 
@@ -149,7 +131,10 @@ _SDL_MintAudio_XbiosInterrupt:
 	trap	#14
 	lea	sp@(12),sp
 
-	moveml	sp@+,d0-d2/a0-a2
+	/* Restore registers space */
+	addl	#savamt,savptr
+
+	moveml	sp@+,d0-d7/a0-a6
 
 	clrw	_SDL_MintAudio_mutex
 SDL_MintAudio_XbiosEnd:
@@ -167,7 +152,7 @@ _SDL_MintAudio_Dma8Interrupt:
 
 	/* Check if we are not already running */
 	tstw	_SDL_MintAudio_mutex
-	bnes	SDL_MintAudio_Dma8End
+	bne	SDL_MintAudio_Dma8End
 	notw	_SDL_MintAudio_mutex
 	
 	/* Swap buffers */
@@ -175,8 +160,28 @@ _SDL_MintAudio_Dma8Interrupt:
 
 	moveml	d0-d1/a0-a1,sp@-
 
+	/* Save FPU if needed */
+	tstw	_SDL_MintAudio_hasfpu
+	beqs	SDL_MintAudio_Dma8_nofpu1
+	.chip	68060
+	fsave	sp@-
+	fmoveml fpcr/fpsr/fpiar,sp@-
+	fmovemx	fp0-fp7,sp@-
+	.chip	68000
+SDL_MintAudio_Dma8_nofpu1:
+
 	/* Callback */
 	jsr	_SDL_MintAudio_Callback
+
+	/* Restore FPU if needed */
+	tstw	_SDL_MintAudio_hasfpu
+	beqs	SDL_MintAudio_Dma8_nofpu2
+	.chip	68060
+	fmovemx	sp@+,fp0-fp7
+	fmoveml	sp@+,fpcr/fpsr/fpiar
+	frestore	sp@+
+	.chip	68000
+SDL_MintAudio_Dma8_nofpu2:
 
 	/* Set new buffer */
 
@@ -229,10 +234,30 @@ _SDL_MintAudio_StfaInterrupt:
 	/* Swap buffers */
 	eorw	#1,_SDL_MintAudio_numbuf
 
-	moveml	d0-d1/a0-a1,sp@-
+	moveml	d0-d7/a0-a6,sp@-
+
+	/* Save FPU if needed */
+	tstw	_SDL_MintAudio_hasfpu
+	beqs	SDL_MintAudio_Stfa_nofpu1
+	.chip	68060
+	fsave	sp@-
+	fmoveml fpcr/fpsr/fpiar,sp@-
+	fmovemx	fp0-fp7,sp@-
+	.chip	68000
+SDL_MintAudio_Stfa_nofpu1:
 
 	/* Callback */
 	jsr	_SDL_MintAudio_Callback
+
+	/* Restore FPU if needed */
+	tstw	_SDL_MintAudio_hasfpu
+	beqs	SDL_MintAudio_Stfa_nofpu2
+	.chip	68060
+	fmovemx	sp@+,fp0-fp7
+	fmoveml	sp@+,fpcr/fpsr/fpiar
+	frestore	sp@+
+	.chip	68000
+SDL_MintAudio_Stfa_nofpu2:
 
 	/* Set new buffer */
 
@@ -249,7 +274,7 @@ _SDL_MintAudio_StfaInterrupt:
 	addl	_SDL_MintAudio_audiosize,d1
 	movel	d1,a1@(STFA_SOUND_END)
 
-	moveml	sp@+,d0-d1/a0-a1
+	moveml	sp@+,d0-d7/a0-a6
 
 	clrw	_SDL_MintAudio_mutex
 SDL_MintAudio_StfaEnd:

@@ -1,44 +1,32 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-    BERO
-    bero@geocities.co.jp
-
-    based on win32/SDL_mmjoystick.c
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_sysjoystick.c,v 1.2 2004/01/04 16:49:17 slouken Exp $";
-#endif
+#ifdef SDL_JOYSTICK_DC
 
-/* Win32 MultiMedia Joystick driver, contributed by Andrei de A. Formiga */
-
-#include <stdlib.h>
-#include <stdio.h>		/* For the definition of NULL */
-
-#include "SDL_error.h"
+#include "SDL_events.h"
 #include "SDL_joystick.h"
-#include "SDL_sysjoystick.h"
-#include "SDL_joystick_c.h"
+#include "../SDL_sysjoystick.h"
+#include "../SDL_joystick_c.h"
 
 #include <dc/maple.h>
 #include <dc/maple/controller.h>
@@ -100,13 +88,13 @@ const char *SDL_SYS_JoystickName(int index)
 int SDL_SYS_JoystickOpen(SDL_Joystick *joystick)
 {
 	/* allocate memory for system specific hardware data */
-	joystick->hwdata = (struct joystick_hwdata *) malloc(sizeof(*joystick->hwdata));
+	joystick->hwdata = (struct joystick_hwdata *) SDL_malloc(sizeof(*joystick->hwdata));
 	if (joystick->hwdata == NULL)
 	{
 		SDL_OutOfMemory();
 		return(-1);
 	}
-	memset(joystick->hwdata, 0, sizeof(*joystick->hwdata));
+	SDL_memset(joystick->hwdata, 0, sizeof(*joystick->hwdata));
 
 	/* fill nbuttons, naxes, and nhats fields */
 	joystick->nbuttons = MAX_BUTTONS;
@@ -192,7 +180,7 @@ void SDL_SYS_JoystickClose(SDL_Joystick *joystick)
 {
 	if (joystick->hwdata != NULL) {
 		/* free system specific hardware data */
-		free(joystick->hwdata);
+		SDL_free(joystick->hwdata);
 	}
 }
 
@@ -201,3 +189,5 @@ void SDL_SYS_JoystickQuit(void)
 {
 	return;
 }
+
+#endif /* SDL_JOYSTICK_DC */

@@ -1,17 +1,16 @@
 
 Wish list for the 1.3 development branch:
+http://bugzilla.libsdl.org/
 
- * Use /etc/fb.modes, if available, like GGI does
  * Add mousewheel events (new unified event architecture?)
  * DirectInput joystick support needs to be implemented
  * Be able to enumerate and select available audio and video drivers
- * Fullscreen video mode support for MacOS X
+ * Fullscreen video mode support for Mac OS X
  * Explicit vertical retrace wait (maybe separate from SDL_Flip?)
  * Shaped windows, windows without borders
  * Multiple windows, multiple display support
  * SDL_INIT_EVENTTHREAD on Windows and MacOS?
  * Add a timestamp to events
- * Use RDTSC for timer resolution on x86 hardware
  * Add audio input API
  * Add hardware accelerated scaled blit
  * Add hardware accelerated alpha blits

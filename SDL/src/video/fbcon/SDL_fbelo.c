@@ -1,36 +1,31 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_fbelo.c,v 1.7 2004/01/04 16:49:25 slouken Exp $";
-#endif
-
-#include <stdlib.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <ctype.h>
-#include <string.h>
 
+#include "SDL_stdinc.h"
 #include "SDL_fbvideo.h"
 #include "SDL_fbelo.h"
 
@@ -97,7 +92,7 @@ int eloParsePacket(unsigned char* mousebuf, int* dx, int* dy, int* button_state)
 	x = ((mousebuf[4] << 8) | mousebuf[3]);
 	y = ((mousebuf[6] << 8) | mousebuf[5]);
 
-	if((abs(x - last_x) > ELO_SNAP_SIZE) || (abs(y - last_y) > ELO_SNAP_SIZE)) {
+	if((SDL_abs(x - last_x) > ELO_SNAP_SIZE) || (SDL_abs(y - last_y) > ELO_SNAP_SIZE)) {
 		*dx = ((mousebuf[4] << 8) | mousebuf[3]);
 		*dy = ((mousebuf[6] << 8) | mousebuf[5]);
 	}
@@ -129,7 +124,7 @@ void eloConvertXY(_THIS, int *dx,  int *dy) {
 	int width = ELO_MAX_X - ELO_MIN_X;
 	int height = ELO_MAX_Y - ELO_MIN_Y;
 
-	*dx = (cache_vinfo.xres - (cache_vinfo.xres * (input_x - ELO_MIN_X)) / width);
+	*dx = ((int)cache_vinfo.xres - ((int)cache_vinfo.xres * (input_x - ELO_MIN_X)) / width);
 	*dy = (cache_vinfo.yres * (input_y - ELO_MIN_Y)) / height;
 }
 
@@ -158,7 +153,7 @@ int eloGetPacket(unsigned char* buffer, int* buffer_p, int* checksum, int fd) {
 
 	while (num_bytes) {
 		if ((*buffer_p == 0) && (buffer[0] != ELO_START_BYTE)) {
-			memcpy(&buffer[0], &buffer[1], num_bytes-1);
+			SDL_memcpy(&buffer[0], &buffer[1], num_bytes-1);
 		}
 		else {
 			if (*buffer_p < ELO_PACKET_SIZE-1) {
@@ -338,21 +333,21 @@ int eloInitController(int fd) {
 	struct termios mouse_termios;
 
 	/* try to read the calibration values */
-	buffer = getenv("SDL_ELO_MIN_X");
+	buffer = SDL_getenv("SDL_ELO_MIN_X");
 	if(buffer) {
-		ELO_MIN_X = atoi(buffer);
+		ELO_MIN_X = SDL_atoi(buffer);
 	}
-	buffer = getenv("SDL_ELO_MAX_X");
+	buffer = SDL_getenv("SDL_ELO_MAX_X");
 	if(buffer) {
-		ELO_MAX_X = atoi(buffer);
+		ELO_MAX_X = SDL_atoi(buffer);
 	}
-	buffer = getenv("SDL_ELO_MIN_Y");
+	buffer = SDL_getenv("SDL_ELO_MIN_Y");
 	if(buffer) {
-		ELO_MIN_Y = atoi(buffer);
+		ELO_MIN_Y = SDL_atoi(buffer);
 	}
-	buffer = getenv("SDL_ELO_MAX_Y");
+	buffer = SDL_getenv("SDL_ELO_MAX_Y");
 	if(buffer) {
-		ELO_MAX_Y = atoi(buffer);
+		ELO_MAX_Y = SDL_atoi(buffer);
 	}
 
 #ifdef DEBUG_MOUSE
@@ -364,7 +359,7 @@ int eloInitController(int fd) {
 #endif
 
 	/* set comm params */
-	memset(&mouse_termios, 0, sizeof(mouse_termios));
+	SDL_memset(&mouse_termios, 0, sizeof(mouse_termios));
 	mouse_termios.c_cflag = B9600 | CS8 | CREAD | CLOCAL;
 	mouse_termios.c_cc[VMIN] = 1;
 	result = tcsetattr(fd, TCSANOW, &mouse_termios);
@@ -376,7 +371,7 @@ int eloInitController(int fd) {
 		return 0;
 	}
 
-	memset(req, 0, ELO_PACKET_SIZE);
+	SDL_memset(req, 0, ELO_PACKET_SIZE);
 	req[1] = tolower(ELO_PARAMETER);
 	if (!eloSendQuery(req, reply, fd)) {
 #ifdef DEBUG_MOUSE
@@ -384,7 +379,7 @@ int eloInitController(int fd) {
 #endif
 	}
 
-	memset(req, 0, ELO_PACKET_SIZE);
+	SDL_memset(req, 0, ELO_PACKET_SIZE);
 	req[1] = tolower(ELO_ID);
 	if (eloSendQuery(req, reply, fd)) {
 #ifdef DEBUG_MOUSE
@@ -398,7 +393,7 @@ int eloInitController(int fd) {
 		return 0;
 	}
 
-	memset(req, 0, ELO_PACKET_SIZE);
+	SDL_memset(req, 0, ELO_PACKET_SIZE);
 	req[1] = ELO_MODE;
 	req[3] = ELO_TOUCH_MODE | ELO_STREAM_MODE | ELO_UNTOUCH_MODE;
 	req[4] = ELO_TRACKING_MODE;
@@ -409,7 +404,7 @@ int eloInitController(int fd) {
 		return 0;
 	}
 
-	memset(req, 0, ELO_PACKET_SIZE);
+	SDL_memset(req, 0, ELO_PACKET_SIZE);
 	req[1] = ELO_REPORT;
 	req[2] = ELO_UNTOUCH_DELAY;
 	req[3] = ELO_REPORT_DELAY;

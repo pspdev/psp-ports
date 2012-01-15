@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,6 +19,9 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
+
+#ifdef SDL_CDROM_MINT
 
 /*
 	Atari MetaDOS CD-ROM functions
@@ -27,16 +30,12 @@
 */
 
 #include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include <cdromio.h>
 #include <metados.h>
 
-#include "SDL_error.h"
 #include "SDL_cdrom.h"
-#include "SDL_syscdrom.h"
+#include "../SDL_syscdrom.h"
 
 /* Some ioctl() errno values which occur when the tray is empty */
 #ifndef ENOMEDIUM
@@ -314,3 +313,5 @@ static int SDL_SYS_CDEject(SDL_CD *cdrom)
 {
 	return SDL_SYS_CDioctl(cdrom->id, CDROMEJECT, 0);
 }
+
+#endif /* SDL_CDROM_MINT */

@@ -1,38 +1,42 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_dgavideo.h,v 1.7 2004/01/04 16:49:24 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 #ifndef _SDL_dgavideo_h
 #define _SDL_dgavideo_h
 
 #include <X11/Xlib.h>
 
+/* Apparently some X11 systems can't include this multiple times... */
+#ifndef SDL_INCLUDED_XLIBINT_H
+#define SDL_INCLUDED_XLIBINT_H 1
+#include <X11/Xlibint.h>
+#endif
+
+#include <X11/Xproto.h>
+
 #include "SDL_mouse.h"
 #include "SDL_mutex.h"
-#include "SDL_sysvideo.h"
+#include "../SDL_sysvideo.h"
 
 /* Hidden "this" pointer for the video functions */
 #define _THIS	SDL_VideoDevice *this
@@ -90,7 +94,11 @@ struct SDL_PrivateVideoData {
 #ifdef LOCK_DGA_DISPLAY
 	SDL_mutex *event_lock;
 #endif
+
+	/* Screensaver settings */
+	int allow_screensaver;
 };
+
 /* Old variable names */
 #define DGA_Display		(this->hidden->DGA_Display)
 #define DGA_Screen		DefaultScreen(DGA_Display)
@@ -111,5 +119,6 @@ struct SDL_PrivateVideoData {
 #define hw_lock			(this->hidden->hw_lock)
 #define DGA_event_base		(this->hidden->event_base)
 #define event_lock		(this->hidden->event_lock)
+#define allow_screensaver	(this->hidden->allow_screensaver)
 
 #endif /* _SDL_dgavideo_h */

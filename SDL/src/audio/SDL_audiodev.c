@@ -1,45 +1,39 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_audiodev.c,v 1.8 2005/02/12 18:01:30 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Get the name of the audio device we use for output */
 
-#if defined(unix) || defined(__unix__) || defined(__riscos__)
+#if SDL_AUDIO_DRIVER_BSD || SDL_AUDIO_DRIVER_OSS || SDL_AUDIO_DRIVER_SUNAUDIO
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <string.h>
 
+#include "SDL_stdinc.h"
 #include "SDL_audiodev_c.h"
 
 #ifndef _PATH_DEV_DSP
-#if defined(__NetBSD__) || defined(__OpenBSD__)
+#if defined(__NETBSD__) || defined(__OPENBSD__)
 #define _PATH_DEV_DSP  "/dev/audio"
 #else
 #define _PATH_DEV_DSP  "/dev/dsp"
@@ -60,16 +54,16 @@ int SDL_OpenAudioPath(char *path, int maxlen, int flags, int classic)
 	char audiopath[1024];
 
 	/* Figure out what our audio device is */
-	if ( ((audiodev=getenv("SDL_PATH_DSP")) == NULL) &&
-	     ((audiodev=getenv("AUDIODEV")) == NULL) ) {
+	if ( ((audiodev=SDL_getenv("SDL_PATH_DSP")) == NULL) &&
+	     ((audiodev=SDL_getenv("AUDIODEV")) == NULL) ) {
 		if ( classic ) {
 			audiodev = _PATH_DEV_AUDIO;
 		} else {
 			struct stat sb;
 
 			/* Added support for /dev/sound/\* in Linux 2.4 */
-			if ( (stat("/dev/sound", &sb) == 0) &&
-			     S_ISDIR(sb.st_mode) ) {
+			if ( ((stat("/dev/sound", &sb) == 0) && S_ISDIR(sb.st_mode)) &&
+				 ((stat(_PATH_DEV_DSP24, &sb) == 0) && S_ISCHR(sb.st_mode)) ) {
 				audiodev = _PATH_DEV_DSP24;
 			} else {
 				audiodev = _PATH_DEV_DSP;
@@ -79,13 +73,14 @@ int SDL_OpenAudioPath(char *path, int maxlen, int flags, int classic)
 	audio_fd = open(audiodev, flags, 0);
 
 	/* If the first open fails, look for other devices */
-	if ( (audio_fd < 0) && (strlen(audiodev) < (sizeof(audiopath)-3)) ) {
+	if ( (audio_fd < 0) && (SDL_strlen(audiodev) < (sizeof(audiopath)-3)) ) {
 		int exists, instance;
 		struct stat sb;
 
 		instance = 1;
 		do { /* Don't use errno ENOENT - it may not be thread-safe */
-			sprintf(audiopath, "%s%d", audiodev, instance++);
+			SDL_snprintf(audiopath, SDL_arraysize(audiopath),
+			             "%s%d", audiodev, instance++);
 			exists = 0;
 			if ( stat(audiopath, &sb) == 0 ) {
 				exists = 1;
@@ -95,21 +90,20 @@ int SDL_OpenAudioPath(char *path, int maxlen, int flags, int classic)
 		audiodev = audiopath;
 	}
 	if ( path != NULL ) {
-		strncpy(path, audiodev, maxlen);
+		SDL_strlcpy(path, audiodev, maxlen);
 		path[maxlen-1] = '\0';
 	}
 	return(audio_fd);
 }
 
-#elif defined(_AIX)
+#elif SDL_AUDIO_DRIVER_PAUD
 
 /* Get the name of the audio device we use for output */
 
-#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <string.h>
 
+#include "SDL_stdinc.h"
 #include "SDL_audiodev_c.h"
 
 #ifndef _PATH_DEV_DSP
@@ -135,15 +129,15 @@ static int OpenUserDefinedDevice(char *path, int maxlen, int flags)
 	int  audio_fd;
 
 	/* Figure out what our audio device is */
-	if ((audiodev=getenv("SDL_PATH_DSP")) == NULL) {
-	    audiodev=getenv("AUDIODEV");
+	if ((audiodev=SDL_getenv("SDL_PATH_DSP")) == NULL) {
+	    audiodev=SDL_getenv("AUDIODEV");
 	}
 	if ( audiodev == NULL ) {
 	    return -1;
 	}
 	audio_fd = open(audiodev, flags, 0);
 	if ( path != NULL ) {
-		strncpy(path, audiodev, maxlen);
+		SDL_strlcpy(path, audiodev, maxlen);
 		path[maxlen-1] = '\0';
 	}
 	return audio_fd;
@@ -163,7 +157,7 @@ int SDL_OpenAudioPath(char *path, int maxlen, int flags, int classic)
 
     cycle    = 0;
     while( devsettings[cycle][0] != '\0' ) {
-        sprintf( audiopath,
+        SDL_snprintf( audiopath, SDL_arraysize(audiopath),
                  _PATH_DEV_DSP,
                  devsettings[cycle][0],
                  devsettings[cycle][1],
@@ -173,8 +167,7 @@ int SDL_OpenAudioPath(char *path, int maxlen, int flags, int classic)
 	    audio_fd = open(audiopath, flags, 0);
 	    if ( audio_fd > 0 ) {
 		if ( path != NULL ) {
-		    strncpy( path, audiopath, maxlen );
-		    path[maxlen-1] = '\0';
+		    SDL_strlcpy( path, audiopath, maxlen );
 		}
 	        return audio_fd;
 	    }
@@ -183,4 +176,4 @@ int SDL_OpenAudioPath(char *path, int maxlen, int flags, int classic)
     return -1;
 }
 
-#endif /* UNIX system */
+#endif /* Audio driver selection */

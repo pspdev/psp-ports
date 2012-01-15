@@ -1,45 +1,37 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_ph_wm.c,v 1.14 2004/01/04 16:49:26 slouken Exp $";
-#endif
-
-#define DISABLE_X11
-
-#include <stdlib.h>
-#include <string.h>
 #include <Ph.h>
 #include <photon/PpProto.h>
 #include <photon/PhWm.h>
 #include <photon/wmapi.h>
+
 #include "SDL_version.h"
-#include "SDL_error.h"
 #include "SDL_timer.h"
 #include "SDL_video.h"
 #include "SDL_syswm.h"
-#include "SDL_events_c.h"
-#include "SDL_pixels_c.h"
+#include "../SDL_pixels_c.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_ph_modes_c.h"
 #include "SDL_ph_wm_c.h"
 
@@ -69,7 +61,7 @@ int ph_IconifyWindow(_THIS)
 
     SDL_Lock_EventThread();
 
-    memset( &windowevent, 0, sizeof (event) );
+    SDL_memset(&windowevent, 0, sizeof(windowevent));
     windowevent.event_f = Ph_WM_HIDE;
     windowevent.event_state = Ph_WM_EVSTATE_HIDE;
     windowevent.rid = PtWidgetRid(window);

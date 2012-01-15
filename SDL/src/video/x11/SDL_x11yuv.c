@@ -1,48 +1,40 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_x11yuv.c,v 1.16 2004/08/25 05:39:03 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* This is the XFree86 Xv extension implementation of YUV video overlays */
 
-#ifdef XFREE86_XV
+#if SDL_VIDEO_DRIVER_X11_XV
 
-#include <stdlib.h>
-#include <string.h>
 #include <X11/Xlib.h>
 #ifndef NO_SHARED_MEMORY
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <X11/extensions/XShm.h>
 #endif
-#include <XFree86/extensions/Xvlib.h>
+#include "../Xext/extensions/Xvlib.h"
 
-#include "SDL_error.h"
-#include "SDL_video.h"
 #include "SDL_x11yuv_c.h"
-#include "SDL_yuvfuncs.h"
+#include "../SDL_yuvfuncs.h"
 
 #define XFREE86_REFRESH_HACK
 #ifdef XFREE86_REFRESH_HACK
@@ -51,6 +43,10 @@ static char rcsid =
 
 /* Workaround when pitch != width */
 #define PITCH_WORKAROUND
+
+/* Workaround intel i810 video overlay waiting with failing until the
+   first Xv[Shm]PutImage call <sigh> */
+#define INTEL_XV_BADALLOC_WORKAROUND
 
 /* Fix for the NVidia GeForce 2 - use the last available adaptor */
 /*#define USE_LAST_ADAPTOR*/  /* Apparently the NVidia drivers are fixed */
@@ -98,17 +94,83 @@ static int xv_errhandler(Display *d, XErrorEvent *e)
 		return(X_handler(d,e));
 }
 
+#ifdef INTEL_XV_BADALLOC_WORKAROUND
+static int intel_errhandler(Display *d, XErrorEvent *e)
+{
+        if ( e->error_code == BadAlloc ) {
+        	xv_error = True;
+        	return(0);
+        } else
+		return(X_handler(d,e));
+}
+
+static void X11_ClearYUVOverlay(SDL_Overlay *overlay)
+{
+	int x,y;
+	    
+	switch (overlay->format)
+	{
+	case SDL_YV12_OVERLAY:
+	case SDL_IYUV_OVERLAY:
+		for (y = 0; y < overlay->h; y++)
+			memset(overlay->pixels[0] + y * overlay->pitches[0],
+				0, overlay->w);
+		
+		for (y = 0; y < (overlay->h / 2); y++)
+		{
+			memset(overlay->pixels[1] + y * overlay->pitches[1],
+				-128, overlay->w / 2);
+			memset(overlay->pixels[2] + y * overlay->pitches[2],
+				-128, overlay->w / 2);
+		}
+		break;
+	case SDL_YUY2_OVERLAY:
+	case SDL_YVYU_OVERLAY:
+		for (y = 0; y < overlay->h; y++)
+		{
+			for (x = 0; x < overlay->w; x += 2)
+			{
+				Uint8 *pixel_pair = overlay->pixels[0] +
+					y * overlay->pitches[0] + x * 2;
+				pixel_pair[0] = 0;
+				pixel_pair[1] = -128;
+				pixel_pair[2] = 0;
+				pixel_pair[3] = -128;
+			}
+		}
+		break;
+	case SDL_UYVY_OVERLAY:
+		for (y = 0; y < overlay->h; y++)
+		{
+			for (x = 0; x < overlay->w; x += 2)
+			{
+				Uint8 *pixel_pair = overlay->pixels[0] +
+					y * overlay->pitches[0] + x * 2;
+				pixel_pair[0] = -128;
+				pixel_pair[1] = 0;
+				pixel_pair[2] = -128;
+				pixel_pair[3] = 0;
+			}
+		}
+		break;
+	}
+}
+#endif
+
 SDL_Overlay *X11_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, SDL_Surface *display)
 {
 	SDL_Overlay *overlay;
 	struct private_yuvhwdata *hwdata;
 	int xv_port;
-	int i, j, k;
-	int adaptors;
+	unsigned int i, j, k;
+	unsigned int adaptors;
 	SDL_NAME(XvAdaptorInfo) *ainfo;
 	int bpp;
 #ifndef NO_SHARED_MEMORY
 	XShmSegmentInfo *yuvshm;
+#endif
+#ifdef INTEL_XV_BADALLOC_WORKAROUND
+	int intel_adapter = False;
 #endif
 
 	/* Look for the XVideo extension with a valid port for this format */
@@ -137,6 +199,12 @@ SDL_Overlay *X11_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, S
 					continue;
 				}
 			}
+#ifdef INTEL_XV_BADALLOC_WORKAROUND
+			if ( !strcmp(ainfo[i].name, "Intel(R) Video Overla"))
+				intel_adapter = True;
+			else
+				intel_adapter = False;
+#endif
 			if ( (ainfo[i].type & XvInputMask) &&
 			     (ainfo[i].type & XvImageMask) ) {
 				int num_formats;
@@ -227,13 +295,13 @@ SDL_Overlay *X11_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, S
 	}
 
 	/* Create the overlay structure */
-	overlay = (SDL_Overlay *)malloc(sizeof *overlay);
+	overlay = (SDL_Overlay *)SDL_malloc(sizeof *overlay);
 	if ( overlay == NULL ) {
 		SDL_NAME(XvUngrabPort)(GFX_Display, xv_port, CurrentTime);
 		SDL_OutOfMemory();
 		return(NULL);
 	}
-	memset(overlay, 0, (sizeof *overlay));
+	SDL_memset(overlay, 0, (sizeof *overlay));
 
 	/* Fill in the basic members */
 	overlay->format = format;
@@ -245,7 +313,7 @@ SDL_Overlay *X11_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, S
 	overlay->hw_overlay = 1;
 
 	/* Create the pixel data and lookup tables */
-	hwdata = (struct private_yuvhwdata *)malloc(sizeof *hwdata);
+	hwdata = (struct private_yuvhwdata *)SDL_malloc(sizeof *hwdata);
 	overlay->hwdata = hwdata;
 	if ( hwdata == NULL ) {
 		SDL_NAME(XvUngrabPort)(GFX_Display, xv_port, CurrentTime);
@@ -256,7 +324,7 @@ SDL_Overlay *X11_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, S
 	hwdata->port = xv_port;
 #ifndef NO_SHARED_MEMORY
 	yuvshm = &hwdata->yuvshm;
-	memset(yuvshm, 0, sizeof(*yuvshm));
+	SDL_memset(yuvshm, 0, sizeof(*yuvshm));
 	hwdata->image = SDL_NAME(XvShmCreateImage)(GFX_Display, xv_port, format,
 						   0, width, height, yuvshm);
 #ifdef PITCH_WORKAROUND
@@ -317,7 +385,7 @@ SDL_Overlay *X11_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, S
 			SDL_FreeYUVOverlay(overlay);
 			return(NULL);
 		}
-		hwdata->image->data = malloc(hwdata->image->data_size);
+		hwdata->image->data = SDL_malloc(hwdata->image->data_size);
 		if ( hwdata->image->data == NULL ) {
 			SDL_OutOfMemory();
 			SDL_FreeYUVOverlay(overlay);
@@ -327,8 +395,8 @@ SDL_Overlay *X11_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, S
 
 	/* Find the pitch and offset values for the overlay */
 	overlay->planes = hwdata->image->num_planes;
-	overlay->pitches = (Uint16 *)malloc(overlay->planes * sizeof(Uint16));
-	overlay->pixels = (Uint8 **)malloc(overlay->planes * sizeof(Uint8 *));
+	overlay->pitches = (Uint16 *)SDL_malloc(overlay->planes * sizeof(Uint16));
+	overlay->pixels = (Uint8 **)SDL_malloc(overlay->planes * sizeof(Uint8 *));
 	if ( !overlay->pitches || !overlay->pixels ) {
 		SDL_OutOfMemory();
 		SDL_FreeYUVOverlay(overlay);
@@ -348,6 +416,55 @@ SDL_Overlay *X11_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, S
 	X11_DisableAutoRefresh(this);
 #endif
 
+#ifdef INTEL_XV_BADALLOC_WORKAROUND
+	/* HACK, GRRR sometimes (i810) creating the overlay succeeds, but the
+	   first call to XvShm[Put]Image to a mapped window fails with:
+	   "BadAlloc (insufficient resources for operation)". This happens with
+	   certain formats when the XvImage is too large to the i810's liking.
+
+	   We work around this by doing a test XvShm[Put]Image with a black
+	   Xv image, this may cause some flashing, so only do this check if we
+	   are running on an intel Xv-adapter. */
+	if (intel_adapter)
+	{
+		xv_error = False;
+		X_handler = XSetErrorHandler(intel_errhandler);
+		
+		X11_ClearYUVOverlay(overlay);
+
+		/* We set the destination height and width to 1 pixel to avoid
+		   putting a large black rectangle over the screen, thus
+		   strongly reducing possible flashing. */
+#ifndef NO_SHARED_MEMORY
+		if ( hwdata->yuv_use_mitshm ) {
+			SDL_NAME(XvShmPutImage)(GFX_Display, hwdata->port,
+				SDL_Window, SDL_GC,
+				hwdata->image,
+				0, 0, overlay->w, overlay->h,
+				0, 0, 1, 1, False);
+		}
+		else
+#endif
+		{
+			SDL_NAME(XvPutImage)(GFX_Display, hwdata->port,
+				SDL_Window, SDL_GC,
+				hwdata->image,
+				0, 0, overlay->w, overlay->h,
+				0, 0, 1, 1);
+		}
+		XSync(GFX_Display, False);
+		XSetErrorHandler(X_handler);
+
+		if (xv_error)
+		{
+			X11_FreeYUVOverlay(this, overlay);
+			return NULL;
+		}
+		/* Repair the (1 pixel worth of) damage we've just done */
+		X11_RefreshDisplay(this);
+	}
+#endif
+
 	/* We're all done.. */
 	return(overlay);
 }
@@ -362,23 +479,26 @@ void X11_UnlockYUVOverlay(_THIS, SDL_Overlay *overlay)
 	return;
 }
 
-int X11_DisplayYUVOverlay(_THIS, SDL_Overlay *overlay, SDL_Rect *dstrect)
+int X11_DisplayYUVOverlay(_THIS, SDL_Overlay *overlay, SDL_Rect *src, SDL_Rect *dst)
 {
 	struct private_yuvhwdata *hwdata;
 
 	hwdata = overlay->hwdata;
+
 #ifndef NO_SHARED_MEMORY
 	if ( hwdata->yuv_use_mitshm ) {
 		SDL_NAME(XvShmPutImage)(GFX_Display, hwdata->port, SDL_Window, SDL_GC,
-	              hwdata->image, 0, 0, overlay->w, overlay->h,
-	              dstrect->x, dstrect->y, dstrect->w, dstrect->h, False);
+	              hwdata->image,
+		      src->x, src->y, src->w, src->h,
+		      dst->x, dst->y, dst->w, dst->h, False);
 	}
 	else
 #endif
 	{
 		SDL_NAME(XvPutImage)(GFX_Display, hwdata->port, SDL_Window, SDL_GC,
-				     hwdata->image, 0, 0, overlay->w, overlay->h,
-				     dstrect->x, dstrect->y, dstrect->w, dstrect->h);
+				     hwdata->image,
+		                     src->x, src->y, src->w, src->h,
+		                     dst->x, dst->y, dst->w, dst->h);
 	}
 	XSync(GFX_Display, False);
 	return(0);
@@ -400,14 +520,14 @@ void X11_FreeYUVOverlay(_THIS, SDL_Overlay *overlay)
 		if ( hwdata->image ) {
 			XFree(hwdata->image);
 		}
-		free(hwdata);
+		SDL_free(hwdata);
 	}
 	if ( overlay->pitches ) {
-		free(overlay->pitches);
+		SDL_free(overlay->pitches);
 		overlay->pitches = NULL;
 	}
 	if ( overlay->pixels ) {
-		free(overlay->pixels);
+		SDL_free(overlay->pixels);
 		overlay->pixels = NULL;
 	}
 #ifdef XFREE86_REFRESH_HACK
@@ -415,4 +535,4 @@ void X11_FreeYUVOverlay(_THIS, SDL_Overlay *overlay)
 #endif
 }
 
-#endif /* XFREE86_XV */
+#endif /* SDL_VIDEO_DRIVER_X11_XV */

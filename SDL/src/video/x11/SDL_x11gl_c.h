@@ -1,43 +1,37 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_x11gl_c.h,v 1.8 2004/01/04 16:49:27 slouken Exp $";
-#endif
-
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL_GLX
 #include <GL/glx.h>
-#include <dlfcn.h>
-#if defined(__OpenBSD__) && !defined(__ELF__)
-#define dlsym(x,y) dlsym(x, "_" y)
+#include "SDL_loadso.h"
 #endif
-#endif
-#include "SDL_sysvideo.h"
+
+#include "../SDL_sysvideo.h"
 
 struct SDL_PrivateGLData {
     int gl_active; /* to stop switching drivers while we have a valid context */
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL_GLX
     GLXContext glx_context;	/* Current GL context */
     XVisualInfo* glx_visualinfo; /* XVisualInfo* returned by glXChooseVisual */
 
@@ -46,13 +40,13 @@ struct SDL_PrivateGLData {
     XVisualInfo* (*glXChooseVisual)
 		( Display*		dpy,
 		  int			screen,
-		  int*		attribList );
+		  int*			attribList );
 
     GLXContext (*glXCreateContext)
 		( Display*		dpy,
-		  XVisualInfo*	vis,
+		  XVisualInfo*		vis,
 		  GLXContext		shareList,
-		  Bool		direct );
+		  Bool			direct );
 
     void (*glXDestroyContext)
 		( Display* 		dpy,
@@ -73,16 +67,14 @@ struct SDL_PrivateGLData {
 	   int attrib,
 	   int* value );
 
-    void (*glXReleaseBuffersMESA)
-	 ( Display* dpy,
-	   GLXDrawable drawable );
-
     const char *(*glXQueryExtensionsString)
 	    ( Display* dpy,
-	      int screen);
+	      int screen );
 
-    
-#endif /* HAVE_OPENGL */
+    int (*glXSwapIntervalSGI) ( int interval );
+    GLint (*glXSwapIntervalMESA) ( unsigned interval );
+    int swap_interval;
+#endif /* SDL_VIDEO_OPENGL_GLX */
 };
 
 /* Old variable names */
@@ -95,7 +87,7 @@ extern XVisualInfo *X11_GL_GetVisual(_THIS);
 extern int X11_GL_CreateWindow(_THIS, int w, int h);
 extern int X11_GL_CreateContext(_THIS);
 extern void X11_GL_Shutdown(_THIS);
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL_GLX
 extern int X11_GL_MakeCurrent(_THIS);
 extern int X11_GL_GetAttribute(_THIS, SDL_GLattr attrib, int* value);
 extern void X11_GL_SwapBuffers(_THIS);

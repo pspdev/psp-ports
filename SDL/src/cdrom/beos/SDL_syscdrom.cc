@@ -1,39 +1,34 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_syscdrom.cc,v 1.4 2004/01/04 16:49:16 slouken Exp $";
-#endif
+#ifdef SDL_CDROM_BEOS
 
 /* Functions for system-level CD-ROM audio control on BeOS
    (not completely implemented yet)
  */
 
 #include <sys/types.h>
-#include <stdlib.h>
 #include <sys/stat.h>
-#include <stdio.h>
-#include <string.h>
 #include <unistd.h>
 
 #include <scsi.h>
@@ -41,10 +36,9 @@ static char rcsid =
 #include <Entry.h>
 #include <Path.h>
 
-#include "SDL_error.h"
 #include "SDL_cdrom.h"
 extern "C" {
-#include "SDL_syscdrom.h"
+#include "../SDL_syscdrom.h"
 }
 
 /* Constants to help us get at the SCSI table-of-contents info */
@@ -117,16 +111,18 @@ static int CheckDrive(char *drive)
 static void AddDrive(char *drive)
 {
 	int i;
+	size_t len;
 
 	if ( SDL_numcds < MAX_DRIVES ) {
 		/* Add this drive to our list */
 		i = SDL_numcds;
-		SDL_cdlist[i] = (char *)malloc(strlen(drive)+1);
+		len = SDL_strlen(drive)+1;
+		SDL_cdlist[i] = (char *)SDL_malloc(len);
 		if ( SDL_cdlist[i] == NULL ) {
 			SDL_OutOfMemory();
 			return;
 		}
-		strcpy(SDL_cdlist[i], drive);
+		SDL_strlcpy(SDL_cdlist[i], drive, len);
 		++SDL_numcds;
 #ifdef CDROM_DEBUG
   fprintf(stderr, "Added CD-ROM drive: %s\n", drive);
@@ -170,15 +166,16 @@ int  SDL_SYS_CDInit(void)
 	SDL_CDcaps.Close = SDL_SYS_CDClose;
 
 	/* Look in the environment for our CD-ROM drive list */
-	SDLcdrom = getenv("SDL_CDROM");	/* ':' separated list of devices */
+	SDLcdrom = SDL_getenv("SDL_CDROM");	/* ':' separated list of devices */
 	if ( SDLcdrom != NULL ) {
 		char *cdpath, *delim;
-		cdpath = (char *)malloc(strlen(SDLcdrom)+1);
+		size_t len = SDL_strlen(SDLcdrom)+1;
+		cdpath = SDL_stack_alloc(char, len);
 		if ( cdpath != NULL ) {
-			strcpy(cdpath, SDLcdrom);
+			SDL_strlcpy(cdpath, SDLcdrom, len);
 			SDLcdrom = cdpath;
 			do {
-				delim = strchr(SDLcdrom, ':');
+				delim = SDL_strchr(SDLcdrom, ':');
 				if ( delim ) {
 					*delim++ = '\0';
 				}
@@ -191,7 +188,7 @@ int  SDL_SYS_CDInit(void)
 					SDLcdrom = NULL;
 				}
 			} while ( SDLcdrom );
-			free(cdpath);
+			SDL_stack_free(cdpath);
 		}
 
 		/* If we found our drives, there's nothing left to do */
@@ -228,7 +225,7 @@ int try_dir(const char *directory)
 			continue; 
 
 		if(entry.IsDirectory()) { 
-			if(strcmp(e.name, "floppy") == 0) 
+			if(SDL_strcmp(e.name, "floppy") == 0) 
 				continue; /* ignore floppy (it is not silent)  */
 			int devfd = try_dir(name);
 			if(devfd >= 0)
@@ -238,7 +235,7 @@ int try_dir(const char *directory)
 			int devfd; 
 			device_geometry g; 
 
-			if(strcmp(e.name, "raw") != 0) 
+			if(SDL_strcmp(e.name, "raw") != 0) 
 				continue; /* ignore partitions */
 
 			devfd = open(name, O_RDONLY); 
@@ -406,9 +403,10 @@ void SDL_SYS_CDQuit(void)
 
 	if ( SDL_numcds > 0 ) {
 		for ( i=0; i<SDL_numcds; ++i ) {
-			free(SDL_cdlist[i]);
+			SDL_free(SDL_cdlist[i]);
 		}
 		SDL_numcds = 0;
 	}
 }
 
+#endif /* SDL_CDROM_BEOS */

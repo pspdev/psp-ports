@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,22 +19,14 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /* Allow access to a raw mixing buffer */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <mme_api.h>
-
-#include "SDL_audio.h"
-#include "SDL_mutex.h"
-#include "SDL_timer.h"
-#include "SDL_audio_c.h"
-
 #ifndef _SDL_lowaudio_h
 #define _SDL_lowaudio_h
-#include "SDL_sysaudio.h"
+
+#include "../SDL_sysaudio.h"
 
 /* Hidden "this" pointer for the video functions */
 #define _THIS	SDL_AudioDevice *this

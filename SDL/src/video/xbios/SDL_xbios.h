@@ -1,45 +1,37 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_xbios.h,v 1.7 2005/05/31 12:31:11 pmandin Exp $";
-#endif
+#include "SDL_config.h"
 
 #ifndef _SDL_xbios_h
 #define _SDL_xbios_h
 
-#include "SDL_types.h"
-#include "SDL_sysvideo.h"
+#include "SDL_stdinc.h"
+#include "../SDL_sysvideo.h"
 
 /* Hidden "this" pointer for the video functions */
 #define _THIS	SDL_VideoDevice *this
 
-/* TT video modes:	2
-   Falcon RVB:		16 (could be *2 by adding PAL/NTSC modes)
-   Falcon VGA:		6
-   ST low:		1
-*/
-#define SDL_NUMMODES 16
+#define XBIOSMODE_DOUBLELINE (1<<0)
+#define XBIOSMODE_C2P (1<<1)
 
 typedef struct
 {
@@ -47,33 +39,31 @@ typedef struct
 	Uint16 width;		/* Size */	
 	Uint16 height;
 	Uint16 depth;		/* bits per plane */
-	SDL_bool doubleline;	/* Double the lines ? */
+	Uint16 flags;
 } xbiosmode_t;
 
 /* Private display data */
-#define NUM_MODELISTS	2		/* 8 and 16 bits-per-pixel */
+#define NUM_MODELISTS	4		/* 8, 16, 24, and 32 bits-per-pixel */
 
 struct SDL_PrivateVideoData {
 	long cookie_vdo;
-	int old_video_mode;				/* Old video mode before entering SDL */
+	long old_video_mode;				/* Old video mode before entering SDL */
 	void *old_video_base;			/* Old pointer to screen buffer */
 	void *old_palette;				/* Old palette */
 	Uint32 old_num_colors;			/* Nb of colors in saved palette */
-	int num_modes;					/* Number of xbios video modes */
-	xbiosmode_t	*mode_list;			/* List of xbios video modes */
 
 	void *screens[2];		/* Pointers to aligned screen buffer */
 	void *screensmem[2];	/* Pointers to screen buffer */
 	void *shadowscreen;		/* Shadow screen for c2p conversion */
-	int doubleline;			/* Double line mode ? */
 	int frame_number;		/* Number of frame for double buffer */
 	int pitch;				/* Destination line width for C2P */
-	int width, height;		/* Screen size for centered C2P */
 
 	SDL_bool centscreen;	/* Centscreen extension present ? */
 
-	SDL_Rect *SDL_modelist[NUM_MODELISTS][SDL_NUMMODES+1];
-	xbiosmode_t *videomodes[NUM_MODELISTS][SDL_NUMMODES+1];
+	xbiosmode_t *current;	/* Current set mode */
+	int SDL_nummodes[NUM_MODELISTS];
+	SDL_Rect **SDL_modelist[NUM_MODELISTS];
+	xbiosmode_t **SDL_xbiosmode[NUM_MODELISTS];
 };
 
 /* _VDO cookie values */
@@ -81,7 +71,8 @@ enum {
 	VDO_ST=0,
 	VDO_STE,
 	VDO_TT,
-	VDO_F30
+	VDO_F30,
+	VDO_MILAN
 };
 
 /* Monitor types */
@@ -93,43 +84,38 @@ enum {
 };
 
 /* EgetShift masks */
-#define ES_BANK		0x000f
 #define ES_MODE		0x0700
-#define ES_GRAY		0x1000
-#define ES_SMEAR	0x8000
 
 /* TT shifter modes */
+#ifndef ST_LOW
 #define ST_LOW	0x0000
 #define ST_MED	0x0100
 #define ST_HIGH	0x0200
 #define TT_LOW	0x0700
 #define TT_MED	0x0300
 #define TT_HIGH	0x0600
+#endif
 
 /* Hidden structure -> variables names */
+#define SDL_nummodes		(this->hidden->SDL_nummodes)
 #define SDL_modelist		(this->hidden->SDL_modelist)
+#define SDL_xbiosmode		(this->hidden->SDL_xbiosmode)
 #define XBIOS_mutex		    (this->hidden->mutex)
 #define XBIOS_cvdo		    (this->hidden->cookie_vdo)
 #define XBIOS_oldpalette	(this->hidden->old_palette)
 #define XBIOS_oldnumcol		(this->hidden->old_num_colors)
 #define XBIOS_oldvbase		(this->hidden->old_video_base)
 #define XBIOS_oldvmode		(this->hidden->old_video_mode)
-#define XBIOS_nummodes		(this->hidden->num_modes)
-#define XBIOS_modelist		(this->hidden->mode_list)
 #define XBIOS_screens		(this->hidden->screens)
 #define XBIOS_screensmem	(this->hidden->screensmem)
 #define XBIOS_shadowscreen	(this->hidden->shadowscreen)
-#define XBIOS_videomodes	(this->hidden->videomodes)
-#define XBIOS_doubleline	(this->hidden->doubleline)
 #define XBIOS_fbnum			(this->hidden->frame_number)
 #define XBIOS_pitch			(this->hidden->pitch)
-#define XBIOS_width			(this->hidden->width)
-#define XBIOS_height		(this->hidden->height)
 #define XBIOS_centscreen	(this->hidden->centscreen)
+#define XBIOS_current		(this->hidden->current)
 
 /*--- Functions prototypes ---*/
 
-void SDL_XBIOS_AddMode(_THIS, Uint16 modecode, Uint16 width, Uint16 height,
-	Uint16 depth, SDL_bool flags);
+void SDL_XBIOS_AddMode(_THIS, int actually_add, const xbiosmode_t *modeinfo);
 
 #endif /* _SDL_xbios_h */

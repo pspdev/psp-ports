@@ -1,40 +1,37 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_systimer.c,v 1.9 2004/01/04 16:49:20 slouken Exp $";
-#endif
+#ifdef SDL_TIMER_WIN32
 
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <mmsystem.h>
 
 #include "SDL_timer.h"
-#include "SDL_timer_c.h"
-#include "SDL_error.h"
+#include "../SDL_timer_c.h"
 
 #ifdef _WIN32_WCE
-#define USE_GETTICKCOUNT
-#define USE_SETTIMER
+  #error This is WinCE. Please use src/timer/wince/SDL_systimer.c instead.
 #endif
 
 #define TIME_WRAP_VALUE	(~(DWORD)0)
@@ -112,67 +109,11 @@ void SDL_Delay(Uint32 ms)
 	Sleep(ms);
 }
 
-#ifdef USE_SETTIMER
-
-static UINT WIN_timer;
-
-int SDL_SYS_TimerInit(void)
-{
-	return(0);
-}
-
-void SDL_SYS_TimerQuit(void)
-{
-	return;
-}
-
-/* Forward declaration because this is called by the timer callback */
-int SDL_SYS_StartTimer(void);
-
-static VOID CALLBACK TimerCallbackProc(HWND hwnd, UINT uMsg, UINT idEvent, DWORD dwTime)
-{
-	Uint32 ms;
-
-	ms = SDL_alarm_callback(SDL_alarm_interval);
-	if ( ms != SDL_alarm_interval ) {
-		KillTimer(NULL, idEvent);
-		if ( ms ) {
-			SDL_alarm_interval = ROUND_RESOLUTION(ms);
-			SDL_SYS_StartTimer();
-		} else {
-			SDL_alarm_interval = 0;
-		}
-	}
-}
-
-int SDL_SYS_StartTimer(void)
-{
-	int retval;
-
-	WIN_timer = SetTimer(NULL, 0, SDL_alarm_interval, TimerCallbackProc);
-	if ( WIN_timer ) {
-		retval = 0;
-	} else {
-		retval = -1;
-	}
-	return retval;
-}
-
-void SDL_SYS_StopTimer(void)
-{
-	if ( WIN_timer ) {
-		KillTimer(NULL, WIN_timer);
-		WIN_timer = 0;
-	}
-}
-
-#else /* !USE_SETTIMER */
-
 /* Data to handle a single periodic alarm */
 static UINT timerID = 0;
 
-static void CALLBACK HandleAlarm(UINT uID,  UINT uMsg, DWORD dwUser,
-						DWORD dw1, DWORD dw2)
+static void CALLBACK HandleAlarm(UINT uID,  UINT uMsg, DWORD_PTR dwUser,
+						DWORD_PTR dw1, DWORD_PTR dw2)
 {
 	SDL_ThreadedTimerCheck();
 }
@@ -216,4 +157,4 @@ void SDL_SYS_StopTimer(void)
 	return;
 }
 
-#endif /* USE_SETTIMER */
+#endif /* SDL_TIMER_WIN32 */

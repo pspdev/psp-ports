@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2003  Sam Lantinga
+    Copyright (C) 1997-2009  Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,6 +19,7 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /* These are the Macintosh key scancode constants -- from Inside Macintosh */
 
@@ -35,9 +36,14 @@
 #define QZ_F10			0x6D
 #define QZ_F11			0x67
 #define QZ_F12			0x6F
+#define QZ_F13			0x69
+#define QZ_F14			0x6B
+#define QZ_F15			0x71
+/*
 #define QZ_PRINT		0x69
 #define QZ_SCROLLOCK    0x6B
 #define QZ_PAUSE		0x71
+*/
 #define QZ_POWER		0x7F
 #define QZ_BACKQUOTE	0x32
 #define QZ_1			0x12
@@ -132,7 +138,7 @@
 #define QZ_KP0			0x52
 #define QZ_KP_PERIOD	0x41
 
-/* Wierd, these keys are on my iBook under MacOS X */
+/* Wierd, these keys are on my iBook under Mac OS X */
 #define QZ_IBOOK_ENTER		0x34
 #define QZ_IBOOK_LEFT		0x3B
 #define QZ_IBOOK_RIGHT		0x3C

@@ -1,34 +1,32 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_lowvideo.h,v 1.6 2004/01/05 01:34:34 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 #ifndef _SDL_lowvideo_h
 #define _SDL_lowvideo_h
 
-#if TARGET_API_MAC_CARBON
+#if defined(__APPLE__) && defined(__MACH__)
+#include <Carbon/Carbon.h>
+#elif TARGET_API_MAC_CARBON && (UNIVERSAL_INTERFACES_VERSION > 0x0335)
 #include <Carbon.h>
 #else
 #include <Quickdraw.h>
@@ -37,18 +35,12 @@ static char rcsid =
 #include <DrawSprocket.h>
 #endif
 
-#ifdef HAVE_OPENGL
-#ifdef MACOSX
-#include <OpenGL/gl.h> /* OpenGL.framework */
-#include <AGL/agl.h>   /* AGL.framework */
-#else
-#include <GL/gl.h>
-#include <agl.h>
-#endif /* MACOSX */
-#endif /* HAVE_OPENGL */
+#if SDL_VIDEO_OPENGL
+typedef struct __AGLContextRec *AGLContext;
+#endif
 
 #include "SDL_video.h"
-#include "SDL_sysvideo.h"
+#include "../SDL_sysvideo.h"
 
 /* Hidden "this" pointer for the video functions */
 #define _THIS	SDL_VideoDevice *this
@@ -87,7 +79,7 @@ struct SDL_PrivateVideoData {
 	/* Information used by DrawSprocket driver */
 	struct DSpInfo *dspinfo;
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	AGLContext appleGLContext;
 
 	void *libraryHandle;

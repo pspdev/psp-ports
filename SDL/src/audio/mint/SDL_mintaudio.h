@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,6 +19,7 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /*
 	MiNT audio driver
@@ -29,7 +30,7 @@
 #ifndef _SDL_mintaudio_h
 #define _SDL_mintaudio_h
 
-#include "SDL_sysaudio.h"
+#include "../SDL_sysaudio.h"
 #include "SDL_mintaudio_stfa.h"
 
 /* Hidden "this" pointer for the audio functions */
@@ -42,6 +43,7 @@ typedef struct {
 	Uint32	frequency;
 	Uint32	masterclock;
 	Uint32	predivisor;
+	int	gpio_bits;	/* in case of external clock */
 } mint_frequency_t;
 
 struct SDL_PrivateAudioData {
@@ -82,6 +84,7 @@ enum {
 #define MASTERPREDIV_MILAN	256
 
 /* MFP 68901 interrupt sources */
+#ifndef MFP_PARALLEL
 enum {
 	MFP_PARALLEL=0,
 	MFP_DCD,
@@ -104,28 +107,44 @@ enum {
 	MFP_RING,
 	MFP_MONODETECT
 };
+#endif
 
 /* Xbtimer() timers */
+#ifndef XB_TIMERA
 enum {
 	XB_TIMERA=0,
 	XB_TIMERB,
 	XB_TIMERC,
 	XB_TIMERD
 };
+#endif
 
 /* Variables */
 extern SDL_AudioDevice *SDL_MintAudio_device;
 extern Uint8 *SDL_MintAudio_audiobuf[2];	/* Pointers to buffers */
 extern unsigned long SDL_MintAudio_audiosize;		/* Length of audio buffer=spec->size */
-extern unsigned short SDL_MintAudio_numbuf;		/* Buffer to play */
-extern unsigned short SDL_MintAudio_mutex;
+extern volatile unsigned short SDL_MintAudio_numbuf;		/* Buffer to play */
+extern volatile unsigned short SDL_MintAudio_mutex;
 extern cookie_stfa_t *SDL_MintAudio_stfa;
-extern unsigned long SDL_MintAudio_clocktics;
+extern volatile unsigned long SDL_MintAudio_clocktics;
+extern unsigned short SDL_MintAudio_hasfpu;	/* To preserve fpu registers if needed */
+
+/* MiNT thread variables */
+extern SDL_bool	SDL_MintAudio_mint_present;
+extern SDL_bool SDL_MintAudio_quit_thread;
+extern SDL_bool SDL_MintAudio_thread_finished;
+extern long SDL_MintAudio_thread_pid;
 
 /* Functions */
 void SDL_MintAudio_Callback(void);
-void SDL_MintAudio_AddFrequency(_THIS, Uint32 frequency, Uint32 clock, Uint32 prediv);
+void SDL_MintAudio_AddFrequency(_THIS, Uint32 frequency, Uint32 clock,
+	Uint32 prediv, int gpio_bits);
 int SDL_MintAudio_SearchFrequency(_THIS, int desired_freq);
+void SDL_MintAudio_CheckFpu(void);
+
+/* MiNT thread functions */
+int SDL_MintAudio_Thread(long param);
+void SDL_MintAudio_WaitThread(void);
 
 /* ASM interrupt functions */
 void SDL_MintAudio_GsxbInterrupt(void);

@@ -1,44 +1,37 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997, 1998, 1999, 2000  Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_gsyuv.c,v 1.5 2002/11/17 18:56:50 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* This is the Playstation 2 implementation of YUV video overlays */
 
-#include <stdlib.h>
-#include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <asm/page.h>		/* For definition of PAGE_SIZE */
 
-#include "SDL_error.h"
 #include "SDL_video.h"
 #include "SDL_gsyuv_c.h"
-#include "SDL_yuvfuncs.h"
+#include "../SDL_yuvfuncs.h"
 
 /* The maximum number of 16x16 pixel block converted at once */
 #define MAX_MACROBLOCKS	1024	/* 2^10 macroblocks at once */
@@ -119,12 +112,12 @@ SDL_Overlay *GS_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, SD
 	}
 
 	/* Create the overlay structure */
-	overlay = (SDL_Overlay *)malloc(sizeof *overlay);
+	overlay = (SDL_Overlay *)SDL_malloc(sizeof *overlay);
 	if ( overlay == NULL ) {
 		SDL_OutOfMemory();
 		return(NULL);
 	}
-	memset(overlay, 0, (sizeof *overlay));
+	SDL_memset(overlay, 0, (sizeof *overlay));
 
 	/* Fill in the basic members */
 	overlay->format = format;
@@ -136,7 +129,7 @@ SDL_Overlay *GS_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, SD
 	overlay->hw_overlay = 1;
 
 	/* Create the pixel data */
-	hwdata = (struct private_yuvhwdata *)malloc(sizeof *hwdata);
+	hwdata = (struct private_yuvhwdata *)SDL_malloc(sizeof *hwdata);
 	overlay->hwdata = hwdata;
 	if ( hwdata == NULL ) {
 		SDL_FreeYUVOverlay(overlay);
@@ -144,7 +137,7 @@ SDL_Overlay *GS_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, SD
 		return(NULL);
 	}
 	hwdata->ipu_fd = -1;
-	hwdata->pixels = (Uint8 *)malloc(width*height*2);
+	hwdata->pixels = (Uint8 *)SDL_malloc(width*height*2);
 	if ( hwdata->pixels == NULL ) {
 		SDL_FreeYUVOverlay(overlay);
 		SDL_OutOfMemory();
@@ -187,7 +180,7 @@ SDL_Overlay *GS_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, SD
 
 	/* Allocate a DMA area for pixel conversion */
 	bpp = this->screen->format->BytesPerPixel;
-	map_offset = (mapped_len + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1);
+	map_offset = (mapped_len + (sysconf(_SC_PAGESIZE) - 1)) & ~(sysconf(_SC_PAGESIZE) - 1);
 	hwdata->dma_len = hwdata->macroblocks * (16 * 16 + 8 * 8 + 8 * 8) +
 	                  width * height * bpp +
 	                  hwdata->macroblocks * (16 * sizeof(long long)) +
@@ -207,7 +200,7 @@ SDL_Overlay *GS_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, SD
 
 	/* Allocate memory for the DMA packets */
 	hwdata->plist.num = hwdata->macroblocks * 4 + 1;
-	hwdata->plist.packet = (struct ps2_packet *)malloc(
+	hwdata->plist.packet = (struct ps2_packet *)SDL_malloc(
 	                       hwdata->plist.num*sizeof(struct ps2_packet));
 	if ( ! hwdata->plist.packet ) {
 		SDL_FreeYUVOverlay(overlay);
@@ -322,7 +315,7 @@ void GS_UnlockYUVOverlay(_THIS, SDL_Overlay *overlay)
 	return;
 }
 
-int GS_DisplayYUVOverlay(_THIS, SDL_Overlay *overlay, SDL_Rect *dstrect)
+int GS_DisplayYUVOverlay(_THIS, SDL_Overlay *overlay, SDL_Rect *src, SDL_Rect *dst)
 {
 	struct private_yuvhwdata *hwdata;
 	__u32 cmd;
@@ -332,7 +325,7 @@ int GS_DisplayYUVOverlay(_THIS, SDL_Overlay *overlay, SDL_Rect *dstrect)
 	int lum_pitch;
 	int crb_pitch;
 	Uint32 *lum_src, *Cr_src, *Cb_src;
-	Uint32 *src, *dst;
+	Uint32 *srcp, *dstp;
 	unsigned int x, y;
 	SDL_Surface *screen;
 
@@ -352,7 +345,7 @@ int GS_DisplayYUVOverlay(_THIS, SDL_Overlay *overlay, SDL_Rect *dstrect)
 		SDL_SetError("Unsupported YUV format in blit (?)");
 		return(-1);
 	}
-	dst = (Uint32 *)hwdata->ipu_imem;
+	dstp = (Uint32 *)hwdata->ipu_imem;
 	lum_pitch = overlay->w/4;
 	crb_pitch = (overlay->w/2)/4;
 
@@ -362,28 +355,28 @@ int GS_DisplayYUVOverlay(_THIS, SDL_Overlay *overlay, SDL_Rect *dstrect)
 		Cr_src = Cr;
 		Cb_src = Cb;
 		for ( w=overlay->w/16; w; --w ) {
-			src = lum_src;
+			srcp = lum_src;
 			for ( i=0; i<16; ++i ) {
-				dst[0] = src[0];
-				dst[1] = src[1];
-				dst[2] = src[2];
-				dst[3] = src[3];
-				src += lum_pitch;
-				dst += 4;
+				dstp[0] = srcp[0];
+				dstp[1] = srcp[1];
+				dstp[2] = srcp[2];
+				dstp[3] = srcp[3];
+				srcp += lum_pitch;
+				dstp += 4;
 			}
-			src = Cb_src;
+			srcp = Cb_src;
 			for ( i=0; i<8; ++i ) {
-				dst[0] = src[0];
-				dst[1] = src[1];
-				src += crb_pitch;
-				dst += 2;
+				dstp[0] = srcp[0];
+				dstp[1] = srcp[1];
+				srcp += crb_pitch;
+				dstp += 2;
 			}
-			src = Cr_src;
+			srcp = Cr_src;
 			for ( i=0; i<8; ++i ) {
-				dst[0] = src[0];
-				dst[1] = src[1];
-				src += crb_pitch;
-				dst += 2;
+				dstp[0] = srcp[0];
+				dstp[1] = srcp[1];
+				srcp += crb_pitch;
+				dstp += 2;
 			}
 			lum_src += 16 / 4;
 			Cb_src += 8 / 4;
@@ -430,8 +423,8 @@ int GS_DisplayYUVOverlay(_THIS, SDL_Overlay *overlay, SDL_Rect *dstrect)
 
 	/* Send the current image to the screen and scale it */
 	screen = this->screen;
-	x = (unsigned int)dstrect->x;
-	y = (unsigned int)dstrect->y;
+	x = (unsigned int)dst->x;
+	y = (unsigned int)dst->y;
 	if ( screen->offset ) {
 		x += (screen->offset % screen->pitch) /
 		     screen->format->BytesPerPixel;
@@ -439,8 +432,8 @@ int GS_DisplayYUVOverlay(_THIS, SDL_Overlay *overlay, SDL_Rect *dstrect)
 	}
 	y += screen_image.y;
 	*hwdata->stretch_x1y1 = (x * 16) + ((y * 16) << 16);
-	x += (unsigned int)dstrect->w;
-	y += (unsigned int)dstrect->h;
+	x += (unsigned int)dst->w;
+	y += (unsigned int)dst->h;
 	*hwdata->stretch_x2y2 = (x * 16) + ((y * 16) << 16);
 	return ioctl(console_fd, PS2IOC_SENDL, &hwdata->plist);
 }
@@ -458,11 +451,11 @@ void GS_FreeYUVOverlay(_THIS, SDL_Overlay *overlay)
 			munmap(hwdata->dma_mem, hwdata->dma_len);
 		}
 		if ( hwdata->plist.packet ) {
-			free(hwdata->plist.packet);
+			SDL_free(hwdata->plist.packet);
 		}
 		if ( hwdata->pixels ) {
-			free(hwdata->pixels);
+			SDL_free(hwdata->pixels);
 		}
-		free(hwdata);
+		SDL_free(hwdata);
 	}
 }

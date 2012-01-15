@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,6 +19,7 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /*
 	Centscreen extension definitions
@@ -110,7 +111,7 @@ typedef struct {
 
 /*--- Functions prototypes ---*/
 
-int SDL_XBIOS_CentscreenInit(_THIS);
+int SDL_XBIOS_ListCentscreenModes(_THIS, int actually_add);
 void SDL_XBIOS_CentscreenSetmode(_THIS, int width, int height, int planes);
 void SDL_XBIOS_CentscreenRestore(_THIS, int prev_handle);
 

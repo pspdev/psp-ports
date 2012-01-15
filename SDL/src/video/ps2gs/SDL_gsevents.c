@@ -1,40 +1,33 @@
 /*
-	SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    SDL - Simple DirectMedia Layer
+    Copyright (C) 1997-2009 Sam Lantinga
 
-	This library is free software; you can redistribute it and/or
-	modify it under the terms of the GNU Library General Public
-	License as published by the Free Software Foundation; either
-	version 2 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-	This library is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-	Library General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-	You should have received a copy of the GNU Library General Public
-	License along with this library; if not, write to the Free
-	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-	Sam Lantinga
-	slouken@libsdl.org
+    Sam Lantinga
+    slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_gsevents.c,v 1.5 2004/01/04 16:49:26 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Handle the event stream, converting console events into SDL events */
 
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/ioctl.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <string.h>
 #include <errno.h>
 #include <limits.h>
 
@@ -46,11 +39,10 @@ static char rcsid =
 #include <linux/kd.h>
 #include <linux/keyboard.h>
 
-#include "SDL.h"
 #include "SDL_mutex.h"
-#include "SDL_sysevents.h"
-#include "SDL_sysvideo.h"
-#include "SDL_events_c.h"
+#include "../SDL_sysvideo.h"
+#include "../../events/SDL_sysevents.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_gsvideo.h"
 #include "SDL_gsevents_c.h"
 #include "SDL_gskeys.h"
@@ -83,7 +75,7 @@ static void GS_vgainitkeymaps(int fd)
 
 	/* Load all the keysym mappings */
 	for ( map=0; map<NUM_VGAKEYMAPS; ++map ) {
-		memset(vga_keymap[map], 0, NR_KEYS*sizeof(Uint16));
+		SDL_memset(vga_keymap[map], 0, NR_KEYS*sizeof(Uint16));
 		for ( i=0; i<NR_KEYS; ++i ) {
 			entry.kb_table = map;
 			entry.kb_index = i;
@@ -262,7 +254,7 @@ int GS_OpenKeyboard(_THIS)
 			for ( i=0; vcs[i] && (keyboard_fd < 0); ++i ) {
 				char vtpath[12];
 
-				sprintf(vtpath, vcs[i], current_vt);
+				SDL_snprintf(vtpath, SDL_arraysize(vtpath), vcs[i], current_vt);
 				keyboard_fd = open(vtpath, O_RDWR, 0);
 #ifdef DEBUG_KEYBOARD
 				fprintf(stderr, "vtpath = %s, fd = %d\n",
@@ -338,12 +330,12 @@ static int find_pid(DIR *proc, const char *wanted_name)
 			char path[PATH_MAX];
 			char name[PATH_MAX];
 
-			sprintf(path, "/proc/%s/status", entry->d_name);
+			SDL_snprintf(path, SDL_arraysize(path), "/proc/%s/status", entry->d_name);
 			status=fopen(path, "r");
 			if ( status ) {
 				name[0] = '\0';
 				fscanf(status, "Name: %s", name);
-				if ( strcmp(name, wanted_name) == 0 ) {
+				if ( SDL_strcmp(name, wanted_name) == 0 ) {
 					pid = atoi(entry->d_name);
 				}
 				fclose(status);
@@ -372,16 +364,16 @@ static int gpm_available(void)
 	proc = opendir("/proc");
 	if ( proc ) {
 		while ( (pid=find_pid(proc, "gpm")) > 0 ) {
-			sprintf(path, "/proc/%d/cmdline", pid);
+			SDL_snprintf(path, SDL_arraysize(path), "/proc/%d/cmdline", pid);
 			cmdline = open(path, O_RDONLY, 0);
 			if ( cmdline >= 0 ) {
 				len = read(cmdline, args, sizeof(args));
 				arg = args;
 				while ( len > 0 ) {
-					if ( strcmp(arg, "-R") == 0 ) {
+					if ( SDL_strcmp(arg, "-R") == 0 ) {
 						available = 1;
 					}
-					arglen = strlen(arg)+1;
+					arglen = SDL_strlen(arg)+1;
 					len -= arglen;
 					arg += arglen;
 				}
@@ -440,7 +432,7 @@ static int detect_imps2(int fd)
 
 	imps2 = 0;
 
-	if ( getenv("SDL_MOUSEDEV_IMPS2") ) {
+	if ( SDL_getenv("SDL_MOUSEDEV_IMPS2") ) {
 		imps2 = 1;
 	}
 	if ( ! imps2 ) {
@@ -492,8 +484,8 @@ int GS_OpenMouse(_THIS)
 	const char *mousedev;
 	const char *mousedrv;
 
-	mousedrv = getenv("SDL_MOUSEDRV");
-	mousedev = getenv("SDL_MOUSEDEV");
+	mousedrv = SDL_getenv("SDL_MOUSEDRV");
+	mousedev = SDL_getenv("SDL_MOUSEDEV");
 	mouse_fd = -1;
 
 	/* STD MICE */
@@ -757,7 +749,7 @@ static void handle_mouse(_THIS)
 		GS_vgamousecallback(button, dx, dy);
 	}
 	if ( i < nread ) {
-		memcpy(mousebuf, &mousebuf[i], (nread-i));
+		SDL_memcpy(mousebuf, &mousebuf[i], (nread-i));
 		start = (nread-i);
 	} else {
 		start = 0;
@@ -831,7 +823,7 @@ void GS_InitOSKeymap(_THIS)
 	/* Initialize the Linux key translation table */
 
 	/* First get the ascii keys and others not well handled */
-	for (i=0; i<SDL_TABLESIZE(keymap); ++i) {
+	for (i=0; i<SDL_arraysize(keymap); ++i) {
 	  switch(i) {
 	  /* These aren't handled by the x86 kernel keymapping (?) */
 	  case SCANCODE_PRINTSCREEN:
@@ -870,7 +862,7 @@ void GS_InitOSKeymap(_THIS)
 	    break;
           }
 	}
-	for (i=0; i<SDL_TABLESIZE(keymap); ++i) {
+	for (i=0; i<SDL_arraysize(keymap); ++i) {
 	  switch(keymap_temp[i]) {
 	    case K_F1:  keymap[i] = SDLK_F1;  break;
 	    case K_F2:  keymap[i] = SDLK_F2;  break;

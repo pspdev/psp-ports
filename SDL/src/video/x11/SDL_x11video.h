@@ -1,29 +1,25 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_x11video.h,v 1.9 2004/01/04 16:49:27 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 #ifndef _SDL_x11video_h
 #define _SDL_x11video_h
@@ -31,25 +27,27 @@ static char rcsid =
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
-#ifndef NO_SHARED_MEMORY
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <X11/extensions/XShm.h>
-#endif
-#ifdef XFREE86_DGAMOUSE
-#include <XFree86/extensions/xf86dga.h>
-#endif
-#ifdef XFREE86_VM
-#include <XFree86/extensions/xf86vmode.h>
-#endif
-#ifdef HAVE_XIGXME
-#include <X11/extensions/xme.h>
-#endif
-
-#include <string.h>
 
 #include "SDL_mouse.h"
-#include "SDL_sysvideo.h"
+#include "../SDL_sysvideo.h"
+
+#if SDL_VIDEO_DRIVER_X11_DGAMOUSE
+#include "../Xext/extensions/xf86dga.h"
+#endif
+#if SDL_VIDEO_DRIVER_X11_XINERAMA
+#include "../Xext/extensions/Xinerama.h"
+#endif 
+#if SDL_VIDEO_DRIVER_X11_XRANDR
+#include <X11/extensions/Xrandr.h>
+#endif
+#if SDL_VIDEO_DRIVER_X11_VIDMODE
+#include "../Xext/extensions/xf86vmode.h"
+#endif
+#if SDL_VIDEO_DRIVER_X11_XME
+#include "../Xext/extensions/xme.h"
+#endif
+
+#include "SDL_x11dyn.h"
 
 /* Hidden "this" pointer for the video functions */
 #define _THIS	SDL_VideoDevice *this
@@ -65,6 +63,8 @@ struct SDL_PrivateVideoData {
     Window SDL_Window;		/* Shared by both displays (no X security?) */
     Atom WM_DELETE_WINDOW;	/* "close-window" protocol atom */
     WMcursor *BlankCursor;	/* The invisible cursor */
+    XIM X11_IM;		/* Used to communicate with the input method (IM) server */
+    XIC X11_IC;		/* Used for retaining the state, properties, and semantics of communication with                                                  the input method (IM) server */
 
     char *SDL_windowid;		/* Flag: true if we have been passed a window */
 
@@ -82,8 +82,8 @@ struct SDL_PrivateVideoData {
     GC	gc;			/* The graphic context for drawing */
 
     /* The current width and height of the fullscreen mode */
-    int current_w;
-    int current_h;
+    int window_w;
+    int window_h;
 
     /* Support for internal mouse warping */
     struct {
@@ -112,20 +112,28 @@ struct SDL_PrivateVideoData {
     int depth;			/* current visual depth (not bpp) */
 
     /* Variables used by the X11 video mode code */
-#ifdef XFREE86_VM
+#if SDL_VIDEO_DRIVER_X11_XINERAMA
+    SDL_NAME(XineramaScreenInfo) xinerama_info;
+#endif
+#if SDL_VIDEO_DRIVER_X11_XRANDR
+    XRRScreenConfiguration* screen_config;
+    int saved_size_id;
+    Rotation saved_rotation;
+#endif
+#if SDL_VIDEO_DRIVER_X11_VIDMODE
     SDL_NAME(XF86VidModeModeInfo) saved_mode;
     struct {
         int x, y;
     } saved_view;
 #endif
-#ifdef HAVE_XIGXME /* XiG XME fullscreen */
-    int use_xme;
+#if SDL_VIDEO_DRIVER_X11_XME /* XiG XME fullscreen */
     XiGMiscResolutionInfo saved_res;
 #endif
 
-    int xinerama_x;
-    int xinerama_y;
+    int use_xinerama;
+    int use_xrandr;
     int use_vidmode;
+    int use_xme;
     int currently_fullscreen;
 
     /* Automatic mode switching support (entering/leaving fullscreen) */
@@ -143,6 +151,9 @@ struct SDL_PrivateVideoData {
     int gamma_changed;		/* flag: has VidMode gamma been modified? */
 
     short *iconcolors;		/* List of colors used by the icon */
+
+    /* Screensaver settings */
+    int allow_screensaver;
 };
 
 /* Old variable names */
@@ -150,34 +161,38 @@ struct SDL_PrivateVideoData {
 #define SDL_Display		(this->hidden->X11_Display)
 #define GFX_Display		(this->hidden->GFX_Display)
 #define SDL_Screen		DefaultScreen(this->hidden->X11_Display)
-
 #define SDL_Visual		(this->hidden->vis)
-
 #define SDL_Root		RootWindow(SDL_Display, SDL_Screen)
 #define WMwindow		(this->hidden->WMwindow)
 #define FSwindow		(this->hidden->FSwindow)
 #define SDL_Window		(this->hidden->SDL_Window)
 #define WM_DELETE_WINDOW	(this->hidden->WM_DELETE_WINDOW)
 #define SDL_BlankCursor		(this->hidden->BlankCursor)
+#define SDL_IM			(this->hidden->X11_IM)
+#define SDL_IC			(this->hidden->X11_IC)
 #define SDL_windowid		(this->hidden->SDL_windowid)
 #define using_dga		(this->hidden->using_dga)
 #define use_mitshm		(this->hidden->use_mitshm)
 #define shminfo			(this->hidden->shminfo)
 #define SDL_Ximage		(this->hidden->Ximage)
 #define SDL_GC			(this->hidden->gc)
-#define current_w		(this->hidden->current_w)
-#define current_h		(this->hidden->current_h)
+#define window_w		(this->hidden->window_w)
+#define window_h		(this->hidden->window_h)
 #define mouse_last		(this->hidden->mouse_last)
 #define mouse_accel		(this->hidden->mouse_accel)
 #define mouse_relative		(this->hidden->mouse_relative)
 #define SDL_modelist		(this->hidden->modelist)
+#define xinerama_info		(this->hidden->xinerama_info)
 #define saved_mode		(this->hidden->saved_mode)
 #define saved_view		(this->hidden->saved_view)
-#define use_xme			(this->hidden->use_xme)
 #define saved_res		(this->hidden->saved_res)
-#define xinerama_x		(this->hidden->xinerama_x)
-#define xinerama_y		(this->hidden->xinerama_y)
+#define screen_config		(this->hidden->screen_config)
+#define saved_size_id		(this->hidden->saved_size_id)
+#define saved_rotation		(this->hidden->saved_rotation)
+#define use_xinerama		(this->hidden->use_xinerama)
 #define use_vidmode		(this->hidden->use_vidmode)
+#define use_xrandr		(this->hidden->use_xrandr)
+#define use_xme			(this->hidden->use_xme)
 #define currently_fullscreen	(this->hidden->currently_fullscreen)
 #define switch_waiting		(this->hidden->switch_waiting)
 #define switch_time		(this->hidden->switch_time)
@@ -189,10 +204,11 @@ struct SDL_PrivateVideoData {
 #define gamma_saved		(this->hidden->gamma_saved)
 #define gamma_changed		(this->hidden->gamma_changed)
 #define SDL_iconcolors		(this->hidden->iconcolors)
+#define allow_screensaver	(this->hidden->allow_screensaver)
 
 /* Some versions of XFree86 have bugs - detect if this is one of them */
 #define BUGGY_XFREE86(condition, buggy_version) \
-((strcmp(ServerVendor(SDL_Display), "The XFree86 Project, Inc") == 0) && \
+((SDL_strcmp(ServerVendor(SDL_Display), "The XFree86 Project, Inc") == 0) && \
  (VendorRelease(SDL_Display) condition buggy_version))
 
 #endif /* _SDL_x11video_h */

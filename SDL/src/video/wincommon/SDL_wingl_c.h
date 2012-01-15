@@ -1,44 +1,40 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_wingl_c.h,v 1.6 2004/01/04 16:49:27 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* WGL implementation of SDL OpenGL support */
 
-#include "SDL_sysvideo.h"
+#include "../SDL_sysvideo.h"
 
 
 struct SDL_PrivateGLData {
     int gl_active; /* to stop switching drivers while we have a valid context */
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
     PIXELFORMATDESCRIPTOR GL_pfd;
     HDC GL_hdc;
     HGLRC GL_hrc;
     int pixel_format;
-    int wgl_arb_pixel_format;
+    int WGL_ARB_pixel_format;
 
     void * (WINAPI *wglGetProcAddress)(const char *proc);
 
@@ -48,16 +44,14 @@ struct SDL_PrivateGLData {
 
     BOOL (WINAPI *wglMakeCurrent)(HDC hdc, HGLRC hglrc);
    
-    BOOL (WINAPI *wglChoosePixelFormatARB)(HDC hdc, const int *piAttribIList,
-                                           const FLOAT *pfAttribFList,
-                                           UINT nMaxFormats, int *piFormats,
-                                           UINT *nNumFormats);
     BOOL (WINAPI *wglGetPixelFormatAttribivARB)(HDC hdc, int iPixelFormat,
                                                 int iLayerPlane,
                                                 UINT nAttributes, 
                                                 const int *piAttributes,
                                                 int *piValues);
-#endif /* HAVE_OPENGL */
+    void (WINAPI *wglSwapIntervalEXT)(int interval);
+    int (WINAPI *wglGetSwapIntervalEXT)(void);
+#endif /* SDL_VIDEO_OPENGL */
 };
 
 /* Old variable names */
@@ -70,7 +64,7 @@ struct SDL_PrivateGLData {
 /* OpenGL functions */
 extern int WIN_GL_SetupWindow(_THIS);
 extern void WIN_GL_ShutDown(_THIS);
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 extern int WIN_GL_MakeCurrent(_THIS);
 extern int WIN_GL_GetAttribute(_THIS, SDL_GLattr attrib, int* value);
 extern void WIN_GL_SwapBuffers(_THIS);
@@ -79,7 +73,7 @@ extern int WIN_GL_LoadLibrary(_THIS, const char* path);
 extern void *WIN_GL_GetProcAddress(_THIS, const char* proc);
 #endif
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 
 #ifndef WGL_ARB_pixel_format
 #define WGL_NUMBER_PIXEL_FORMATS_ARB   0x2000

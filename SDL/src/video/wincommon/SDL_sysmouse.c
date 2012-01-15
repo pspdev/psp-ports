@@ -1,38 +1,33 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997, 1998, 1999  Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_sysmouse.c,v 1.7 2002/10/11 08:09:26 slouken Exp $";
-#endif
-
-#include <stdlib.h>
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#include "SDL_error.h"
 #include "SDL_mouse.h"
+#include "../../events/SDL_events_c.h"
+#include "../SDL_cursor_c.h"
 #include "SDL_sysmouse_c.h"
-#include "SDL_events_c.h"
-#include "SDL_cursor_c.h"
 #include "SDL_lowvideo.h"
 
 #ifdef _WIN32_WCE
@@ -100,11 +95,11 @@ void WIN_FreeWMCursor(_THIS, WMcursor *cursor)
 	if ( cursor->curs != NULL )
 		DestroyCursor(cursor->curs);
 	if ( cursor->ands != NULL )
-		free(cursor->ands);
+		SDL_free(cursor->ands);
 	if ( cursor->xors != NULL )
-		free(cursor->xors);
+		SDL_free(cursor->xors);
 #endif /* !USE_STATIC_CURSOR */
-	free(cursor);
+	SDL_free(cursor);
 }
 
 WMcursor *WIN_CreateWMCursor(_THIS,
@@ -114,7 +109,7 @@ WMcursor *WIN_CreateWMCursor(_THIS,
 	WMcursor *cursor;
 
 	/* Allocate the cursor */
-	cursor = (WMcursor *)malloc(sizeof(*cursor));
+	cursor = (WMcursor *)SDL_malloc(sizeof(*cursor));
 	if ( cursor ) {
 		cursor->curs = LoadCursor(NULL, IDC_ARROW);
 	}
@@ -136,7 +131,7 @@ WMcursor *WIN_CreateWMCursor(_THIS,
 	}
 
 	/* Allocate the cursor */
-	cursor = (WMcursor *)malloc(sizeof(*cursor));
+	cursor = (WMcursor *)SDL_malloc(sizeof(*cursor));
 	if ( cursor == NULL ) {
 		SDL_SetError("Out of memory");
 		return(NULL);
@@ -148,8 +143,8 @@ WMcursor *WIN_CreateWMCursor(_THIS,
 	/* Pad out to the normal cursor size */
 	run = PAD_BITS(w);
 	pad = PAD_BITS(allowed_x)-run;
-	aptr = cursor->ands = (Uint8 *)malloc((run+pad)*allowed_y);
-	xptr = cursor->xors = (Uint8 *)malloc((run+pad)*allowed_y);
+	aptr = cursor->ands = (Uint8 *)SDL_malloc((run+pad)*allowed_y);
+	xptr = cursor->xors = (Uint8 *)SDL_malloc((run+pad)*allowed_y);
 	if ( (aptr == NULL) || (xptr == NULL) ) {
 		WIN_FreeWMCursor(NULL, cursor);
 		SDL_OutOfMemory();
@@ -162,22 +157,22 @@ WMcursor *WIN_CreateWMCursor(_THIS,
 		memnot(aptr, mask, run);
 		mask += run;
 		aptr += run;
-		memset(xptr,  0, pad);
+		SDL_memset(xptr,  0, pad);
 		xptr += pad;
-		memset(aptr, ~0, pad);
+		SDL_memset(aptr, ~0, pad);
 		aptr += pad;
 	}
 	pad += run;
 	for ( ; i<allowed_y; ++i ) {
-		memset(xptr,  0, pad);
+		SDL_memset(xptr,  0, pad);
 		xptr += pad;
-		memset(aptr, ~0, pad);
+		SDL_memset(aptr, ~0, pad);
 		aptr += pad;
 	}
 
 	/* Create the cursor */
 	cursor->curs = CreateCursor(
-			(HINSTANCE)GetWindowLong(SDL_Window, GWL_HINSTANCE),
+			(HINSTANCE)GetWindowLongPtr(SDL_Window, GWLP_HINSTANCE),
 					hot_x, hot_y, allowed_x, allowed_y, 
 						cursor->ands, cursor->xors);
 	if ( cursor->curs == NULL ) {
@@ -193,8 +188,7 @@ int WIN_ShowWMCursor(_THIS, WMcursor *cursor)
 {
 	POINT mouse_pos;
 
-	/* The fullscreen cursor must be done in software with DirectInput */
-	if ( !this->screen || DDRAW_FULLSCREEN() ) {
+	if ( !this->screen ) {
 		return(0);
 	}
 
@@ -213,15 +207,20 @@ int WIN_ShowWMCursor(_THIS, WMcursor *cursor)
 
 void WIN_WarpWMCursor(_THIS, Uint16 x, Uint16 y)
 {
-	if ( DDRAW_FULLSCREEN() ) {
-		SDL_PrivateMouseMotion(0, 0, x, y);
-	} else if ( mouse_relative) {
+	if ( mouse_relative) {
 		/*	RJR: March 28, 2000
 			leave physical cursor at center of screen if
 			mouse hidden and grabbed */
 		SDL_PrivateMouseMotion(0, 0, x, y);
 	} else {
 		POINT pt;
+
+		/* With DirectInput the position doesn't follow
+		 * the cursor, so it is set manually */
+		if ( DINPUT() ) {
+			SDL_PrivateMouseMotion(0, 0, x, y);
+		}
+
 		pt.x = x;
 		pt.y = y;
 		ClientToScreen(SDL_Window, &pt);
@@ -232,25 +231,21 @@ void WIN_WarpWMCursor(_THIS, Uint16 x, Uint16 y)
 /* Update the current mouse state and position */
 void WIN_UpdateMouse(_THIS)
 {
-	RECT rect;
 	POINT pt;
 
-	if ( ! DDRAW_FULLSCREEN() ) {
-		GetClientRect(SDL_Window, &rect);
-		GetCursorPos(&pt);
-		MapWindowPoints(NULL, SDL_Window, &pt, 1);
-		if (PtInRect(&rect, pt) && (WindowFromPoint(pt) == SDL_Window)){
-			SDL_PrivateAppActive(1, SDL_APPMOUSEFOCUS);
-			SDL_PrivateMouseMotion(0,0, (Sint16)pt.x, (Sint16)pt.y);
-		} else {
-			SDL_PrivateAppActive(0, SDL_APPMOUSEFOCUS);
-		}
-	}
+	/* Always unset SDL_APPMOUSEFOCUS to give the WM_MOUSEMOVE event
+	 * handler a chance to install a TRACKMOUSEEVENT */
+	SDL_PrivateAppActive(0, SDL_APPMOUSEFOCUS);
+
+	GetCursorPos(&pt);
+	ScreenToClient(SDL_Window, &pt);
+	SDL_PrivateMouseMotion(0,0, (Sint16)pt.x, (Sint16)pt.y);
 }
 
 /* Check to see if we need to enter or leave mouse relative mode */
 void WIN_CheckMouseMode(_THIS)
 {
+#ifndef _WIN32_WCE 
         /* If the mouse is hidden and input is grabbed, we use relative mode */
         if ( !(SDL_cursorstate & CURSOR_VISIBLE) &&
              (this->input_grab != SDL_GRAB_OFF) ) {
@@ -258,4 +253,7 @@ void WIN_CheckMouseMode(_THIS)
         } else {
                 mouse_relative = 0;
         }
+#else
+		mouse_relative =  0; 
+#endif
 }

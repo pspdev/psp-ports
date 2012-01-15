@@ -1,33 +1,28 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_macgl.c,v 1.9 2004/01/05 01:34:34 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* AGL implementation of SDL OpenGL support */
 
-#include "SDL_error.h"
 #include "SDL_lowvideo.h"
 #include "SDL_macgl_c.h"
 #include "SDL_loadso.h"
@@ -36,12 +31,20 @@ static char rcsid =
 /* krat: adding OpenGL support */
 int Mac_GL_Init(_THIS)
 {
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	AGLPixelFormat format;
    	int i = 0;
-	GLint attributes [ 24 ]; /* 24 is max possible in this setup */
+	GLint attributes [ 26 ]; /* 26 is max possible in this setup */
 	GLboolean noerr;
    
+	/* load the gl driver from a default path */
+	if ( ! this->gl_config.driver_loaded ) {
+		/* no driver has been loaded, use default (ourselves) */
+		if ( Mac_GL_LoadLibrary(this, NULL) < 0 ) {
+			return(-1);
+		}
+	}
+
 	attributes[i++] = AGL_RGBA;
 	if ( this->gl_config.red_size   != 0 &&
 	     this->gl_config.blue_size  != 0 &&
@@ -92,6 +95,11 @@ int Mac_GL_Init(_THIS)
 		attributes[i++] = this->gl_config.multisamplesamples;
 	}	
 #endif
+	if ( this->gl_config.accelerated > 0 ) {
+		attributes[i++] = AGL_ACCELERATED;
+		attributes[i++] = AGL_NO_RECOVERY;
+	}
+
 	attributes[i++] = AGL_ALL_RENDERERS;
 	attributes[i]	= AGL_NONE;
 
@@ -109,7 +117,7 @@ int Mac_GL_Init(_THIS)
 	aglDestroyPixelFormat(format);
 
     #if  TARGET_API_MAC_CARBON
-    noerr = aglSetDrawable(glContext, GetWindowPort(SDL_Window));
+	noerr = aglSetDrawable(glContext, GetWindowPort(SDL_Window));
     #else
 	noerr = aglSetDrawable(glContext, (AGLDrawable)SDL_Window);
     #endif
@@ -127,7 +135,7 @@ int Mac_GL_Init(_THIS)
 
 void Mac_GL_Quit(_THIS)
 {
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	if ( glContext != NULL ) {
 		aglSetCurrentContext(NULL);
 		aglSetDrawable(glContext, NULL);
@@ -137,7 +145,7 @@ void Mac_GL_Quit(_THIS)
 #endif
 }
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 
 /* Make the current context active */
 int Mac_GL_MakeCurrent(_THIS)
@@ -160,7 +168,11 @@ void Mac_GL_SwapBuffers(_THIS)
 int Mac_GL_LoadLibrary(_THIS, const char *location)
 {
 	if (location == NULL)
+#if __MACH__
+		location = "/System/Library/Frameworks/OpenGL.framework/OpenGL";
+#else
 		location = "OpenGLLibrary";
+#endif
 
 	this->hidden->libraryHandle = SDL_LoadObject(location);
 
@@ -181,5 +193,5 @@ void* Mac_GL_GetProcAddress(_THIS, const char *proc)
 	return SDL_LoadFunction( this->hidden->libraryHandle, proc );
 }
 
-#endif /* HAVE_OPENGL */
+#endif /* SDL_VIDEO_OPENGL */
 

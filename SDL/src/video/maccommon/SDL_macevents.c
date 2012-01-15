@@ -1,33 +1,31 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_macevents.c,v 1.10 2004/01/05 01:34:34 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 #include <stdio.h>
 
-#if TARGET_API_MAC_CARBON
+#if defined(__APPLE__) && defined(__MACH__)
+#include <Carbon/Carbon.h>
+#elif TARGET_API_MAC_CARBON && (UNIVERSAL_INTERFACES_VERSION > 0x0335)
 #include <Carbon.h>
 #else
 #include <Script.h>
@@ -39,11 +37,10 @@ static char rcsid =
 
 #include "SDL_events.h"
 #include "SDL_video.h"
-#include "SDL_error.h"
 #include "SDL_syswm.h"
-#include "SDL_events_c.h"
-#include "SDL_cursor_c.h"
-#include "SDL_sysevents.h"
+#include "../../events/SDL_events_c.h"
+#include "../../events/SDL_sysevents.h"
+#include "../SDL_cursor_c.h"
 #include "SDL_macevents_c.h"
 #include "SDL_mackeys.h"
 #include "SDL_macmouse_c.h"
@@ -162,6 +159,8 @@ static int Mac_HandleEvents(_THIS, int wait4it)
 	/* Check the current state of the keyboard */
 	if ( SDL_GetAppState() & SDL_APPINPUTFOCUS ) {
 		KeyMap keys;
+		const Uint32 *keysptr = (Uint32 *) &keys;
+		const Uint32 *last_keysptr = (Uint32 *) &last_keys;
 
 		/* Check for special non-event keys */
 		if ( event.modifiers != last_mods ) {
@@ -213,12 +212,14 @@ static int Mac_HandleEvents(_THIS, int wait4it)
 		}
 
 		/* Check for normal event keys, but we have to scan the
-		   actual keyboard state because on MacOS X a keydown event
+		   actual keyboard state because on Mac OS X a keydown event
 		   is immediately followed by a keyup event.
 		*/
 		GetKeys(keys);
-		if ( (keys[0] != last_keys[0]) || (keys[1] != last_keys[1]) ||
-		     (keys[2] != last_keys[2]) || (keys[3] != last_keys[3]) ) {
+		if ( (keysptr[0] != last_keysptr[0]) ||
+		     (keysptr[1] != last_keysptr[1]) ||
+		     (keysptr[2] != last_keysptr[2]) ||
+		     (keysptr[3] != last_keysptr[3]) ) {
 			SDL_keysym keysym;
 			int old_bit, new_bit;
 
@@ -384,7 +385,7 @@ static int Mac_HandleEvents(_THIS, int wait4it)
 #endif
 	  case updateEvt: {
 		BeginUpdate(SDL_Window);
-	#ifdef HAVE_OPENGL
+	#if SDL_VIDEO_OPENGL
 		if (SDL_VideoSurface->flags & SDL_OPENGL)
 			SDL_GL_SwapBuffers();
 		else
@@ -461,7 +462,7 @@ void Mac_InitOSKeymap(_THIS)
 	int world = SDLK_WORLD_0;
 
 	/* Map the MAC keysyms */
-	for ( i=0; i<SDL_TABLESIZE(MAC_keymap); ++i )
+	for ( i=0; i<SDL_arraysize(MAC_keymap); ++i )
 		MAC_keymap[i] = SDLK_UNKNOWN;
 
 	/* Defined MAC_* constants */
@@ -576,7 +577,7 @@ void Mac_InitOSKeymap(_THIS)
 	MAC_keymap[MK_KP_PERIOD] = SDLK_KP_PERIOD;
 
 #if defined(__APPLE__) && defined(__MACH__)
-	/* Wierd, these keys are on my iBook under MacOS X
+	/* Wierd, these keys are on my iBook under Mac OS X
 	   Note that the left arrow keysym is the same as left ctrl!?
 	 */
 	MAC_keymap[MK_IBOOK_ENTER] = SDLK_KP_ENTER;
@@ -584,7 +585,7 @@ void Mac_InitOSKeymap(_THIS)
 	MAC_keymap[MK_IBOOK_DOWN] = SDLK_DOWN;
 	MAC_keymap[MK_IBOOK_UP] = SDLK_UP;
 	MAC_keymap[MK_IBOOK_LEFT] = SDLK_LEFT;
-#endif /* MacOS X */
+#endif /* Mac OS X */
 
 	/* Up there we setup a static scancode->keysym map. However, it will not
 	 * work very well on international keyboard. Hence we now query MacOS
@@ -733,11 +734,13 @@ static void Mac_DoAppleMenu(_THIS, long choice)
 
 #if !TARGET_API_MAC_CARBON
 /* Since we don't initialize QuickDraw, we need to get a pointer to qd */
-QDGlobals *theQD = NULL;
+struct QDGlobals *theQD = NULL;
+#endif
 
 /* Exported to the macmain code */
 void SDL_InitQuickDraw(struct QDGlobals *the_qd)
 {
+#if !TARGET_API_MAC_CARBON
 	theQD = the_qd;
-}
 #endif
+}

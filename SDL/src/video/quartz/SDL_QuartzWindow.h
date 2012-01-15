@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2003  Sam Lantinga
+    Copyright (C) 1997-2009  Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,16 +19,25 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 1050
+typedef unsigned int NSUInteger;
+#endif
 
 /* Subclass of NSWindow to fix genie effect and support resize events  */
 @interface SDL_QuartzWindow : NSWindow
+{
+	BOOL watchForMouseUp;
+}
+
 - (void)miniaturize:(id)sender;
 - (void)display;
 - (void)setFrame:(NSRect)frameRect display:(BOOL)flag;
 - (void)appDidHide:(NSNotification*)note;
 - (void)appWillUnhide:(NSNotification*)note;
 - (void)appDidUnhide:(NSNotification*)note;
-- (id)initWithContentRect:(NSRect)contentRect styleMask:(unsigned int)styleMask backing:(NSBackingStoreType)backingType defer:(BOOL)flag;
+- (id)initWithContentRect:(NSRect)contentRect styleMask:(NSUInteger)styleMask backing:(NSBackingStoreType)backingType defer:(BOOL)flag;
 @end
 
 /* Delegate for our NSWindow to send SDLQuit() on close */
@@ -36,3 +45,7 @@
 - (BOOL)windowShouldClose:(id)sender;
 @end
 
+/* Subclass of NSView to set cursor rectangle */
+@interface SDL_QuartzView : NSView
+- (void)resetCursorRects;
+@end

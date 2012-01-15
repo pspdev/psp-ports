@@ -5,10 +5,17 @@
     Feel free to customize this file to suit your needs
 */
 
-#import "SDL.h"
-#import "SDLMain.h"
-#import <sys/param.h> /* for MAXPATHLEN */
-#import <unistd.h>
+#include "SDL.h"
+#include "SDLMain.h"
+#include <sys/param.h> /* for MAXPATHLEN */
+#include <unistd.h>
+
+/* For some reaon, Apple removed setAppleMenu from the headers in 10.4,
+ but the method still is there and works. To avoid warnings, we declare
+ it ourselves here. */
+@interface NSApplication(SDL_Missing_Methods)
+- (void)setAppleMenu:(NSMenu *)menu;
+@end
 
 /* Use this flag to determine whether we use SDLMain.nib or not */
 #define		SDL_USE_NIB_FILE	0
@@ -32,14 +39,15 @@ extern OSErr	CPSSetFrontProcess( CPSProcessSerNum *psn);
 static int    gArgc;
 static char  **gArgv;
 static BOOL   gFinderLaunch;
+static BOOL   gCalledAppMainline = FALSE;
 
 static NSString *getApplicationName(void)
 {
-    NSDictionary *dict;
+    const NSDictionary *dict;
     NSString *appName = 0;
 
     /* Determine the application name */
-    dict = (NSDictionary *)CFBundleGetInfoDictionary(CFBundleGetMainBundle());
+    dict = (const NSDictionary *)CFBundleGetInfoDictionary(CFBundleGetMainBundle());
     if (dict)
         appName = [dict objectForKey: @"CFBundleName"];
     
@@ -56,10 +64,10 @@ static NSString *getApplicationName(void)
 @end
 #endif
 
-@interface SDLApplication : NSApplication
+@interface NSApplication (SDLApplication)
 @end
 
-@implementation SDLApplication
+@implementation NSApplication (SDLApplication)
 /* Invoked from the Quit menu item */
 - (void)terminate:(id)sender
 {
@@ -79,15 +87,14 @@ static NSString *getApplicationName(void)
     if (shouldChdir)
     {
         char parentdir[MAXPATHLEN];
-		CFURLRef url = CFBundleCopyBundleURL(CFBundleGetMainBundle());
-		CFURLRef url2 = CFURLCreateCopyDeletingLastPathComponent(0, url);
-		if (CFURLGetFileSystemRepresentation(url2, true, parentdir, MAXPATHLEN)) {
-	        assert ( chdir (parentdir) == 0 );   /* chdir to the binary app's parent */
-		}
-		CFRelease(url);
-		CFRelease(url2);
-	}
-
+        CFURLRef url = CFBundleCopyBundleURL(CFBundleGetMainBundle());
+        CFURLRef url2 = CFURLCreateCopyDeletingLastPathComponent(0, url);
+        if (CFURLGetFileSystemRepresentation(url2, 1, (UInt8 *)parentdir, MAXPATHLEN)) {
+            chdir(parentdir);   /* chdir to the binary app's parent */
+        }
+        CFRelease(url);
+        CFRelease(url2);
+    }
 }
 
 #if SDL_USE_NIB_FILE
@@ -112,7 +119,6 @@ static NSString *getApplicationName(void)
         if ([menuItem hasSubmenu])
             [self fixMenu:[menuItem submenu] withAppName:appName];
     }
-    [ aMenu sizeToFit ];
 }
 
 #else
@@ -189,13 +195,13 @@ static void setupWindowMenu(void)
 }
 
 /* Replacement for NSApplicationMain */
-static void CustomApplicationMain (argc, argv)
+static void CustomApplicationMain (int argc, char **argv)
 {
     NSAutoreleasePool	*pool = [[NSAutoreleasePool alloc] init];
     SDLMain				*sdlMain;
 
     /* Ensure the application object is initialised */
-    [SDLApplication sharedApplication];
+    [NSApplication sharedApplication];
     
 #ifdef SDL_USE_CPS
     {
@@ -204,7 +210,7 @@ static void CustomApplicationMain (argc, argv)
         if (!CPSGetCurrentProcess(&PSN))
             if (!CPSEnableForegroundOperation(&PSN,0x03,0x3C,0x2C,0x1103))
                 if (!CPSSetFrontProcess(&PSN))
-                    [SDLApplication sharedApplication];
+                    [NSApplication sharedApplication];
     }
 #endif /* SDL_USE_CPS */
 
@@ -226,6 +232,56 @@ static void CustomApplicationMain (argc, argv)
 
 #endif
 
+
+/*
+ * Catch document open requests...this lets us notice files when the app
+ *  was launched by double-clicking a document, or when a document was
+ *  dragged/dropped on the app's icon. You need to have a
+ *  CFBundleDocumentsType section in your Info.plist to get this message,
+ *  apparently.
+ *
+ * Files are added to gArgv, so to the app, they'll look like command line
+ *  arguments. Previously, apps launched from the finder had nothing but
+ *  an argv[0].
+ *
+ * This message may be received multiple times to open several docs on launch.
+ *
+ * This message is ignored once the app's mainline has been called.
+ */
+- (BOOL)application:(NSApplication *)theApplication openFile:(NSString *)filename
+{
+    const char *temparg;
+    size_t arglen;
+    char *arg;
+    char **newargv;
+
+    if (!gFinderLaunch)  /* MacOS is passing command line args. */
+        return FALSE;
+
+    if (gCalledAppMainline)  /* app has started, ignore this document. */
+        return FALSE;
+
+    temparg = [filename UTF8String];
+    arglen = SDL_strlen(temparg) + 1;
+    arg = (char *) SDL_malloc(arglen);
+    if (arg == NULL)
+        return FALSE;
+
+    newargv = (char **) realloc(gArgv, sizeof (char *) * (gArgc + 2));
+    if (newargv == NULL)
+    {
+        SDL_free(arg);
+        return FALSE;
+    }
+    gArgv = newargv;
+
+    SDL_strlcpy(arg, temparg, arglen);
+    gArgv[gArgc++] = arg;
+    gArgv[gArgc] = NULL;
+    return TRUE;
+}
+
+
 /* Called when the internal event loop has just started running */
 - (void) applicationDidFinishLaunching: (NSNotification *) note
 {
@@ -240,6 +296,7 @@ static void CustomApplicationMain (argc, argv)
 #endif
 
     /* Hand off to main application code */
+    gCalledAppMainline = TRUE;
     status = SDL_main (gArgc, gArgv);
 
     /* We're done, thank you for playing */
@@ -260,7 +317,7 @@ static void CustomApplicationMain (argc, argv)
     NSString *result;
 
     bufferSize = selfLen + aStringLen - aRange.length;
-    buffer = NSAllocateMemoryPages(bufferSize*sizeof(unichar));
+    buffer = (unichar *)NSAllocateMemoryPages(bufferSize*sizeof(unichar));
     
     /* Get first part into buffer */
     localRange.location = 0;
@@ -300,19 +357,25 @@ int main (int argc, char **argv)
     /* Copy the arguments into a global variable */
     /* This is passed if we are launched by double-clicking */
     if ( argc >= 2 && strncmp (argv[1], "-psn", 4) == 0 ) {
+        gArgv = (char **) SDL_malloc(sizeof (char *) * 2);
+        gArgv[0] = argv[0];
+        gArgv[1] = NULL;
         gArgc = 1;
         gFinderLaunch = YES;
     } else {
+        int i;
         gArgc = argc;
+        gArgv = (char **) SDL_malloc(sizeof (char *) * (argc+1));
+        for (i = 0; i <= argc; i++)
+            gArgv[i] = argv[i];
         gFinderLaunch = NO;
     }
-    gArgv = argv;
 
 #if SDL_USE_NIB_FILE
-    [SDLApplication poseAsClass:[NSApplication class]];
     NSApplicationMain (argc, argv);
 #else
     CustomApplicationMain (argc, argv);
 #endif
     return 0;
 }
+

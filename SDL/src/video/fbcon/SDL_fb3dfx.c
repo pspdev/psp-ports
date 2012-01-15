@@ -1,33 +1,28 @@
 /*
-	SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    SDL - Simple DirectMedia Layer
+    Copyright (C) 1997-2009 Sam Lantinga
 
-	This library is free software; you can redistribute it and/or
-	modify it under the terms of the GNU Library General Public
-	License as published by the Free Software Foundation; either
-	version 2 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-	This library is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-	Library General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-	You should have received a copy of the GNU Library General Public
-	License along with this library; if not, write to the Free
-	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-	Sam Lantinga
-	slouken@libsdl.org
+    Sam Lantinga
+    slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_fb3dfx.c,v 1.7 2004/01/04 16:49:25 slouken Exp $";
-#endif
-
-#include "SDL_types.h"
 #include "SDL_video.h"
-#include "SDL_blit.h"
+#include "../SDL_blit.h"
 #include "SDL_fb3dfx.h"
 #include "3dfx_mmio.h"
 
@@ -57,17 +52,20 @@ static int SetHWColorKey(_THIS, SDL_Surface *surface, Uint32 key)
 static int FillHWRect(_THIS, SDL_Surface *dst, SDL_Rect *rect, Uint32 color)
 {
 	int bpp;
-	char *dst_base;
+	Uint32 dst_base;
 	Uint32 format;
 	int dstX, dstY;
 
 	/* Don't blit to the display surface when switched away */
+	if ( switched_away ) {
+		return -2; /* no hardware access */
+	}
 	if ( dst == this->screen ) {
 		SDL_mutexP(hw_lock);
 	}
 
 	/* Set the destination pixel format */
-	dst_base = (char *)((char *)dst->pixels - mapped_mem);
+	dst_base = ((char *)dst->pixels - mapped_mem);
 	bpp = dst->format->BitsPerPixel;
 	format = dst->pitch | ((bpp+((bpp==8) ? 0 : 8)) << 13);
 
@@ -77,7 +75,7 @@ static int FillHWRect(_THIS, SDL_Surface *dst, SDL_Rect *rect, Uint32 color)
 
 	/* Execute the fill command */
 	tdfx_wait(6);
-	tdfx_out32(DSTBASE, (Uint32)dst_base);
+	tdfx_out32(DSTBASE, dst_base);
 	tdfx_out32(DSTFORMAT, format);
 	tdfx_out32(COLORFORE, color);
 	tdfx_out32(COMMAND_2D, COMMAND_2D_FILLRECT);
@@ -99,23 +97,26 @@ static int HWAccelBlit(SDL_Surface *src, SDL_Rect *srcrect,
 	int bpp;
 	Uint32 src_format;
 	Uint32 dst_format;
-	char *src_base;
-	char *dst_base;
+	Uint32 src_base;
+	Uint32 dst_base;
 	int srcX, srcY;
 	int dstX, dstY;
 	Uint32 blitop;
 	Uint32 use_colorkey;
 
 	/* Don't blit to the display surface when switched away */
+	if ( switched_away ) {
+		return -2; /* no hardware access */
+	}
 	if ( dst == this->screen ) {
 		SDL_mutexP(hw_lock);
 	}
 
 	/* Set the source and destination pixel format */
-	src_base = (char *)((char *)src->pixels - mapped_mem);
+	src_base = ((char *)src->pixels - mapped_mem);
 	bpp = src->format->BitsPerPixel;
 	src_format = src->pitch | ((bpp+((bpp==8) ? 0 : 8)) << 13);
-	dst_base = (char *)((char *)dst->pixels - mapped_mem);
+	dst_base = ((char *)dst->pixels - mapped_mem);
 	bpp = dst->format->BitsPerPixel;
 	dst_format = dst->pitch | ((bpp+((bpp==8) ? 0 : 8)) << 13);
 

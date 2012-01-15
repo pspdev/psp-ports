@@ -1,53 +1,45 @@
 /*
-	SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    SDL - Simple DirectMedia Layer
+    Copyright (C) 1997-2009 Sam Lantinga
 
-	This library is free software; you can redistribute it and/or
-	modify it under the terms of the GNU Library General Public
-	License as published by the Free Software Foundation; either
-	version 2 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-	This library is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-	Library General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-	You should have received a copy of the GNU Library General Public
-	License along with this library; if not, write to the Free
-	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-	Sam Lantinga
-	slouken@libsdl.org
+    Sam Lantinga
+    slouken@libsdl.org
 
 	MGA CRTC2 support by Thomas Jarosch - tomj@simonv.com
 	CRTC2 support is inspired by mplayer's dfbmga driver
 	written by Ville Syrj��<syrjala@sci.fi>
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_DirectFB_video.c,v 1.20 2005/01/17 19:38:28 icculus Exp $";
-#endif
+#include "SDL_config.h"
 
 /* DirectFB video driver implementation.
 */
 
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
 
 #include <directfb.h>
+#include <directfb_version.h>
 
-#include "SDL.h"
-#include "SDL_error.h"
 #include "SDL_video.h"
 #include "SDL_mouse.h"
-#include "SDL_sysvideo.h"
-#include "SDL_pixels_c.h"
-#include "SDL_events_c.h"
+#include "../SDL_sysvideo.h"
+#include "../SDL_pixels_c.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_DirectFB_video.h"
 #include "SDL_DirectFB_events.h"
 #include "SDL_DirectFB_yuv.h"
@@ -102,8 +94,8 @@ static int DirectFB_Available(void)
 
 static void DirectFB_DeleteDevice(SDL_VideoDevice *device)
 {
-  free(device->hidden);
-  free(device);
+  SDL_free(device->hidden);
+  SDL_free(device);
 }
 
 static SDL_VideoDevice *DirectFB_CreateDevice(int devindex)
@@ -111,10 +103,10 @@ static SDL_VideoDevice *DirectFB_CreateDevice(int devindex)
   SDL_VideoDevice *device;
 
   /* Initialize all variables that we clean on shutdown */
-  device = (SDL_VideoDevice *)malloc(sizeof(SDL_VideoDevice));
+  device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
   if (device)
     {
-      memset (device, 0, (sizeof *device));
+      SDL_memset (device, 0, (sizeof *device));
       device->hidden = (struct SDL_PrivateVideoData *) malloc (sizeof (*device->hidden));
     }
   if (device == NULL  ||  device->hidden == NULL)
@@ -126,7 +118,7 @@ static SDL_VideoDevice *DirectFB_CreateDevice(int devindex)
         }
       return(0);
     }
-  memset (device->hidden, 0, sizeof (*device->hidden));
+  SDL_memset (device->hidden, 0, sizeof (*device->hidden));
 
   /* Set the function pointers */
   device->VideoInit = DirectFB_VideoInit;
@@ -199,7 +191,10 @@ static DFBEnumerationResult EnumModesCallback (int  width,
 
   HIDDEN->nummodes++;
 
-  enumrect = calloc(1, sizeof(struct DirectFBEnumRect));
+  if (enumlist && enumlist->r.w == width && enumlist->r.h == height)
+    return DFENUM_OK;
+
+  enumrect = SDL_calloc(1, sizeof(struct DirectFBEnumRect));
   if (!enumrect)
     {
       SDL_OutOfMemory();
@@ -298,14 +293,14 @@ static SDL_Palette *AllocatePalette(int size)
   SDL_Palette *palette;
   SDL_Color   *colors;
 
-  palette = calloc (1, sizeof(SDL_Palette));
+  palette = SDL_calloc (1, sizeof(SDL_Palette));
   if (!palette)
     {
       SDL_OutOfMemory();
       return NULL;
     }
 
-  colors = calloc (size, sizeof(SDL_Color));
+  colors = SDL_calloc (size, sizeof(SDL_Color));
   if (!colors)
     {
       SDL_OutOfMemory();
@@ -376,7 +371,11 @@ int DirectFB_VideoInit(_THIS, SDL_PixelFormat *vformat)
 {
   int                      i;
   DFBResult                ret;
+#if (DIRECTFB_MAJOR_VERSION == 0) && (DIRECTFB_MINOR_VERSION == 9) && (DIRECTFB_MICRO_VERSION < 23)
   DFBCardCapabilities      caps;
+#else
+  DFBGraphicsDeviceDescription caps;
+#endif
   DFBDisplayLayerConfig    dlc;
   struct DirectFBEnumRect *rect;
   IDirectFB               *dfb    = NULL;
@@ -432,7 +431,7 @@ int DirectFB_VideoInit(_THIS, SDL_PixelFormat *vformat)
       goto error;
     }
 
-  HIDDEN->modelist = calloc (HIDDEN->nummodes + 1, sizeof(SDL_Rect *));
+  HIDDEN->modelist = SDL_calloc (HIDDEN->nummodes + 1, sizeof(SDL_Rect *));
   if (!HIDDEN->modelist)
     {
       SDL_OutOfMemory();
@@ -448,7 +447,11 @@ int DirectFB_VideoInit(_THIS, SDL_PixelFormat *vformat)
 
 
   /* Query card capabilities to get the video memory size */
+#if (DIRECTFB_MAJOR_VERSION == 0) && (DIRECTFB_MINOR_VERSION == 9) && (DIRECTFB_MICRO_VERSION < 23)
   dfb->GetCardCapabilities (dfb, &caps);
+#else
+  dfb->GetDeviceDescription (dfb, &caps);
+#endif
 
   this->info.wm_available = 1;
   this->info.hw_available = 1;
@@ -457,13 +460,15 @@ int DirectFB_VideoInit(_THIS, SDL_PixelFormat *vformat)
   this->info.blit_hw_A    = 1;
   this->info.blit_fill    = 1;
   this->info.video_mem    = caps.video_memory / 1024;
+  this->info.current_w    = dlc.width;  
+  this->info.current_h    = dlc.height;
 
   HIDDEN->initialized = 1;
   HIDDEN->dfb         = dfb;
   HIDDEN->layer       = layer;
   HIDDEN->eventbuffer = events;
 
-  if (getenv("SDL_DIRECTFB_MGA_CRTC2") != NULL)
+  if (SDL_getenv("SDL_DIRECTFB_MGA_CRTC2") != NULL)
     HIDDEN->enable_mga_crtc2 = 1;
   
   if (HIDDEN->enable_mga_crtc2)
@@ -537,10 +542,10 @@ int DirectFB_VideoInit(_THIS, SDL_PixelFormat *vformat)
       HIDDEN->c2layer->SetOpacity(HIDDEN->c2layer, 0xFF );
     
       /* Check if overscan is possibly set */
-      if (getenv("SDL_DIRECTFB_MGA_OVERSCAN") != NULL)
+      if (SDL_getenv("SDL_DIRECTFB_MGA_OVERSCAN") != NULL)
         {
 	    float overscan = 0;
-	    if (sscanf(getenv("SDL_DIRECTFB_MGA_OVERSCAN"), "%f", &overscan) == 1)
+	    if (SDL_sscanf(SDL_getenv("SDL_DIRECTFB_MGA_OVERSCAN"), "%f", &overscan) == 1)
                if (overscan > 0 && overscan < 2)
 		  HIDDEN->mga_crtc2_stretch_overscan = overscan;
 	}
@@ -610,7 +615,7 @@ static SDL_Surface *DirectFB_SetVideoMode(_THIS, SDL_Surface *current, int width
   else if (!current->hwdata)
     {
       /* Allocate the hardware acceleration data */
-      current->hwdata = (struct private_hwdata *) calloc (1, sizeof(*current->hwdata));
+      current->hwdata = (struct private_hwdata *) SDL_calloc (1, sizeof(*current->hwdata));
       if (!current->hwdata)
         {
           SDL_OutOfMemory();
@@ -710,7 +715,7 @@ static SDL_Surface *DirectFB_SetVideoMode(_THIS, SDL_Surface *current, int width
 
       HIDDEN->mga_crtc2_stretch = 0;
 
-      if (getenv("SDL_DIRECTFB_MGA_STRETCH") != NULL)
+      if (SDL_getenv("SDL_DIRECTFB_MGA_STRETCH") != NULL)
         {
 	    /* Normally assume a picture aspect ratio of 4:3 */
 	    int zoom_aspect_x = 4, zoom_aspect_y = 3, i, j;
@@ -817,7 +822,7 @@ static int DirectFB_AllocHWSurface(_THIS, SDL_Surface *surface)
     return -1;
 
   /* Allocate the hardware acceleration data */
-  surface->hwdata = (struct private_hwdata *) calloc (1, sizeof(*surface->hwdata));
+  surface->hwdata = (struct private_hwdata *) SDL_calloc (1, sizeof(*surface->hwdata));
   if (surface->hwdata == NULL)
     {
       SDL_OutOfMemory();
@@ -1082,7 +1087,7 @@ void DirectFB_VideoQuit(_THIS)
 {
   struct DirectFBEnumRect *rect    = enumlist;
 
-  if (this->screen->hwdata)
+  if (this->screen && this->screen->hwdata)
     {
       IDirectFBSurface        *surface = this->screen->hwdata->surface;
       IDirectFBPalette        *palette = this->screen->hwdata->palette;

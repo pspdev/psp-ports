@@ -1,34 +1,31 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-    char rcsid = "@(#) $Id: SDL_ph_gl.c,v 1.1 2004/07/18 19:46:37 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 #include <dlfcn.h>
 #include "SDL.h"
 #include "SDL_ph_gl.h"
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 
 #if (_NTO_VERSION >= 630)
     /* PhotonGL functions */
@@ -100,7 +97,7 @@ int ph_GL_GetAttribute(_THIS, SDL_GLattr attrib, int* value)
 #if (_NTO_VERSION < 630)
 int ph_GL_LoadLibrary(_THIS, const char* path)
 {
-    /* if code compiled with HAVE_OPENGL, that mean that library already linked */
+    /* if code compiled with SDL_VIDEO_OPENGL, that mean that library already linked */
     this->gl_config.driver_loaded = 1;
 
     return 0;
@@ -127,7 +124,7 @@ int ph_GL_LoadLibrary(_THIS, const char* path)
     this->gl_config.dll_handle = handle;
     this->gl_config.driver_loaded = 1;
 
-    strncpy(this->gl_config.driver_path, path, sizeof(this->gl_config.driver_path)-1);
+    SDL_strlcpy(this->gl_config.driver_path, path, SDL_arraysize(this->gl_config.driver_path));
 
     return 0;
 }
@@ -406,4 +403,4 @@ int ph_SetupOpenGLContext(_THIS, int width, int height, int bpp, Uint32 flags)
 
 #endif /* _NTO_VERSION */
 
-#endif /* HAVE_OPENGL */
+#endif /* SDL_VIDEO_OPENGL */

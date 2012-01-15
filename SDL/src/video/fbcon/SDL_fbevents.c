@@ -1,40 +1,34 @@
 /*
-	SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    SDL - Simple DirectMedia Layer
+    Copyright (C) 1997-2009 Sam Lantinga
 
-	This library is free software; you can redistribute it and/or
-	modify it under the terms of the GNU Library General Public
-	License as published by the Free Software Foundation; either
-	version 2 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-	This library is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-	Library General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-	You should have received a copy of the GNU Library General Public
-	License along with this library; if not, write to the Free
-	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-	Sam Lantinga
-	slouken@libsdl.org
+    Sam Lantinga
+    slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_fbevents.c,v 1.14 2005/01/04 19:04:14 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Handle the event stream, converting console events into SDL events */
 
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/ioctl.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <string.h>
 #include <errno.h>
 #include <limits.h>
 
@@ -46,11 +40,11 @@ static char rcsid =
 #include <linux/kd.h>
 #include <linux/keyboard.h>
 
-#include "SDL.h"
+#include "SDL_timer.h"
 #include "SDL_mutex.h"
-#include "SDL_sysevents.h"
-#include "SDL_sysvideo.h"
-#include "SDL_events_c.h"
+#include "../SDL_sysvideo.h"
+#include "../../events/SDL_sysevents.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_fbvideo.h"
 #include "SDL_fbevents_c.h"
 #include "SDL_fbkeys.h"
@@ -61,6 +55,8 @@ static char rcsid =
 #define GPM_NODE_FIFO	"/dev/gpmdata"
 #endif
 
+/*#define DEBUG_KEYBOARD*/
+/*#define DEBUG_MOUSE*/
 
 /* The translation tables from a console scancode to a SDL keysym */
 #define NUM_VGAKEYMAPS	(1<<KG_CAPSSHIFT)
@@ -86,7 +82,7 @@ static void FB_vgainitkeymaps(int fd)
 
 	/* Load all the keysym mappings */
 	for ( map=0; map<NUM_VGAKEYMAPS; ++map ) {
-		memset(vga_keymap[map], 0, NR_KEYS*sizeof(Uint16));
+		SDL_memset(vga_keymap[map], 0, NR_KEYS*sizeof(Uint16));
 		for ( i=0; i<NR_KEYS; ++i ) {
 			entry.kb_table = map;
 			entry.kb_index = i;
@@ -213,6 +209,8 @@ int FB_EnterGraphicsMode(_THIS)
 			SDL_SetError("Unable to set keyboard in graphics mode");
 			return(-1);
 		}
+		/* Prevent switching the virtual terminal */
+		ioctl(keyboard_fd, VT_LOCKSWITCH, 1);
 	}
 	return(keyboard_fd);
 }
@@ -226,6 +224,7 @@ void FB_LeaveGraphicsMode(_THIS)
 		saved_kbd_mode = -1;
 
 		/* Head back over to the original virtual terminal */
+		ioctl(keyboard_fd, VT_UNLOCKSWITCH, 1);
 		if ( saved_vt > 0 ) {
 			ioctl(keyboard_fd, VT_ACTIVATE, saved_vt);
 		}
@@ -265,7 +264,7 @@ int FB_OpenKeyboard(_THIS)
 			for ( i=0; vcs[i] && (keyboard_fd < 0); ++i ) {
 				char vtpath[12];
 
-				sprintf(vtpath, vcs[i], current_vt);
+				SDL_snprintf(vtpath, SDL_arraysize(vtpath), vcs[i], current_vt);
 				keyboard_fd = open(vtpath, O_RDWR, 0);
 #ifdef DEBUG_KEYBOARD
 				fprintf(stderr, "vtpath = %s, fd = %d\n",
@@ -286,8 +285,15 @@ int FB_OpenKeyboard(_THIS)
 		}
  		if ( keyboard_fd < 0 ) {
 			/* Last resort, maybe our tty is a usable VT */
-			current_vt = 0;
+			struct vt_stat vtstate;
+
 			keyboard_fd = open("/dev/tty", O_RDWR);
+
+			if ( ioctl(keyboard_fd, VT_GETSTATE, &vtstate) == 0 ) {
+				current_vt = vtstate.v_active;
+			} else {
+				current_vt = 0;
+			}
  		}
 #ifdef DEBUG_KEYBOARD
 		fprintf(stderr, "Current VT: %d\n", current_vt);
@@ -317,11 +323,19 @@ static enum {
 	MOUSE_MS,
 	MOUSE_BM,
 	MOUSE_ELO,
+	MOUSE_TSLIB,
 	NUM_MOUSE_DRVS
 } mouse_drv = MOUSE_NONE;
 
 void FB_CloseMouse(_THIS)
 {
+#if SDL_INPUT_TSLIB
+	if (ts_dev != NULL) {
+		ts_close(ts_dev);
+		ts_dev = NULL;
+		mouse_fd = -1;
+	}
+#endif /* SDL_INPUT_TSLIB */
 	if ( mouse_fd > 0 ) {
 		close(mouse_fd);
 	}
@@ -342,13 +356,13 @@ static int find_pid(DIR *proc, const char *wanted_name)
 			char path[PATH_MAX];
 			char name[PATH_MAX];
 
-			sprintf(path, "/proc/%s/status", entry->d_name);
+			SDL_snprintf(path, SDL_arraysize(path), "/proc/%s/status", entry->d_name);
 			status=fopen(path, "r");
 			if ( status ) {
 				name[0] = '\0';
 				fscanf(status, "Name: %s", name);
-				if ( strcmp(name, wanted_name) == 0 ) {
-					pid = atoi(entry->d_name);
+				if ( SDL_strcmp(name, wanted_name) == 0 ) {
+					pid = SDL_atoi(entry->d_name);
 				}
 				fclose(status);
 			}
@@ -358,7 +372,7 @@ static int find_pid(DIR *proc, const char *wanted_name)
 }
 
 /* Returns true if /dev/gpmdata is being written to by gpm */
-static int gpm_available(void)
+static int gpm_available(char *proto, size_t protolen)
 {
 	int available;
 	DIR *proc;
@@ -368,6 +382,9 @@ static int gpm_available(void)
 	char args[PATH_MAX], *arg;
 
 	/* Don't bother looking if the fifo isn't there */
+#ifdef DEBUG_MOUSE 
+	fprintf(stderr,"testing gpm\n");
+#endif
 	if ( access(GPM_NODE_FIFO, F_OK) < 0 ) {
 		return(0);
 	}
@@ -375,17 +392,37 @@ static int gpm_available(void)
 	available = 0;
 	proc = opendir("/proc");
 	if ( proc ) {
-		while ( (pid=find_pid(proc, "gpm")) > 0 ) {
-			sprintf(path, "/proc/%d/cmdline", pid);
+		char raw_proto[10] = { '\0' };
+		char repeat_proto[10] = { '\0' };
+		while ( !available && (pid=find_pid(proc, "gpm")) > 0 ) {
+			SDL_snprintf(path, SDL_arraysize(path), "/proc/%d/cmdline", pid);
 			cmdline = open(path, O_RDONLY, 0);
 			if ( cmdline >= 0 ) {
 				len = read(cmdline, args, sizeof(args));
 				arg = args;
 				while ( len > 0 ) {
-					if ( strcmp(arg, "-R") == 0 ) {
-						available = 1;
+					arglen = SDL_strlen(arg)+1;
+#ifdef DEBUG_MOUSE 
+				        fprintf(stderr,"gpm arg %s len %d\n",arg,arglen);
+#endif
+					if ( SDL_strcmp(arg, "-t") == 0) {
+						/* protocol string, keep it for later */
+						char *t, *s;
+						t = arg + arglen;
+						s = SDL_strchr(t, ' ');
+						if (s) *s = 0;
+						SDL_strlcpy(raw_proto, t, SDL_arraysize(raw_proto));
+						if (s) *s = ' ';
 					}
-					arglen = strlen(arg)+1;
+					if ( SDL_strncmp(arg, "-R", 2) == 0 ) {
+						char *t, *s;
+						available = 1;
+						t = arg + 2;
+						s = SDL_strchr(t, ' ');
+						if (s) *s = 0;
+						SDL_strlcpy(repeat_proto, t, SDL_arraysize(repeat_proto));
+						if (s) *s = ' ';
+					}
 					len -= arglen;
 					arg += arglen;
 				}
@@ -393,6 +430,16 @@ static int gpm_available(void)
 			}
 		}
 		closedir(proc);
+
+		if ( available ) {
+			if ( SDL_strcmp(repeat_proto, "raw") == 0 ) {
+				SDL_strlcpy(proto, raw_proto, protolen);
+			} else if ( *repeat_proto ) {
+				SDL_strlcpy(proto, repeat_proto, protolen);
+			} else {
+				SDL_strlcpy(proto, "msc", protolen);
+			}
+		}
 	}
 	return available;
 }
@@ -412,15 +459,17 @@ static int set_imps2_mode(int fd)
 			{0xFF}
 	*/
 	Uint8 set_imps2[] = {0xf3, 200, 0xf3, 100, 0xf3, 80};
-	Uint8 reset = 0xff;
+	/*Uint8 reset = 0xff;*/
 	fd_set fdset;
 	struct timeval tv;
 	int retval = 0;
 
 	if ( write(fd, &set_imps2, sizeof(set_imps2)) == sizeof(set_imps2) ) {
+		/* Don't reset it, that'll clear IMPS/2 mode on some mice
 		if (write(fd, &reset, sizeof (reset)) == sizeof (reset) ) {
 			retval = 1;
 		}
+		*/
 	}
 
 	/* Get rid of any chatter from the above */
@@ -444,7 +493,7 @@ static int detect_imps2(int fd)
 
 	imps2 = 0;
 
-	if ( getenv("SDL_MOUSEDEV_IMPS2") ) {
+	if ( SDL_getenv("SDL_MOUSEDEV_IMPS2") ) {
 		imps2 = 1;
 	}
 	if ( ! imps2 ) {
@@ -496,13 +545,32 @@ int FB_OpenMouse(_THIS)
 	const char *mousedev;
 	const char *mousedrv;
 
-	mousedrv = getenv("SDL_MOUSEDRV");
-	mousedev = getenv("SDL_MOUSEDEV");
+	mousedrv = SDL_getenv("SDL_MOUSEDRV");
+	mousedev = SDL_getenv("SDL_MOUSEDEV");
 	mouse_fd = -1;
+
+#if SDL_INPUT_TSLIB
+	if ( mousedrv && (SDL_strcmp(mousedrv, "TSLIB") == 0) ) {
+		if (mousedev == NULL) mousedev = SDL_getenv("TSLIB_TSDEVICE");
+		if (mousedev != NULL) {
+			ts_dev = ts_open(mousedev, 1);
+			if ((ts_dev != NULL) && (ts_config(ts_dev) >= 0)) {
+#ifdef DEBUG_MOUSE
+				fprintf(stderr, "Using tslib touchscreen\n");
+#endif
+				mouse_drv = MOUSE_TSLIB;
+				mouse_fd = ts_fd(ts_dev);
+				return mouse_fd;
+			}
+		}
+		mouse_drv = MOUSE_NONE;
+		return mouse_fd;
+	}
+#endif /* SDL_INPUT_TSLIB */
 
 	/* ELO TOUCHSCREEN SUPPORT */
 
-	if( (mousedrv != NULL) && (strcmp(mousedrv, "ELO") == 0) ) {
+	if ( mousedrv && (SDL_strcmp(mousedrv, "ELO") == 0) ) {
 		mouse_fd = open(mousedev, O_RDWR);
 		if ( mouse_fd >= 0 ) {
 			if(eloInitController(mouse_fd)) {
@@ -524,19 +592,40 @@ fprintf(stderr, "Using ELO touchscreen\n");
 
 	if ( mousedev == NULL ) {
 		/* FIXME someday... allow multiple mice in this driver */
-		static const char * const ps2mice[] = {
+		static const char *ps2mice[] = {
 		    "/dev/input/mice", "/dev/usbmouse", "/dev/psaux", NULL
 		};
 		/* First try to use GPM in repeater mode */
 		if ( mouse_fd < 0 ) {
-			if ( gpm_available() ) {
+			char proto[10];
+			if ( gpm_available(proto, SDL_arraysize(proto)) ) {
 				mouse_fd = open(GPM_NODE_FIFO, O_RDONLY, 0);
 				if ( mouse_fd >= 0 ) {
+					if ( SDL_strcmp(proto, "msc") == 0 ) {
+						mouse_drv = MOUSE_MSC;
+					} else if ( SDL_strcmp(proto, "ps2") == 0 ) {
+						mouse_drv = MOUSE_PS2;
+					} else if ( SDL_strcmp(proto, "imps2") == 0 ) {
+						mouse_drv = MOUSE_IMPS2;
+					} else if ( SDL_strcmp(proto, "ms") == 0 ||
+					            SDL_strcmp(proto, "bare") == 0 ) {
+						mouse_drv = MOUSE_MS;
+					} else if ( SDL_strcmp(proto, "bm") == 0 ) {
+						mouse_drv = MOUSE_BM;
+					} else {
+						/* Unknown protocol... */
 #ifdef DEBUG_MOUSE
-fprintf(stderr, "Using GPM mouse\n");
+						fprintf(stderr, "GPM mouse using unknown protocol = %s\n", proto);
 #endif
-					mouse_drv = MOUSE_MSC;
+						close(mouse_fd);
+						mouse_fd = -1;
+					}
 				}
+#ifdef DEBUG_MOUSE
+				if ( mouse_fd >= 0 ) {
+					fprintf(stderr, "Using GPM mouse, protocol = %s\n", proto);
+				}
+#endif /* DEBUG_MOUSE */
 			}
 		}
 		/* Now try to use a modern PS/2 mouse */
@@ -547,9 +636,7 @@ fprintf(stderr, "Using GPM mouse\n");
 			}
 			if (mouse_fd >= 0) {
 				/* rcg06112001 Attempt to set IMPS/2 mode */
-				if ( i == 0 ) {
-					set_imps2_mode(mouse_fd);
-				}
+				set_imps2_mode(mouse_fd);
 				if (detect_imps2(mouse_fd)) {
 #ifdef DEBUG_MOUSE
 fprintf(stderr, "Using IMPS2 mouse\n");
@@ -595,10 +682,17 @@ fprintf(stderr, "Using ADB mouse\n");
 			mouse_termios.c_cflag |= CS8;
 			mouse_termios.c_cflag |= B1200;
 			tcsetattr(mouse_fd, TCSAFLUSH, &mouse_termios);
+			if ( mousedrv && (SDL_strcmp(mousedrv, "PS2") == 0) ) {
 #ifdef DEBUG_MOUSE
-fprintf(stderr, "Using Microsoft mouse on %s\n", mousedev);
+fprintf(stderr, "Using (user specified) PS2 mouse on %s\n", mousedev);
 #endif
-			mouse_drv = MOUSE_MS;
+				mouse_drv = MOUSE_PS2;
+			} else {
+#ifdef DEBUG_MOUSE
+fprintf(stderr, "Using (default) MS mouse on %s\n", mousedev);
+#endif
+				mouse_drv = MOUSE_MS;
+			}
 		}
 	}
 	if ( mouse_fd < 0 ) {
@@ -642,6 +736,22 @@ void FB_vgamousecallback(int button, int relative, int dx, int dy)
 	}
 }
 
+/* Handle input from tslib */
+#if SDL_INPUT_TSLIB
+static void handle_tslib(_THIS)
+{
+	struct ts_sample sample;
+	int button;
+
+	while (ts_read(ts_dev, &sample, 1) > 0) {
+		button = (sample.pressure > 0) ? 1 : 0;
+		button <<= 2;	/* must report it as button 3 */
+		FB_vgamousecallback(button, 0, sample.x, sample.y);
+	}
+	return;
+}
+#endif /* SDL_INPUT_TSLIB */
+
 /* For now, use MSC, PS/2, and MS protocols
    Driver adapted from the SVGAlib mouse driver code (taken from gpm, etc.)
  */
@@ -675,10 +785,18 @@ static void handle_mouse(_THIS)
 			packetsize = 3;
 			break;
 		case MOUSE_ELO:
-			packetsize = ELO_PACKET_SIZE;
-			relative = 0;
-			break;
-		case NUM_MOUSE_DRVS:
+			/* try to read the next packet */
+			if(eloReadPosition(this, mouse_fd, &dx, &dy, &button, &realx, &realy)) {
+				button = (button & 0x01) << 2;
+				FB_vgamousecallback(button, 0, dx, dy);
+			}
+			return; /* nothing left to do */
+		case MOUSE_TSLIB:
+#if SDL_INPUT_TSLIB
+			handle_tslib(this);
+#endif
+			return; /* nothing left to do */
+		default:
 			/* Uh oh.. */
 			packetsize = 0;
 			break;
@@ -687,13 +805,6 @@ static void handle_mouse(_THIS)
 	/* Special handling for the quite sensitive ELO controller */
 	if (mouse_drv == MOUSE_ELO) {
 	
-	    /* try to read the next packet */
-	    if(eloReadPosition(this, mouse_fd, &dx, &dy, &button, &realx, &realy)) {
-		button = (button & 0x01) << 2;
-    		FB_vgamousecallback(button, relative, dx, dy);
-	    }
-	    
-	    return;
 	}
 	
 	/* Read as many packets as possible */
@@ -791,26 +902,7 @@ static void handle_mouse(_THIS)
 				dx =  (signed char)mousebuf[i+1];
 				dy = -(signed char)mousebuf[i+2];
 				break;
-			/*
-			case MOUSE_ELO:
-				if ( mousebuf[i] != ELO_START_BYTE ) {
-					i -= (packetsize-1);
-					continue;
-				}
-
-				if(!eloParsePacket(&(mousebuf[i]), &dx, &dy, &button)) {
-					i -= (packetsize-1);
-					continue;
-				}
-				
-				button = (button & 0x01) << 2;
-
-				eloConvertXY(this, &dx, &dy);
-				break;
-			*/
-
-			case MOUSE_ELO:
-			case NUM_MOUSE_DRVS:
+			default:
 				/* Uh oh.. */
 				dx = 0;
 				dy = 0;
@@ -819,7 +911,7 @@ static void handle_mouse(_THIS)
 		FB_vgamousecallback(button, relative, dx, dy);
 	}
 	if ( i < nread ) {
-		memcpy(mousebuf, &mousebuf[i], (nread-i));
+		SDL_memcpy(mousebuf, &mousebuf[i], (nread-i));
 		start = (nread-i);
 	} else {
 		start = 0;
@@ -827,58 +919,65 @@ static void handle_mouse(_THIS)
 	return;
 }
 
-/* Handle switching to another VC, returns when our VC is back.
-   This isn't necessarily the best solution.  For SDL 1.3 we need
-   a way of notifying the application when we lose access to the
-   video hardware and when we regain it.
- */
+/* Handle switching to another VC, returns when our VC is back */
+static void switch_vt_prep(_THIS)
+{
+	SDL_Surface *screen = SDL_VideoSurface;
+
+	SDL_PrivateAppActive(0, (SDL_APPACTIVE|SDL_APPINPUTFOCUS|SDL_APPMOUSEFOCUS));
+
+	/* Save the contents of the screen, and go to text mode */
+	wait_idle(this);
+	screen_arealen = ((screen->h + (2*this->offset_y)) * screen->pitch);
+	screen_contents = (Uint8 *)SDL_malloc(screen_arealen);
+	if ( screen_contents ) {
+		SDL_memcpy(screen_contents, screen->pixels, screen_arealen);
+	}
+	FB_SavePaletteTo(this, 256, screen_palette);
+	ioctl(console_fd, FBIOGET_VSCREENINFO, &screen_vinfo);
+	ioctl(keyboard_fd, KDSETMODE, KD_TEXT);
+	ioctl(keyboard_fd, VT_UNLOCKSWITCH, 1);
+}
+static void switch_vt_done(_THIS)
+{
+	SDL_Surface *screen = SDL_VideoSurface;
+
+	/* Restore graphics mode and the contents of the screen */
+	ioctl(keyboard_fd, VT_LOCKSWITCH, 1);
+	ioctl(keyboard_fd, KDSETMODE, KD_GRAPHICS);
+	ioctl(console_fd, FBIOPUT_VSCREENINFO, &screen_vinfo);
+	FB_RestorePaletteFrom(this, 256, screen_palette);
+	if ( screen_contents ) {
+		SDL_memcpy(screen->pixels, screen_contents, screen_arealen);
+		SDL_free(screen_contents);
+		screen_contents = NULL;
+	}
+
+	/* Get updates to the shadow surface while switched away */
+	if ( SDL_ShadowSurface ) {
+		SDL_UpdateRect(SDL_ShadowSurface, 0, 0, 0, 0);
+	}
+
+	SDL_PrivateAppActive(1, (SDL_APPACTIVE|SDL_APPINPUTFOCUS|SDL_APPMOUSEFOCUS));
+}
 static void switch_vt(_THIS, unsigned short which)
 {
 	struct vt_stat vtstate;
-	unsigned short v_active;
-	SDL_Surface *screen;
-	__u16 saved_pal[3*256];
-	Uint32 screen_arealen;
-	Uint8 *screen_contents;
 
 	/* Figure out whether or not we're switching to a new console */
 	if ( (ioctl(keyboard_fd, VT_GETSTATE, &vtstate) < 0) ||
 	     (which == vtstate.v_active) ) {
 		return;
 	}
-	v_active = vtstate.v_active;
-
-	/* Save the contents of the screen, and go to text mode */
-	SDL_mutexP(hw_lock);
-	wait_idle(this);
-	screen = SDL_VideoSurface;
-	screen_arealen = (screen->h*screen->pitch);
-	screen_contents = (Uint8 *)malloc(screen_arealen);
-	if ( screen_contents ) {
-		memcpy(screen_contents, screen->pixels, screen_arealen);
-	}
-	FB_SavePaletteTo(this, 256, saved_pal);
-	ioctl(keyboard_fd, KDSETMODE, KD_TEXT);
 
 	/* New console, switch to it */
+	SDL_mutexP(hw_lock);
+	switch_vt_prep(this);
 	if ( ioctl(keyboard_fd, VT_ACTIVATE, which) == 0 ) {
-		/* Wait for our console to be activated again */
 		ioctl(keyboard_fd, VT_WAITACTIVE, which);
-		while ( ioctl(keyboard_fd, VT_WAITACTIVE, v_active) < 0 ) {
-			if ( (errno != EINTR) && (errno != EAGAIN) ) {
-				/* Unknown VT error - cancel this */
-				break;
-			}
-			SDL_Delay(500);
-		}
-	}
-
-	/* Restore graphics mode and the contents of the screen */
-	ioctl(keyboard_fd, KDSETMODE, KD_GRAPHICS);
-	FB_RestorePaletteFrom(this, 256, saved_pal);
-	if ( screen_contents ) {
-		memcpy(screen->pixels, screen_contents, screen_arealen);
-		free(screen_contents);
+		switched_away = 1;
+	} else {
+		switch_vt_done(this);
 	}
 	SDL_mutexV(hw_lock);
 }
@@ -900,7 +999,7 @@ static void handle_keyboard(_THIS)
 			pressed = SDL_PRESSED;
 		}
 		TranslateKey(scancode, &keysym);
-		/* Handle Alt-FN for vt switch */
+		/* Handle Ctrl-Alt-FN for vt switch */
 		switch (keysym.sym) {
 		    case SDLK_F1:
 		    case SDLK_F2:
@@ -914,7 +1013,8 @@ static void handle_keyboard(_THIS)
 		    case SDLK_F10:
 		    case SDLK_F11:
 		    case SDLK_F12:
-			if ( SDL_GetModState() & KMOD_ALT ) {
+			if ( (SDL_GetModState() & KMOD_CTRL) &&
+			     (SDL_GetModState() & KMOD_ALT) ) {
 				if ( pressed ) {
 					switch_vt(this, (keysym.sym-SDLK_F1)+1);
 				}
@@ -935,6 +1035,18 @@ void FB_PumpEvents(_THIS)
 	static struct timeval zero;
 
 	do {
+		if ( switched_away ) {
+			struct vt_stat vtstate;
+
+			SDL_mutexP(hw_lock);
+			if ( (ioctl(keyboard_fd, VT_GETSTATE, &vtstate) == 0) &&
+			     vtstate.v_active == current_vt ) {
+				switched_away = 0;
+				switch_vt_done(this);
+			}
+			SDL_mutexV(hw_lock);
+		}
+
 		posted = 0;
 
 		FD_ZERO(&fdset);
@@ -973,7 +1085,7 @@ void FB_InitOSKeymap(_THIS)
 	/* Initialize the Linux key translation table */
 
 	/* First get the ascii keys and others not well handled */
-	for (i=0; i<SDL_TABLESIZE(keymap); ++i) {
+	for (i=0; i<SDL_arraysize(keymap); ++i) {
 	  switch(i) {
 	  /* These aren't handled by the x86 kernel keymapping (?) */
 	  case SCANCODE_PRINTSCREEN:
@@ -1003,6 +1115,12 @@ void FB_InitOSKeymap(_THIS)
 	  case SCANCODE_LEFTWIN:
 	    keymap[i] = SDLK_LSUPER;
 	    break;
+	  case SCANCODE_LEFTALT:
+	    keymap[i] = SDLK_LALT;
+	    break;
+	  case SCANCODE_RIGHTALT:
+	    keymap[i] = SDLK_RALT;
+	    break;
 	  case 127:
 	    keymap[i] = SDLK_MENU;
 	    break;
@@ -1012,7 +1130,7 @@ void FB_InitOSKeymap(_THIS)
 	    break;
           }
 	}
-	for (i=0; i<SDL_TABLESIZE(keymap); ++i) {
+	for (i=0; i<SDL_arraysize(keymap); ++i) {
 	  switch(keymap_temp[i]) {
 	    case K_F1:  keymap[i] = SDLK_F1;  break;
 	    case K_F2:  keymap[i] = SDLK_F2;  break;
@@ -1104,10 +1222,10 @@ static SDL_keysym *TranslateKey(int scancode, SDL_keysym *keysym)
 		if ( modstate & KMOD_CTRL ) {
 			map |= (1<<KG_CTRL);
 		}
-		if ( modstate & KMOD_ALT ) {
+		if ( modstate & KMOD_LALT ) {
 			map |= (1<<KG_ALT);
 		}
-		if ( modstate & KMOD_MODE ) {
+		if ( modstate & KMOD_RALT ) {
 			map |= (1<<KG_ALTGR);
 		}
 		if ( KTYP(vga_keymap[map][scancode]) == KT_LETTER ) {

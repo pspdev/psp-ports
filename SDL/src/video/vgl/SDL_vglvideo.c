@@ -1,37 +1,31 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997, 1998, 1999, 2000  Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_vglvideo.c,v 1.3 2002/03/06 11:23:08 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* libvga based SDL video driver implementation.
 */
 
 #include <err.h>
 #include <osreldate.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
@@ -40,13 +34,11 @@ static char rcsid =
 #include <sys/kbio.h>
 #include <vgl.h>
 
-#include "SDL.h"
-#include "SDL_error.h"
 #include "SDL_video.h"
 #include "SDL_mouse.h"
-#include "SDL_sysvideo.h"
-#include "SDL_pixels_c.h"
-#include "SDL_events_c.h"
+#include "../SDL_sysvideo.h"
+#include "../SDL_pixels_c.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_vglvideo.h"
 #include "SDL_vglevents_c.h"
 #include "SDL_vglmouse_c.h"
@@ -113,8 +105,8 @@ static int VGL_Available(void)
 
 static void VGL_DeleteDevice(SDL_VideoDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	SDL_free(device->hidden);
+	SDL_free(device);
 }
 
 static SDL_VideoDevice *VGL_CreateDevice(int devindex)
@@ -122,20 +114,20 @@ static SDL_VideoDevice *VGL_CreateDevice(int devindex)
 	SDL_VideoDevice *device;
 
 	/* Initialize all variables that we clean on shutdown */
-	device = (SDL_VideoDevice *)malloc(sizeof(SDL_VideoDevice));
+	device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
 	if ( device ) {
-		memset(device, 0, (sizeof *device));
+		SDL_memset(device, 0, (sizeof *device));
 		device->hidden = (struct SDL_PrivateVideoData *)
-				  malloc((sizeof *device->hidden));
+				  SDL_malloc((sizeof *device->hidden));
 	}
 	if ( (device == NULL) || (device->hidden == NULL) ) {
 		SDL_OutOfMemory();
 		if ( device ) {
-			free(device);
+			SDL_free(device);
 		}
 		return(0);
 	}
-	memset(device->hidden, 0, (sizeof *device->hidden));
+	SDL_memset(device->hidden, 0, (sizeof *device->hidden));
 
 	/* Set the function pointers */
 	device->VideoInit = VGL_VideoInit;
@@ -193,7 +185,7 @@ static int VGL_AddMode(_THIS, VGLMode *inmode)
 	}
 
 	/* Set up the new video mode rectangle */
-	mode = (SDL_Rect *)malloc(sizeof *mode);
+	mode = (SDL_Rect *)SDL_malloc(sizeof *mode);
 	if (mode == NULL) {
 		SDL_OutOfMemory();
 		return -1;
@@ -206,11 +198,11 @@ static int VGL_AddMode(_THIS, VGLMode *inmode)
 	/* Allocate the new list of modes, and fill in the new mode */
 	next_mode = SDL_nummodes[index];
 	SDL_modelist[index] = (SDL_Rect **)
-		realloc(SDL_modelist[index], (1+next_mode+1)*sizeof(SDL_Rect *));
+		SDL_realloc(SDL_modelist[index], (1+next_mode+1)*sizeof(SDL_Rect *));
 	if (SDL_modelist[index] == NULL) {
 		SDL_OutOfMemory();
 		SDL_nummodes[index] = 0;
-		free(mode);
+		SDL_free(mode);
 		return -1;
 	}
 	SDL_modelist[index][next_mode] = mode;
@@ -248,7 +240,7 @@ int VGL_VideoInit(_THIS, SDL_PixelFormat *vformat)
 	}
 
 	/* Enable mouse and keyboard support */
-	if (getenv("SDL_NO_RAWKBD") == NULL) {
+	if (SDL_getenv("SDL_NO_RAWKBD") == NULL) {
 		if (VGLKeyboardInit(VGL_CODEKEYS) != 0) {
 			SDL_SetError("Unable to initialize keyboard");
 			return -1;
@@ -263,6 +255,12 @@ int VGL_VideoInit(_THIS, SDL_PixelFormat *vformat)
 	if (VGL_initmouse(STDIN_FILENO) != 0) {
 		SDL_SetError("Unable to initialize mouse");
 		return -1;
+	}
+
+	/* Determine the current screen size */
+	if (VGLCurMode != NULL) {
+		this->info.current_w = VGLCurMode->ModeInfo.Xsize;
+		this->info.current_h = VGLCurMode->ModeInfo.Ysize;
 	}
 
 	/* Determine the screen depth */
@@ -345,7 +343,7 @@ SDL_Surface *VGL_SetVideoMode(_THIS, SDL_Surface *current,
 		return NULL;
 	}
 
-	VGLCurMode = realloc(VGLCurMode, sizeof(VGLMode));
+	VGLCurMode = SDL_realloc(VGLCurMode, sizeof(VGLMode));
 	VGLCurMode->ModeInfo = *VGLDisplay;
 	VGLCurMode->Depth = modes[i]->Depth;
 	VGLCurMode->ModeId = modes[i]->ModeId;
@@ -471,7 +469,7 @@ void VGL_VideoQuit(_THIS)
 	/* Reset the console video mode if we actually initialised one */
 	if (VGLCurMode != NULL) {
 		VGLEnd();
-		free(VGLCurMode);
+		SDL_free(VGLCurMode);
 		VGLCurMode = NULL;
 	}
 
@@ -485,9 +483,9 @@ void VGL_VideoQuit(_THIS)
 	for (i = 0; i < NUM_MODELISTS; i++) {
 		if (SDL_modelist[i] != NULL) {
 			for (j = 0; SDL_modelist[i][j] != NULL; ++j) {
-				free(SDL_modelist[i][j]);
+				SDL_free(SDL_modelist[i][j]);
 			}
-			free(SDL_modelist[i]);
+			SDL_free(SDL_modelist[i]);
 			SDL_modelist[i] = NULL;
 		}
 	}
@@ -513,7 +511,7 @@ VGLListModes(int depth, int mem_model)
   int adptype, i, modenum;
 
   if (modes == NULL) {
-    modes = malloc(sizeof(VGLMode *) * M_VESA_MODE_MAX);
+    modes = SDL_malloc(sizeof(VGLMode *) * M_VESA_MODE_MAX);
     bzero(modes, sizeof(VGLMode *) * M_VESA_MODE_MAX);
   }
   modesp = modes;
@@ -557,7 +555,7 @@ VGLListModes(int depth, int mem_model)
     case V_INFO_MM_VGAX:
       vminfop->Type = VIDBUF8X;
       break;
-#if defined(__FreeBSD_version) && __FreeBSD_version >= 500000
+#if defined(__FREEBSD__) && (defined(__DragonFly__) || __FreeBSD_version >= 500000)
     case V_INFO_MM_DIRECT:
       vminfop->PixelBytes = minfo.vi_pixel_size;
       switch (vminfop->PixelBytes) {
@@ -626,7 +624,7 @@ VGLListModes(int depth, int mem_model)
   }
 
   if (*modesp != NULL) {
-    free(*modesp);
+    SDL_free(*modesp);
     *modesp = NULL;
   }
 

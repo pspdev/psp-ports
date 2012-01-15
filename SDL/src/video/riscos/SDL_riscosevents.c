@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -17,8 +17,9 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
     Sam Lantinga
-    slouken@devolution.com
+    slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /*
      File added by Alan Buckley (alan_baa@hotmail.com) for RISC OS compatability
@@ -29,12 +30,12 @@
 
 
 #include "SDL.h"
-#include "SDL_sysevents.h"
-#include "SDL_events_c.h"
+#include "../../timer/SDL_timer_c.h"
+#include "../../events/SDL_sysevents.h"
+#include "../../events/SDL_events_c.h"
+#include "../SDL_cursor_c.h"
 #include "SDL_riscosvideo.h"
 #include "SDL_riscosevents_c.h"
-#include "SDL_timer_c.h"
-#include "SDL_cursor_c.h"
 
 #include "memory.h"
 #include "stdlib.h"
@@ -76,7 +77,7 @@ void RISCOS_PollKeyboard();
 
 void RISCOS_PollMouseHelper(_THIS, int fullscreen);
 
-#ifdef DISABLE_THREADS
+#if SDL_THREADS_DISABLED
 extern void DRenderer_FillBuffers();
 
 /* Timer running function */
@@ -89,7 +90,7 @@ void FULLSCREEN_PumpEvents(_THIS)
     /* Current implementation requires keyboard and mouse polling */
 	RISCOS_PollKeyboard();
 	RISCOS_PollMouse(this);
-#ifdef DISABLE_THREADS
+#if SDL_THREADS_DISABLED
 //	DRenderer_FillBuffers();
 	if (SDL_timer_running) RISCOS_CheckTimer();
 #endif
@@ -101,7 +102,7 @@ void RISCOS_InitOSKeymap(_THIS)
 	int i;
 
 	/* Map the VK keysyms */
-	for ( i=0; i<SDL_TABLESIZE(RO_keymap); ++i )
+	for ( i=0; i<SDL_arraysize(RO_keymap); ++i )
 		RO_keymap[i] = SDLK_UNKNOWN;
 
   RO_keymap[3] = SDLK_LSHIFT;
@@ -210,7 +211,7 @@ void RISCOS_InitOSKeymap(_THIS)
   RO_keymap[123] = SDLK_KP5;
   RO_keymap[124] = SDLK_KP2;
 
-  memset(RO_pressed, 0, ROKEYBD_ARRAYSIZE);
+  SDL_memset(RO_pressed, 0, ROKEYBD_ARRAYSIZE);
 }
 
 

@@ -55,7 +55,7 @@ III.  Enjoy! :)
 IV.  What is supported:
 
 Keyboard (GEMDOS, BIOS, GEM, Ikbd)
-Mouse (XBIOS, GEM, Ikbd)
+Mouse (XBIOS, GEM, Ikbd, /dev/mouse (non working atm, disabled))
 Video (XBIOS (Fullscreen), GEM (Windowed and Fullscreen))
 Timer (VBL vector, GNU pth library)
 Joysticks and joypads (Ikbd, Hardware)
@@ -65,15 +65,31 @@ Shared object loader (using LDG library from http://ldg.atari.org/)
 Audio CD (MetaDOS)
 OpenGL (using Mesa offscreen rendering driver)
 
-- Driver combinations:
-Video   Kbd     Mouse   Timer   Joysticks Joypads	OpenGL
-xbios   ikbd    ikbd    vbl(2)  ikbd      hardware	OSMesa
-xbios   gemdos  xbios   vbl(2)  xbios     hardware	OSMesa
-xbios   bios    xbios   vbl(2)  xbios     hardware	OSMesa
-gem     gem     gem(1)  vbl(2)  xbios     hardware	OSMesa
+- Dependent driver combinations:
+Video   Kbd     Mouse   Timer   Joysticks
+xbios   ikbd    ikbd    vbl(2)  ikbd
+xbios   gemdos  xbios   vbl(2)  xbios
+xbios   bios    xbios   vbl(2)  xbios
+gem     gem     gem(1)  vbl(2)  xbios
+
+Audio   O/S     Misc
+dma8    All     Uses MFP Timer A interrupt
+xbios	TOS     Uses MFP Timer A interrupt
+xbios   MiNT    Uses MFP Timer A interrupt
+xbios   Magic   Uses MFP Timer A interrupt
+stfa    All     Uses MFP interrupt
+mcsn	TOS     Uses MFP Timer A interrupt
+mcsn    MiNT    Uses MiNT thread
+mcsn    Magic   Disabled
+gsxb    All     Uses GSXB callback
+
+Joypad driver always uses hardware access.
+OpenGL driver always uses OSMesa.
 
 (1) GEM does not report relative mouse motion, so xbios mouse driver is used
 to report this type event.
+A preliminary driver for /dev/mouse device driver is present, but is disabled
+till it can be used with other applications simultaneously.
 
 (2) If you build SDL with threads using the GNU pth library, timers are
 supported via the pth library.
@@ -108,12 +124,12 @@ SDL_JOYSTICK_ATARI:
 
 	'ikbd-joy1-[on|off]' for IKBD joystick on port 1 (hardware access)
 	'xbios-joy1-[on|off]' for IKBD joystick on port 1 (xbios access)
-	'porta-pad-[on|off]' for joypad on port A
+	'porta-pad-[on|off]' for joypad and/or teamtap on port A
 	'porta-joy0-[on|off]' for joystick 0 on port A
 	'porta-joy1-[on|off]' for joystick 1 on port A
 	'porta-lp-[on|off]' for lightpen on port A
 	'porta-anpad-[on|off]' for analog paddle on port A
-	'portb-pad-[on|off]' for joypad on port B
+	'portb-pad-[on|off]' for joypad and/or teamtap on port B
 	'portb-joy0-[on|off]' for joystick 0 on port B
 	'portb-joy1-[on|off]' for joystick 1 on port B
 	'portb-anpad-[on|off]' for analog paddle on port B
@@ -131,9 +147,9 @@ SDL_JOYSTICK_ATARI:
 	The second joystick port on IKBD is used by the mouse, so not usable.
 	Another problem with the IKBD: mouse buttons and joystick fire buttons
 	are wired together at the hardware level, it means:
-		port 0					port 0				port 1
-		mouse left button	=	joystick fire 0	=	joystick fire 1
-		mouse right button	=	joystick fire 1	=	joystick fire 0
+		port 0                port 0           port 1
+		mouse left button  = joystick fire 0 = joystick fire 1
+		mouse right button = joystick fire 1 = joystick fire 0
 
 	Descriptions of joysticks/joypads:
 	- Joypads: 1 hat, 17 buttons (Atari Jaguar console-like).
@@ -172,6 +188,8 @@ Xbios video:
 	Falcon:
 		All modes supported by the current monitor (RVB or VGA).
 		BlowUp and Centscreen extended modes, ScreenBlaster 3 current mode.
+	Milan:
+		Experimental support
 	Clones and any machine with monochrome monitor:
 		Not supported.
 
@@ -194,7 +212,7 @@ Mouse and joystick xbios driver:
 	Available on all machines (I think).
 
 Joypad driver:
-	Available if _MCH cookie is STE or Falcon.
+	Available if _MCH cookie is STE or Falcon. Supports teamtap.
 
 PTH timer driver:
 	Available with multitasking OS.
@@ -228,5 +246,5 @@ Audio drivers:
 		http://www.uni-ulm.de/~s_thuth/atari/xsound_e.html
 
 -- 
-Patrice Mandin <pmandin@caramail.com>
-http://membres.lycos.fr/pmandin/
+Patrice Mandin <patmandin@gmail.com>
+http://pmandin.atari.org/

@@ -1,28 +1,52 @@
 /*
+    SDL - Simple DirectMedia Layer
+    Copyright (C) 1997-2009 Sam Lantinga
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
+    Sam Lantinga
+    slouken@libsdl.org
+*/
+#include "SDL_config.h"
+
+/*
  *	GNU pth conditions variables
  *
  *	Patrice Mandin
  */
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <pth.h>
 
-#include "SDL_error.h"
 #include "SDL_thread.h"
-#include "SDL_syscond_c.h"
 #include "SDL_sysmutex_c.h"
+
+struct SDL_cond
+{
+	pth_cond_t	condpth_p;
+};
 
 /* Create a condition variable */
 SDL_cond * SDL_CreateCond(void)
 {
 	SDL_cond *cond;
 
-	cond = (SDL_cond *) malloc(sizeof(SDL_cond));
+	cond = (SDL_cond *) SDL_malloc(sizeof(SDL_cond));
 	if ( cond ) {
 		if ( pth_cond_init(&(cond->condpth_p)) < 0 ) {
 			SDL_SetError("pthread_cond_init() failed");
-			free(cond);
+			SDL_free(cond);
 			cond = NULL;
 		}
 	} else {
@@ -35,7 +59,7 @@ SDL_cond * SDL_CreateCond(void)
 void SDL_DestroyCond(SDL_cond *cond)
 {
 	if ( cond ) {
-		free(cond);
+		SDL_free(cond);
 	}
 }
 

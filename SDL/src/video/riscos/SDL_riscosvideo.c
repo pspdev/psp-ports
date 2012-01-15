@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -17,8 +17,9 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
     Sam Lantinga
-    slouken@devolution.com
+    slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /*
      File added by Alan Buckley (alan_baa@hotmail.com) for RISC OS compatability
@@ -29,18 +30,12 @@
 	 into other source files.
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "SDL.h"
-#include "SDL_syswm.h"
-#include "SDL_error.h"
 #include "SDL_video.h"
 #include "SDL_mouse.h"
-#include "SDL_sysvideo.h"
-#include "SDL_pixels_c.h"
-#include "SDL_events_c.h"
+#include "SDL_syswm.h"
+#include "../SDL_sysvideo.h"
+#include "../SDL_pixels_c.h"
+#include "../../events/SDL_events_c.h"
 
 #include "SDL_riscostask.h"
 #include "SDL_riscosvideo.h"
@@ -92,8 +87,8 @@ static int RISCOS_Available(void)
 
 static void RISCOS_DeleteDevice(SDL_VideoDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	SDL_free(device->hidden);
+	SDL_free(device);
 }
 
 static SDL_VideoDevice *RISCOS_CreateDevice(int devindex)
@@ -101,20 +96,20 @@ static SDL_VideoDevice *RISCOS_CreateDevice(int devindex)
 	SDL_VideoDevice *device;
 
 	/* Initialize all variables that we clean on shutdown */
-	device = (SDL_VideoDevice *)malloc(sizeof(SDL_VideoDevice));
+	device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
 	if ( device ) {
-		memset(device, 0, (sizeof *device));
+		SDL_memset(device, 0, (sizeof *device));
 		device->hidden = (struct SDL_PrivateVideoData *)
-				malloc((sizeof *device->hidden));
+				SDL_malloc((sizeof *device->hidden));
 	}
 	if ( (device == NULL) || (device->hidden == NULL) ) {
 		SDL_OutOfMemory();
 		if ( device ) {
-			free(device);
+			SDL_free(device);
 		}
 		return(0);
 	}
-	memset(device->hidden, 0, (sizeof *device->hidden));
+	SDL_memset(device->hidden, 0, (sizeof *device->hidden));
 
 	/* Set the function pointers */
 	device->VideoInit = RISCOS_VideoInit;
@@ -150,6 +145,11 @@ static SDL_VideoDevice *RISCOS_CreateDevice(int devindex)
 	/* Set other entries for fullscreen mode */
 	FULLSCREEN_SetDeviceMode(device);
 
+	/* Mouse pointer needs to use the WIMP ShowCursor version so
+	   that it doesn't modify the pointer until the SDL Window is
+	   entered or the application goes full screen */
+	device->ShowWMCursor = WIMP_ShowWMCursor;
+
 	return device;
 }
 
@@ -162,6 +162,7 @@ VideoBootStrap RISCOS_bootstrap = {
 int RISCOS_VideoInit(_THIS, SDL_PixelFormat *vformat)
 {
 	_kernel_swi_regs regs;
+	int vars[4], vals[3];
 
 	if (RISCOS_InitTask() == 0)
 	{
@@ -169,11 +170,19 @@ int RISCOS_VideoInit(_THIS, SDL_PixelFormat *vformat)
 		return 0;
 	}
 
-	regs.r[0] = -1; /* Current mode */
-	regs.r[1] = 9;  /* Log base 2 bpp */
+	vars[0] = 9;  /* Log base 2 bpp */
+	vars[1] = 11; /* XWndLimit - num x pixels -1 */
+	vars[2] = 12; /* YWndLimit - num y pixels -1 */
+	vars[3] = -1; /* Terminate list */
+	regs.r[0] = (int)vars;
+	regs.r[1] = (int)vals;
 
-	_kernel_swi(OS_ReadModeVariable, &regs, &regs);
-	vformat->BitsPerPixel = (1 << regs.r[2]);
+	_kernel_swi(OS_ReadVduVariables, &regs, &regs);
+	vformat->BitsPerPixel = (1 << vals[0]);
+
+	/* Determine the current screen size */
+	this->info.current_w = vals[1] + 1;
+	this->info.current_h = vals[2] + 1;
 
 	/* Minimum bpp for SDL is 8 */
 	if (vformat->BitsPerPixel < 8) vformat->BitsPerPixel = 8;
@@ -220,7 +229,7 @@ void RISCOS_VideoQuit(_THIS)
 {
 	RISCOS_ExitTask();
 
-	if (this->hidden->alloc_bank) free(this->hidden->alloc_bank);
+	if (this->hidden->alloc_bank) SDL_free(this->hidden->alloc_bank);
 	this->hidden->alloc_bank = 0;
 }
 

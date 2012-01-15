@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,6 +19,7 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /*
 	Centscreen extension definitions
@@ -26,26 +27,16 @@
 	Patrice Mandin
 */
 
-#include <stdlib.h>
-#include <string.h>
-
 #include <mint/falcon.h>
 
 #include "SDL_xbios.h"
 #include "SDL_xbios_centscreen.h"
 
-int SDL_XBIOS_CentscreenInit(_THIS)
+int SDL_XBIOS_ListCentscreenModes(_THIS, int actually_add)
 {
-	centscreen_mode_t	curmode, listedmode;
+	centscreen_mode_t curmode, listedmode;
 	unsigned long result;
 	int cur_handle;	/* Current Centscreen mode handle */
-
-	/* Reset current mode list */
-	if (XBIOS_modelist) {
-		free(XBIOS_modelist);
-		XBIOS_nummodes = 0;
-		XBIOS_modelist = NULL;
-	}
 
 	/* Add Centscreen modes */
 	Vread(&curmode);
@@ -60,12 +51,18 @@ int SDL_XBIOS_CentscreenInit(_THIS)
 			if ((listedmode.mode & CSCREEN_VIRTUAL)==0) {
 				/* Don't add modes with bpp<8 */
 				if (listedmode.plan>=8) {
-					SDL_XBIOS_AddMode(this, listedmode.mode, listedmode.physx,
-						listedmode.physy, listedmode.plan, SDL_FALSE
-					);
+					xbiosmode_t modeinfo;
+
+					modeinfo.number = listedmode.mode;
+					modeinfo.width = listedmode.physx;
+					modeinfo.height = listedmode.physy;
+					modeinfo.depth = listedmode.plan;
+					modeinfo.flags = (modeinfo.depth == 8 ? XBIOSMODE_C2P : 0);
+
+					SDL_XBIOS_AddMode(this, actually_add, &modeinfo);
 				}
 			}
-			memcpy(&curmode, &listedmode, sizeof(centscreen_mode_t));
+			SDL_memcpy(&curmode, &listedmode, sizeof(centscreen_mode_t));
 			curmode.mode = curmode.physx = curmode.physy = curmode.plan =
 				curmode.logx = curmode.logy = -1;
 			result = Vnext(&curmode, &listedmode);
@@ -79,18 +76,25 @@ int SDL_XBIOS_CentscreenInit(_THIS)
 
 void SDL_XBIOS_CentscreenSetmode(_THIS, int width, int height, int planes)
 {
-	centscreen_mode_t	newmode, curmode;
+	centscreen_mode_t newmode, curmode;
 	
 	newmode.handle = newmode.mode = newmode.logx = newmode.logy = -1;
 	newmode.physx = width;
 	newmode.physy = height;
 	newmode.plan = planes;
 	Vwrite(0, &newmode, &curmode);
+
+#ifdef SDL_VIDEO_DISABLE_SCREENSAVER
+	/* Disable screensaver */
+	Vread(&newmode);
+	newmode.mode &= ~(CSCREEN_SAVER|CSCREEN_ENERGYSTAR);
+	Vwrite(0, &newmode, &curmode);
+#endif /* SDL_VIDEO_DISABLE_SCREENSAVER */
 }
 
 void SDL_XBIOS_CentscreenRestore(_THIS, int prev_handle)
 {
-	centscreen_mode_t	newmode, curmode;
+	centscreen_mode_t newmode, curmode;
 
 	/* Restore old video mode */
 	newmode.handle = prev_handle;
