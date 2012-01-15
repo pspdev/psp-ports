@@ -8,6 +8,10 @@
 
 #include "pspgl_misc.h"
 
+// @@@ added by Edorul for Key repetition
+static unsigned int keyrepeat = GLUT_KEYREPEAT_DEFAULT;
+void glutKeyRepeat(unsigned int val) {keyrepeat = val; }
+// @@@ end addition
 static unsigned int glut_display_mode = 0;
 static unsigned int glut_redisplay_posted = 1;
 static void (*glut_display_func) (void);
@@ -147,41 +151,40 @@ int glutCreateWindow (const char *title)
 #define KEY_TYPE_SPECIAL  2
 #define KEY_TYPE_MOUSE	  3
 
-#define KEY_ASCII(repeat,x)     ((repeat << 31) | (KEY_TYPE_ASCII   << 24) | (x))
-#define KEY_SPECIAL(x)		((1 << 31) | (KEY_TYPE_SPECIAL << 24) | (x))
-#define KEY_MOUSE(x)		((1 << 31) | (KEY_TYPE_MOUSE   << 24) | (x))
+#define KEY_ASCII(x)      ((KEY_TYPE_ASCII   << 24) | (x))
+#define KEY_SPECIAL(x)    ((KEY_TYPE_SPECIAL << 24) | (x))
+#define KEY_MOUSE(x)      ((KEY_TYPE_MOUSE   << 24) | (x))
 
-#define KEY_TYPE(x)		((x >> 24) & 0x7)
-#define KEY_REPEAT(x)	 	(x >> 31)
+#define KEY_TYPE(x)	  (x >> 24)
 
 
 /* XXX IMPROVE: might get packed tighter in 16bit words */
 static const
 unsigned long keycode [] = {
-	KEY_ASCII(0,'s'),		/* PSP_CTRL_SELECT   = 0x000001 */
-	0,				/*		       0x000002 */
-	0,				/*		       0x000004 */
-	KEY_ASCII(0,'a'),		/* PSP_CTRL_START    = 0x000008 */
+	KEY_ASCII('s'),			/* PSP_CTRL_SELECT   = 0x000001 */
+	0,				/*                     0x000002 */
+	0,				/*                     0x000004 */
+	KEY_ASCII('a'),			/* PSP_CTRL_START    = 0x000008 */
 	KEY_SPECIAL(GLUT_KEY_UP),	/* PSP_CTRL_UP	     = 0x000010 */
 	KEY_SPECIAL(GLUT_KEY_RIGHT),	/* PSP_CTRL_RIGHT    = 0x000020 */
 	KEY_SPECIAL(GLUT_KEY_DOWN),	/* PSP_CTRL_DOWN     = 0x000040 */
 	KEY_SPECIAL(GLUT_KEY_LEFT),	/* PSP_CTRL_LEFT     = 0x000080 */
 	KEY_MOUSE(GLUT_LEFT_BUTTON),	/* PSP_CTRL_LTRIGGER = 0x000100 */
 	KEY_MOUSE(GLUT_RIGHT_BUTTON),	/* PSP_CTRL_RTRIGGER = 0x000200 */
-	0,				/*		       0x000400 */
-	0,				/*		       0x000800 */
-	KEY_ASCII(1,'d'),		/* PSP_CTRL_TRIANGLE = 0x001000 */
-	KEY_ASCII(1,'o'),		/* PSP_CTRL_CIRCLE   = 0x002000 */
-	KEY_ASCII(1,'x'),		/* PSP_CTRL_CROSS    = 0x004000 */
-	KEY_ASCII(1,'q'),		/* PSP_CTRL_SQUARE   = 0x008000 */
+	0,				/*                     0x000400 */
+	0,				/*                     0x000800 */
+	KEY_ASCII('d'),			/* PSP_CTRL_TRIANGLE = 0x001000 */
+	KEY_ASCII('o'),			/* PSP_CTRL_CIRCLE   = 0x002000 */
+	KEY_ASCII('x'),			/* PSP_CTRL_CROSS    = 0x004000 */
+	KEY_ASCII('q'),			/* PSP_CTRL_SQUARE   = 0x008000 */
 	KEY_SPECIAL(GLUT_KEY_HOME),	/* PSP_CTRL_HOME     = 0x010000 */
-	KEY_ASCII(0,'h'),		/* PSP_CTRL_HOLD     = 0x020000 */
-	0,				/*		       0x040000 */
-	0,				/*		       0x080000 */
-	0,				/*		       0x100000 */
-	0,				/*		       0x200000 */
-	0,				/*		       0x400000 */
-	KEY_ASCII(0,'n'),		/* PSP_CTRL_NOTE     = 0x800000 */
+	KEY_ASCII('h'),			/* PSP_CTRL_HOLD     = 0x020000 */
+	0,				/*                     0x040000 */
+	0,				/*                     0x080000 */
+	0,				/*                     0x100000 */
+	0,				/*                     0x200000 */
+	0,				/*                     0x400000 */
+	KEY_ASCII('n'),			/* PSP_CTRL_NOTE     = 0x800000 */
 };
 
 
@@ -217,10 +220,6 @@ void glutMainLoop (void)
 	sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
 
 	do {
-		static unsigned int oldbuttons = 0;
-		SceCtrlData pad;
-		int i;
-	
 		if (glut_joystick_func) {
 			struct SceCtrlData pad;
 			sceCtrlReadBufferPositive(&pad, 1);
@@ -229,24 +228,51 @@ void glutMainLoop (void)
 					   (pad.Ly * 2000L) / 256 - 1000, 0);
 		}
 
-		sceCtrlReadBufferPositive(&pad, 1);
+//@@@ old part of keypad reading 
+/*		while (1) {
+			struct SceCtrlLatch latch;
+			int i;
 
-		for (i=0; i<sizeof(keycode)/sizeof(keycode[0]); i++) {
-			if (pad.Buttons & (1 << i)) {
-				if (KEY_REPEAT(keycode[i])) { 
+			sceCtrlReadLatch(&latch);
+
+			if (latch.uiMake == 0 && latch.uiBreak == 0)
+				break;
+
+			for (i=0; i<sizeof(keycode)/sizeof(keycode[0]); i++) {
+				if (latch.uiMake & (1 << i))
 					key(keycode[i], 1);
-				} else {
-					if (!(oldbuttons & (1 << i)))
-						key(keycode[i], 1);
-				}
-			} else {
-				if (oldbuttons & (1 << i))
+				if (latch.uiBreak & (1 << i))
 					key(keycode[i], 0);
 			}
+		};
+*/
+// @@@ new part from Edorul : permit to repeat special key 
+// @@@ and mouse key but not normal keys
+		SceCtrlData pad;
+		static unsigned int oldbuttons = 0;
+		int i;
+		
+		sceCtrlReadBufferPositive(&pad, 1);
+		
+		for (i=0; i<sizeof(keycode)/sizeof(keycode[0]); i++) {
+			// key repeat only for those we want (default = Special and mouse)
+			if ((KEY_TYPE(keycode[i])<<1)&keyrepeat) { 
+				if (pad.Buttons & (1 << i))
+					key(keycode[i], 1);
+			}
+			else {
+				if (!(oldbuttons & (1 << i))&&(pad.Buttons & (1 << i)))
+					key(keycode[i], 1);
+			}
+			
+			// no repeat when key released
+			if (!(pad.Buttons & (1 << i))&&(oldbuttons & (1 << i))) 
+				key(keycode[i], 0);
 		}
-
+		
 		oldbuttons = pad.Buttons;
-
+// @@@ end of the new part
+		
 		if (glut_display_func && glut_redisplay_posted) {
 			glut_redisplay_posted = 0;
 			glut_display_func();
