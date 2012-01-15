@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
     Copyright (C) 2001  Hsieh-Fu Tsai
 
     This library is free software; you can redistribute it and/or
@@ -23,13 +23,14 @@
     Hsieh-Fu Tsai
     clare@setabox.com
 */
+#include "SDL_config.h"
 
 #ifndef _SDL_nxvideo_h
 #define _SDL_nxvideo_h
 
 #include <microwin/nano-X.h>
 
-#include "SDL_sysvideo.h"
+#include "../SDL_sysvideo.h"
 
 #ifdef ENABLE_NANOX_DEBUG
 #define Dprintf printf

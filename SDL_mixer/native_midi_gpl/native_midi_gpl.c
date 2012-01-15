@@ -127,7 +127,7 @@ int native_midi_detect()
     return ret;
 }
 
-NativeMidiSong *native_midi_loadsong(char *midifile)
+NativeMidiSong *native_midi_loadsong(const char *midifile)
 {
     NativeMidiSong	*song = NULL;
     char 		*extra;
@@ -212,6 +212,30 @@ end:
     return NULL;
 }
 
+NativeMidiSong *native_midi_loadsong_RW(SDL_RWops *rw)
+{
+	NativeMidiSong	*song = NULL;
+	char 		*extra;
+
+	song = malloc(sizeof(NativeMidiSong));
+	if (!song) {
+		return NULL;
+	};
+
+	SDL_RWseek(rw, 0, RW_SEEK_END);
+	song->file_size = SDL_RWtell(rw);
+	SDL_RWseek(rw, 0, RW_SEEK_SET);
+
+	song->filebuf = malloc(song->file_size);
+	if (!song->filebuf) {
+		free(song);
+		return NULL;
+	}
+
+	SDL_RWread(rw, song->filebuf, song->file_size, 1);
+	return song;
+}
+
 void native_midi_freesong(NativeMidiSong *song)
 {
     free(song->filebuf);
@@ -291,7 +315,7 @@ void native_midi_setvolume(int volume)
 {
 }
 
-char *native_midi_error()
+const char *native_midi_error(void)
 {
   return "stala sa chyba";
 }

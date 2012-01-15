@@ -1,50 +1,34 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-    BERO <bero@geocities.co.jp>
-    based on SDL_diskaudio.c by Sam Lantinga <slouken@libsdl.org>
+    Sam Lantinga
+    slouken@libsdl.org
 
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_dcaudio.c,v 1.2 2004/01/04 16:49:12 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Output dreamcast aica */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-
-
-#include "SDL_audio.h"
-#include "SDL_error.h"
-#include "SDL_audiomem.h"
-#include "SDL_audio_c.h"
 #include "SDL_timer.h"
-#include "SDL_audiodev_c.h"
+#include "SDL_audio.h"
+#include "../SDL_audiomem.h"
+#include "../SDL_audio_c.h"
+#include "../SDL_audiodev_c.h"
 #include "SDL_dcaudio.h"
 
 #include "aica.h"
@@ -65,8 +49,8 @@ static int DCAUD_Available(void)
 
 static void DCAUD_DeleteDevice(SDL_AudioDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	SDL_free(device->hidden);
+	SDL_free(device);
 }
 
 static SDL_AudioDevice *DCAUD_CreateDevice(int devindex)
@@ -74,20 +58,20 @@ static SDL_AudioDevice *DCAUD_CreateDevice(int devindex)
 	SDL_AudioDevice *this;
 
 	/* Initialize all variables that we clean on shutdown */
-	this = (SDL_AudioDevice *)malloc(sizeof(SDL_AudioDevice));
+	this = (SDL_AudioDevice *)SDL_malloc(sizeof(SDL_AudioDevice));
 	if ( this ) {
-		memset(this, 0, (sizeof *this));
+		SDL_memset(this, 0, (sizeof *this));
 		this->hidden = (struct SDL_PrivateAudioData *)
-				malloc((sizeof *this->hidden));
+				SDL_malloc((sizeof *this->hidden));
 	}
 	if ( (this == NULL) || (this->hidden == NULL) ) {
 		SDL_OutOfMemory();
 		if ( this ) {
-			free(this);
+			SDL_free(this);
 		}
 		return(0);
 	}
-	memset(this->hidden, 0, (sizeof *this->hidden));
+	SDL_memset(this->hidden, 0, (sizeof *this->hidden));
 
 	/* Set the function pointers */
 	this->OpenAudio = DCAUD_OpenAudio;
@@ -217,13 +201,30 @@ static void DCAUD_CloseAudio(_THIS)
 
 static int DCAUD_OpenAudio(_THIS, SDL_AudioSpec *spec)
 {
-	switch(spec->format&0xff) {
-	case  8: spec->format = AUDIO_S8; break;
-	case 16: spec->format = AUDIO_S16LSB; break;
-	default:
-		SDL_SetError("Unsupported audio format");
-		return(-1);
-	}
+    Uint16 test_format = SDL_FirstAudioFormat(spec->format);
+    int valid_datatype = 0;
+    while ((!valid_datatype) && (test_format)) {
+        spec->format = test_format;
+        switch (test_format) {
+            /* only formats Dreamcast accepts... */
+            case AUDIO_S8:
+            case AUDIO_S16LSB:
+                valid_datatype = 1;
+                break;
+
+            default:
+                test_format = SDL_NextAudioFormat();
+                break;
+        }
+    }
+
+    if (!valid_datatype) {  /* shouldn't happen, but just in case... */
+        SDL_SetError("Unsupported audio format");
+        return (-1);
+    }
+
+    if (spec->channels > 2)
+        spec->channels = 2;  /* no more than stereo on the Dreamcast. */
 
 	/* Update the fragment size as size in bytes */
 	SDL_CalculateAudioSpec(spec);
@@ -234,7 +235,7 @@ static int DCAUD_OpenAudio(_THIS, SDL_AudioSpec *spec)
 	if ( this->hidden->mixbuf == NULL ) {
 		return(-1);
 	}
-	memset(this->hidden->mixbuf, spec->silence, spec->size);
+	SDL_memset(this->hidden->mixbuf, spec->silence, spec->size);
 	this->hidden->leftpos = 0x11000;
 	this->hidden->rightpos = 0x11000+spec->size;
 	this->hidden->playing = 0;

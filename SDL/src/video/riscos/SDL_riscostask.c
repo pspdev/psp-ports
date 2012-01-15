@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -17,8 +17,9 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
     Sam Lantinga
-    slouken@devolution.com
+    slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /*
     This file added by Alan Buckley (alan_baa@hotmail.com) to support RISC OS 
@@ -31,15 +32,13 @@
 	  Restoring desktop after switching to full screen
 */
 
-#include <stdlib.h>
-#include <string.h>
-
 #include "kernel.h"
 #include "swis.h"
 
+#include "SDL_stdinc.h"
 #include "SDL_riscostask.h"
 
-#ifndef DISABLE_THREADS
+#if !SDL_THREADS_DISABLED
 #include <pthread.h>
 pthread_t main_thread;
 #endif
@@ -59,7 +58,7 @@ extern int mouseInWindow; /* Mouse is in WIMP window */
 
 /* Local function */
 
-static int RISCOS_GetTaskName(char *task_name);
+static int RISCOS_GetTaskName(char *task_name, size_t maxlen);
 
 /* Uncomment next line to copy mode changes/restores to stderr */
 /* #define DUMP_MODE */
@@ -93,7 +92,7 @@ int RISCOS_InitTask()
    _kernel_swi_regs regs;
    int messages[4];
 
-   if (RISCOS_GetTaskName(task_name) == 0) return 0;
+   if (RISCOS_GetTaskName(task_name, SDL_arraysize(task_name)) == 0) return 0;
 
    messages[0] = 9;       /* Palette changed */
    messages[1] = 0x400c1; /* Mode changed */
@@ -112,7 +111,7 @@ int RISCOS_InitTask()
 	   return 1;
    }
 
-#ifndef DISABLE_THREADS
+#if !SDL_THREADS_DISABLED
    main_thread = pthread_self();
 #endif
 
@@ -179,7 +178,7 @@ void RISCOS_ExitTask()
 
 ***************************************************************************/
 
-int RISCOS_GetTaskName(char *task_name)
+int RISCOS_GetTaskName(char *task_name, size_t maxlen)
 {
 	_kernel_swi_regs regs;
 
@@ -189,19 +188,20 @@ int RISCOS_GetTaskName(char *task_name)
    if (_kernel_swi(OS_GetEnv, &regs, &regs) == 0)
    {
 	   char *command_line = (char *)regs.r[0];
-	   char *buffer = malloc(strlen(command_line)+1);
+	   size_t len = SDL_strlen(command_line)+1;
+	   char *buffer = SDL_stack_alloc(char, len);
 	   char *env_var;
 	   char *p;
 
-	   strcpy(buffer, command_line);
-	   p = strchr(buffer, ' ');
+	   SDL_strlcpy(buffer, command_line, len);
+	   p = SDL_strchr(buffer, ' ');
 	   if (p) *p = 0;
-	   p = strrchr(buffer, '.');
+	   p = SDL_strrchr(buffer, '.');
 	   if (p == 0) p = buffer;
 	   if (stricmp(p+1,"!RunImage") == 0)
 	   {
 		   *p = 0;
-	   	   p = strrchr(buffer, '.');
+	   	   p = SDL_strrchr(buffer, '.');
 		   if (p == 0) p = buffer;
 	   }
 	   if (*p == '.') p++;
@@ -210,8 +210,8 @@ int RISCOS_GetTaskName(char *task_name)
        if (*p == '<')
        {
           // Probably in the form <appname$Dir>
-          char *q = strchr(p, '$');
-          if (q == 0) q = strchr(p,'>'); /* Use variable name if not */
+          char *q = SDL_strchr(p, '$');
+          if (q == 0) q = SDL_strchr(p,'>'); /* Use variable name if not */
           if (q) *q = 0;
           p++; /* Move over the < */
        }
@@ -219,45 +219,45 @@ int RISCOS_GetTaskName(char *task_name)
 	   if (*p)
 	   {
 		   /* Read variables that effect the RISC OS SDL engine for this task */
-		   env_var = malloc(strlen(p) + 18); /* 18 is larger than the biggest variable name */
+		   len = SDL_strlen(p) + 18; /* 18 is larger than the biggest variable name */
+		   env_var = SDL_stack_alloc(char, len);
 		   if (env_var)
 		   {
 			   char *env_val;
 
 			   /* See if a variable of form SDL$<dirname>$TaskName exists */
 
-			   strcpy(env_var, "SDL$");
-			   strcat(env_var, p);
-			   strcat(env_var, "$TaskName");
+			   SDL_strlcpy(env_var, "SDL$", len);
+			   SDL_strlcat(env_var, p, len);
+			   SDL_strlcat(env_var, "$TaskName", len);
 
-			   env_val = getenv(env_var);
-			   if (env_val) strncpy(task_name, env_val, 31);
+			   env_val = SDL_getenv(env_var);
+			   if (env_val) SDL_strlcpy(task_name, env_val, maxlen);
 
-			   strcpy(env_var, "SDL$");
-			   strcat(env_var, p);
-			   strcat(env_var, "$BackBuffer");
+			   SDL_strlcpy(env_var, "SDL$", len);
+			   SDL_strlcat(env_var, p, len);
+			   SDL_strlcat(env_var, "$BackBuffer", len);
 
-			   env_val = getenv(env_var);
+			   env_val = SDL_getenv(env_var);
 			   if (env_val) riscos_backbuffer = atoi(env_val);
 
-			   strcpy(env_var, "SDL$");
-			   strcat(env_var, p);
-			   strcat(env_var, "$CloseAction");
+			   SDL_strlcpy(env_var, "SDL$", len);
+			   SDL_strlcat(env_var, p, len);
+			   SDL_strlcat(env_var, "$CloseAction", len);
 
-			   env_val = getenv(env_var);
-			   if (env_val && strcmp(env_val,"0") == 0) riscos_closeaction = 0;
+			   env_val = SDL_getenv(env_var);
+			   if (env_val && SDL_strcmp(env_val,"0") == 0) riscos_closeaction = 0;
 
-			   free(env_var);
+			   SDL_stack_free(env_var);
 		   }
 		   
-		   if (task_name[0] == 0) strncpy(task_name, p, 31);
-		   task_name[31] = 0;
+		   if (!*task_name) SDL_strlcpy(task_name, p, maxlen);
 	   }
 
-	   free(buffer);
+	   SDL_stack_free(buffer);
    }
 
-   if (task_name[0] == 0) strcpy(task_name, "SDL Task");
+   if (task_name[0] == 0) SDL_strlcpy(task_name, "SDL Task", maxlen);
 
    return 1;
 }
@@ -287,7 +287,7 @@ void RISCOS_StoreWimpMode()
 
         while(blockSize < 5 || retBlock[blockSize] != -1) blockSize++;
         blockSize++;
-        storeBlock = (int *)malloc(blockSize * sizeof(int));
+        storeBlock = (int *)SDL_malloc(blockSize * sizeof(int));
         retBlock = (int *)regs.r[1];
         for ( j = 0; j < blockSize; j++)
            storeBlock[j] = retBlock[j];
@@ -320,7 +320,7 @@ void RISCOS_RestoreWimpMode()
     _kernel_swi(Wimp_SetMode, &regs, &regs);
     if (stored_mode < 0 || stored_mode > 256)
     {
-       free((int *)stored_mode);
+       SDL_free((int *)stored_mode);
     }
     stored_mode = -1;
 

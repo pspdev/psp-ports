@@ -1,18 +1,19 @@
 #!/bin/sh
 #
-echo "Generating build information using aclocal, automake and autoconf"
+echo "Generating build information using autoconf"
 echo "This may take a while ..."
 
-# Touch the timestamps on all the files since CVS messes them up
-directory=`dirname $0`
-touch $directory/configure.in
-
 # Regenerate configuration files
-aclocal
-automake --foreign --include-deps --add-missing --copy
-autoconf
-(cd test; aclocal; automake --foreign --include-deps --add-missing --copy; autoconf)
+cat acinclude/* >aclocal.m4
+found=false
+for autoconf in autoconf autoconf259 autoconf-2.59
+do if which $autoconf >/dev/null 2>&1; then $autoconf && found=true; break; fi
+done
+if test x$found = xfalse; then
+    echo "Couldn't find autoconf, aborting"
+    exit 1
+fi
+(cd test; sh autogen.sh)
 
 # Run configure for this platform
-#./configure $*
 echo "Now you are ready to run ./configure"

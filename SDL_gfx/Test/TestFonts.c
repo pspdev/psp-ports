@@ -1,50 +1,50 @@
 /* 
 
-    TestFonts - test dynamic font loading code
+TestFonts.c: test dynamic font loading code
 
-    Copyright (C) A. Schiffler, August 2001
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+(C) A. Schiffler, August 2001, zlib License
 
 */
 
-#ifdef WIN32
- #include <windows.h>
-#endif
-
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <time.h>
 
 #include "SDL.h"
 
+#ifdef WIN32
+#include <windows.h>
 #include "SDL_gfxPrimitives.h"
+#else
+#include "SDL/SDL_gfxPrimitives.h"
+#endif
 
-void HandleEvent()
+#ifdef PSP
+# define WIDTH 480
+# define HEIGHT 272
+#else
+# define WIDTH	1024
+# define HEIGHT	768
+#endif
+
+void WaitForEvent()
 {
+	int done;
 	SDL_Event event; 
 
 	/* Check for events */
-        while ( SDL_PollEvent(&event) ) {
-                        switch (event.type) {
+	done = 0;
+	while (!done) {
+		SDL_PollEvent(&event);
+		switch (event.type) {
 			 case SDL_KEYDOWN:
 			 case SDL_QUIT:
-                                        exit(0);
-                                        break;
-			}
+				 done = 1;
+				 break;
+		}
+		SDL_Delay(100);
 	}
 }
 
@@ -66,207 +66,310 @@ void ClearScreen(SDL_Surface *screen)
 	}
 }
 
+int FileExists(const char * filename)
+{
+	FILE *file;
+	if (file = fopen(filename, "r"))
+	{
+		fclose(file);
+		return 1;
+	}
+	return 0;
+}
+
+#define NUM_SDLGFX_FONTS	7
+
+/* Filenames of font files */
+static	char *fontfile[NUM_SDLGFX_FONTS] = {
+	"",
+	"5x7.fnt",
+	"7x13.fnt",
+	"7x13B.fnt",
+	"7x13O.fnt",
+	"9x18.fnt",
+	"9x18B.fnt",
+};
+
+/* Width of font characters */
+static	int  fontw[NUM_SDLGFX_FONTS] = {
+	8,
+	5,
+	7,
+	7,
+	7,
+	9,
+	9,
+};	
+
+/* Height of fonts characters */
+static	int  fonth[NUM_SDLGFX_FONTS] = {
+	8,
+	7,
+	13,
+	13,
+	13,
+	18,
+	18,
+};
+
+/* Bytes of fontfiles */
+static int  fontsize[NUM_SDLGFX_FONTS] = {
+	0,
+	1792,
+	3328,
+	3328,
+	3328,
+	9216,
+	9216,
+};	
+
+/* Helper that searches and loads a fontfile */
+char *LoadFontFile(int i)
+{
+	char *myfont;
+	char filename[128];
+	FILE *file;
+	int bytesRead;
+
+	/* Check index */
+	if (i==0)
+	{
+		return NULL;
+	}
+
+	/* Allocate memory for font data */
+	myfont=(char *)malloc(fontsize[i]);
+	if (myfont) {
+		if (strcmp(fontfile[i],"default")) {
+			/* Load a font data */
 #ifdef PSP
-#define RELPATH ""
+            sprintf(filename,"%s",fontfile[i]);
 #else
-#define RELPATH "../"
+			sprintf(filename,"../Fonts/%s",fontfile[i]);
 #endif
+			if (!FileExists(filename))
+			{
+				sprintf(filename,"..\\Fonts\\%s",fontfile[i]);
+				if (!FileExists(filename))
+				{
+					sprintf(filename,"..\\..\\Fonts\\%s",fontfile[i]);
+					if (!FileExists(filename))
+					{
+						sprintf(filename,"..\\..\\..\\Fonts\\%s",fontfile[i]);
+						if (!FileExists(filename))
+						{
+							fprintf(stderr,"Cannot find fontfile: %s\n", fontfile[i]);
+							exit(-1);
+						}
+					}
+				}
+			}
+			file = fopen(filename,"r");
+			bytesRead = fread(myfont,fontsize[i],1,file);
+			fclose(file);
+		}
+	}
+
+	return myfont;
+}
 
 void Draw(SDL_Surface *screen)
 {
- FILE *file;
- char *myfont;
- char mytext[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
- 
- /* Black screen */
- ClearScreen(screen);
+	int i, rotation;
+	char *myfont;
+	char mytext[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	int x,y,yold;
 
- /* Load a font and draw with it */
- myfont=(char *)malloc(1792);
- file = fopen(RELPATH "Fonts/5x7.fnt","r");
- fread(myfont,1792,1,file);
- fclose(file);
- gfxPrimitivesSetFont(myfont,5,7);
- stringRGBA(screen,10,10,mytext,255,255,255,255);
- free(myfont);
+	/* Black screen */
+	ClearScreen(screen);
+	y=0; 
 
- /* Load a font and draw with it */
- myfont=(char *)malloc(3328);
- //
- file = fopen(RELPATH "Fonts/7x13.fnt","r");
- fread(myfont,3328,1,file);
- fclose(file);
- gfxPrimitivesSetFont(myfont,7,13);
- stringRGBA(screen,10,30,mytext,255,255,255,255);
- //
- file = fopen(RELPATH "Fonts/7x13B.fnt","r");
- fread(myfont,3328,1,file);
- fclose(file);
- gfxPrimitivesSetFont(myfont,7,13);
- stringRGBA(screen,10,50,mytext,255,255,255,255);
- //
- file = fopen(RELPATH "Fonts/7x13O.fnt","r");
- fread(myfont,3328,1,file);
- fclose(file);
- gfxPrimitivesSetFont(myfont,7,13);
- stringRGBA(screen,10,70,mytext,255,255,255,255);
- //
- free(myfont);
+	/* Try all horizontal rotations */
+	rotation = 0;
+	gfxPrimitivesSetFontRotation(rotation);
 
- /* Load a font and draw with it */
- myfont=(char *)malloc(9216);
- //
- file = fopen(RELPATH "Fonts/9x18.fnt","r");
- fread(myfont,9216,1,file);
- fclose(file);
- gfxPrimitivesSetFont(myfont,9,18);
- stringRGBA(screen,10,90,mytext,255,255,255,255);
- //
- file = fopen(RELPATH "Fonts/9x18B.fnt","r");
- fread(myfont,9216,1,file);
- fclose(file);
- gfxPrimitivesSetFont(myfont,9,18);
- stringRGBA(screen,10,110,mytext,255,255,255,255);
- //
- free(myfont);
- 
- /* Display by flipping screens */
- SDL_UpdateRect(screen,0,0,0,0);
- 
- while (1) {
-  
-  /* Events */
-  HandleEvent();
-  
+	/* Render all fonts */ 
+	for (i=0; i<NUM_SDLGFX_FONTS; i++) {
+		fprintf(stderr,"Drawing Font: size %ix%i, file '%s', %i bytes, rotation %i\n",fontw[i], fonth[i], fontfile[i],fontsize[i], rotation);
+		/* Reset line pos */
+		x=4;
+		myfont = NULL;
+		if (i>0) {
+			myfont=LoadFontFile(i);
+		}
+		/* Set font data and use it */
+		gfxPrimitivesSetFont(myfont,fontw[i],fonth[i]);
+		y += fonth[i];
+		stringRGBA(screen,x,y,fontfile[i],255,255,255,255);
+		x += 100;
+		stringRGBA(screen,x,y,mytext,255,255,255,255);
+		y += 10;
+		if (i>0)
+		{
+			/* Clean up font-data */
+			free(myfont);
+		}
+	}
 
-  /* Delay to limit rate */                   
-  SDL_Delay(1000);  
- }
+	y += 20;
+
+	yold = y;
+
+	rotation = 2;
+	gfxPrimitivesSetFontRotation(rotation);
+
+	/* Render all fonts */ 
+	for (i=0; i<NUM_SDLGFX_FONTS; i++) {
+		fprintf(stderr,"Drawing Font: size %ix%i, file '%s', %i bytes, rotation %i\n",fontw[i], fonth[i], fontfile[i],fontsize[i], rotation);
+		/* Reset line pos */
+		x=WIDTH - 14;
+		myfont = NULL;
+		if (i>0) {
+			myfont=LoadFontFile(i);
+		}
+		/* Set font data and use it */
+		gfxPrimitivesSetFont(myfont,fontw[i],fonth[i]);
+		y += fonth[i];
+		stringRGBA(screen,x,y,fontfile[i],255,255,255,255);
+		x -= 100;
+		stringRGBA(screen,x,y,mytext,255,255,255,255);
+		y += 10;
+		if (i>0)
+		{
+			/* Clean up font-data */
+			free(myfont);
+		}
+	}
+
+	y += 20;
+
+	/* Try all vertical rotations */
+	rotation = 1;
+	gfxPrimitivesSetFontRotation(rotation);
+
+	x = 14;
+
+	/* Render all fonts */ 
+	for (i=0; i<NUM_SDLGFX_FONTS; i++) {
+		fprintf(stderr,"Drawing Font: size %ix%i, file '%s', %i bytes, rotation %i\n",fontw[i], fonth[i], fontfile[i],fontsize[i], rotation);
+		/* Reset line pos */
+		y=yold;
+		myfont = NULL;
+		if (i>0) {
+			myfont=LoadFontFile(i);
+		}
+		/* Set font data and use it */
+		gfxPrimitivesSetFont(myfont,fontw[i],fonth[i]);
+		x += fonth[i];
+		stringRGBA(screen,x,y,fontfile[i],255,255,255,255);
+		y += 100;
+		stringRGBA(screen,x,y,mytext,255,255,255,255);
+		x += 10;
+		if (i>0)
+		{
+			/* Clean up font-data */
+			free(myfont);
+		}
+	}
+
+	x += 20;
+
+	rotation = 3;
+	gfxPrimitivesSetFontRotation(rotation);
+
+	/* Render all fonts */ 
+	for (i=0; i<NUM_SDLGFX_FONTS; i++) {
+		fprintf(stderr,"Drawing Font: size %ix%i, file '%s', %i bytes, rotation %i\n",fontw[i], fonth[i], fontfile[i],fontsize[i], rotation);
+		/* Reset line pos */
+		y=HEIGHT - 14;
+		myfont = NULL;
+		if (i>0) {
+			if (i>0) {
+				myfont=LoadFontFile(i);
+			}
+			/* Set font data and use it */
+			gfxPrimitivesSetFont(myfont,fontw[i],fonth[i]);
+			x += fonth[i];
+			stringRGBA(screen,x,y,fontfile[i],255,255,255,255);
+			y -= 100;
+			stringRGBA(screen,x,y,mytext,255,255,255,255);
+			x += 10;
+			if (i>0)
+			{
+				/* Clean up font-data */
+				free(myfont);
+			}
+		}
+
+		/* Display by flipping screens */
+		SDL_Flip(screen); 
+	}
 }
 
-#ifdef WIN32
- extern char ** __argv;
- extern int __argc;
- int APIENTRY WinMain(HINSTANCE hInstance,
-                     HINSTANCE hPrevInstance,
-                     LPSTR     lpCmdLine,
-                     int       nCmdShow)
-#else // non WIN32
- int main ( int argc, char *argv[] )
-#endif
+/* ======== */
+
+int main(int argc, char *argv[])
 {
 	SDL_Surface *screen;
-	int w, h;
-	int desired_bpp;
-	Uint32 video_flags;
-#ifdef WIN32
-	int argc;
-	char **argv;
+	Uint8  video_bpp;
+	Uint32 videoflags;
+	char title[64];
 
-	argv = __argv;
-	argc = __argc;
-#endif
-	/* Title */
-	fprintf (stderr,"Font Test\n");
+	/* Generate title strings */
+	sprintf (title, "TestFonts - v%i.%i.%i", SDL_GFXPRIMITIVES_MAJOR, SDL_GFXPRIMITIVES_MINOR, SDL_GFXPRIMITIVES_MICRO);
 
-	/* Set default options and check command-line */
-#ifndef PSP
-	w = 640;
-	h = 480;
-	video_flags = 0;
-#else
-	w = 480;
-	h = 272;
-	video_flags = SDL_HWSURFACE | SDL_FULLSCREEN;
-#endif
-	desired_bpp = 0;
+	/* Initialize SDL */
+	if ( SDL_Init(SDL_INIT_VIDEO) < 0 ) {
+		fprintf(stderr, "Couldn't initialize SDL: %s\n",SDL_GetError());
+		exit(1);
+	}
+	atexit(SDL_Quit);
+
+	video_bpp = 32;
+	videoflags = SDL_SWSURFACE | SDL_SRCALPHA | SDL_RESIZABLE;
 	while ( argc > 1 ) {
-		if ( strcmp(argv[1], "-width") == 0 ) {
-			if ( argv[2] && ((w = atoi(argv[2])) > 0) ) {
-				argv += 2;
-				argc -= 2;
-			} else {
-				fprintf(stderr,
-				"The -width option requires an argument\n");
-				exit(1);
-			}
+		--argc;
+		if ( strcmp(argv[argc-1], "-bpp") == 0 ) {
+			video_bpp = atoi(argv[argc]);
+			--argc;
 		} else
-		if ( strcmp(argv[1], "-height") == 0 ) {
-			if ( argv[2] && ((h = atoi(argv[2])) > 0) ) {
-				argv += 2;
-				argc -= 2;
-			} else {
-				fprintf(stderr,
-				"The -height option requires an argument\n");
-				exit(1);
-			}
-		} else
-		if ( strcmp(argv[1], "-bpp") == 0 ) {
-			if ( argv[2] ) {
-				desired_bpp = atoi(argv[2]);
-				argv += 2;
-				argc -= 2;
-			} else {
-				fprintf(stderr,
-				"The -bpp option requires an argument\n");
-				exit(1);
-			}
-		} else
-		if ( strcmp(argv[1], "-warp") == 0 ) {
-			video_flags |= SDL_HWPALETTE;
-			argv += 1;
-			argc -= 1;
-		} else
-		if ( strcmp(argv[1], "-hw") == 0 ) {
-			video_flags |= SDL_HWSURFACE;
-			argv += 1;
-			argc -= 1;
-		} else
-		if ( strcmp(argv[1], "-fullscreen") == 0 ) {
-			video_flags |= SDL_FULLSCREEN;
-			argv += 1;
-			argc -= 1;
-		} else
-			break;
+			if ( strcmp(argv[argc], "-hw") == 0 ) {
+				videoflags |= SDL_HWSURFACE;
+			} else
+				if ( strcmp(argv[argc], "-warp") == 0 ) {
+					videoflags |= SDL_HWPALETTE;
+				} else
+					if ( strcmp(argv[argc], "-fullscreen") == 0 ) {
+						videoflags |= SDL_FULLSCREEN;
+					} else {
+						fprintf(stderr, 
+							"Usage: %s [-bpp N] [-warp] [-hw] [-fullscreen]\n",
+							argv[0]);
+						exit(1);
+					}
 	}
 
 	/* Force double buffering */
 #ifndef PSP
-	video_flags |= SDL_DOUBLEBUF;
+	videoflags |= SDL_DOUBLEBUF;
 #endif
 
-	/* Initialize SDL */
-	if ( SDL_Init(SDL_INIT_VIDEO) < 0 ) {
-		fprintf(stderr,
-			"Couldn't initialize SDL: %s\n", SDL_GetError());
-		exit(1);
-	}
-	atexit(SDL_Quit);			/* Clean up on exit */
-
-	/* Initialize the display */
-	screen = SDL_SetVideoMode(w, h, desired_bpp, video_flags);
-	if ( screen == NULL ) {
-		fprintf(stderr, "Couldn't set %dx%dx%d video mode: %s\n",
-					w, h, desired_bpp, SDL_GetError());
-		exit(1);
+	/* Set video mode */
+	if ( (screen=SDL_SetVideoMode(WIDTH, HEIGHT, video_bpp, videoflags)) == NULL ) {
+		fprintf(stderr, "Couldn't set %ix%i %i bpp video mode: %s\n",WIDTH,HEIGHT,video_bpp,SDL_GetError());
+		exit(2);
 	}
 
-	/* Show some info */
-	printf("Set %dx%dx%d mode\n",
-			screen->w, screen->h, screen->format->BitsPerPixel);
-	printf("Video surface located in %s memory.\n",
-			(screen->flags&SDL_HWSURFACE) ? "video" : "system");
-	
-	/* Check for double buffering */
-	if ( screen->flags & SDL_DOUBLEBUF ) {
-		printf("Double-buffering enabled - good!\n");
-	}
+	/* Use alpha blending */
+	SDL_SetAlpha(screen, SDL_SRCALPHA, 0);
 
-	/* Set the window manager title bar */
-	SDL_WM_SetCaption("TestFonts", "testfonts");
+	/* Set title for window */
+	SDL_WM_SetCaption(title,title);
 
 	/* Do all the drawing work */
-	Draw (screen);
-	
+	Draw(screen);
+
+	WaitForEvent();
+
 	return(0);
 }

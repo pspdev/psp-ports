@@ -1,6 +1,6 @@
 /*
     SDL_mixer:  An audio mixer library based on the SDL library
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -16,13 +16,13 @@
     License along with this library; if not, write to the Free
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-    This file by Ryan C. Gordon (icculus@linuxgames.com)
+    This file by Ryan C. Gordon (icculus@icculus.org)
 
     These are some internally supported special effects that use SDL_mixer's
     effect callback API. They are meant for speed over quality.  :)
 */
 
-/* $Id: effect_position.c,v 1.12 2004/11/15 23:36:49 slouken Exp $ */
+/* $Id: effect_position.c 5045 2009-10-11 02:59:12Z icculus $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -79,6 +79,22 @@ static position_args **pos_args_array = NULL;
 static position_args *pos_args_global = NULL;
 static int position_channels = 0;
 
+void _Eff_PositionDeinit(void)
+{
+    int i;
+    for (i = 0; i < position_channels; i++) {
+        free(pos_args_array[i]);
+    }
+
+    position_channels = 0;
+
+    free(pos_args_global);
+    pos_args_global = NULL;
+    free(pos_args_array);
+    pos_args_array = NULL;
+}
+
+
 /* This just frees up the callback-specific data. */
 static void _Eff_PositionDone(int channel, void *udata)
 {
@@ -113,7 +129,7 @@ static void _Eff_position_u8(int chan, void *stream, int len, void *udata)
         len--;
     }
 
-    if (args->room_angle == 0)
+    if (args->room_angle == 180)
     for (i = 0; i < len; i += sizeof (Uint8) * 2) {
         /* must adjust the sample so that 0 is the center */
         *ptr = (Uint8) ((Sint8) ((((float) (Sint8) (*ptr - 128)) 
@@ -373,16 +389,17 @@ static void _Eff_position_table_u8(int chan, void *stream, int len, void *udata)
 
     for (i = 0; i < len; i += sizeof (Uint32)) {
 #if (SDL_BYTEORDER == SDL_BIG_ENDIAN)
-        *(p++) = (d[l[(*p & 0xFF000000) >> 24]] << 24) |
-                 (d[r[(*p & 0x00FF0000) >> 16]] << 16) |
-                 (d[l[(*p & 0x0000FF00) >>  8]] <<  8) |
-                 (d[r[(*p & 0x000000FF)      ]]      ) ;
+        *p = (d[l[(*p & 0xFF000000) >> 24]] << 24) |
+             (d[r[(*p & 0x00FF0000) >> 16]] << 16) |
+             (d[l[(*p & 0x0000FF00) >>  8]] <<  8) |
+             (d[r[(*p & 0x000000FF)      ]]      ) ;
 #else
-        *(p++) = (d[r[(*p & 0xFF000000) >> 24]] << 24) |
-                 (d[l[(*p & 0x00FF0000) >> 16]] << 16) |
-                 (d[r[(*p & 0x0000FF00) >>  8]] <<  8) |
-                 (d[l[(*p & 0x000000FF)      ]]      ) ;
+        *p = (d[r[(*p & 0xFF000000) >> 24]] << 24) |
+             (d[l[(*p & 0x00FF0000) >> 16]] << 16) |
+             (d[r[(*p & 0x0000FF00) >>  8]] <<  8) |
+             (d[l[(*p & 0x000000FF)      ]]      ) ;
 #endif
+        ++p;
     }
 }
 
@@ -563,16 +580,17 @@ static void _Eff_position_table_s8(int chan, void *stream, int len, void *udata)
 
     for (i = 0; i < len; i += sizeof (Uint32)) {
 #if (SDL_BYTEORDER == SDL_BIG_ENDIAN)
-        *(p++) = (d[l[((Sint16)(Sint8)((*p & 0xFF000000) >> 24))+128]] << 24) |
-                 (d[r[((Sint16)(Sint8)((*p & 0x00FF0000) >> 16))+128]] << 16) |
-                 (d[l[((Sint16)(Sint8)((*p & 0x0000FF00) >>  8))+128]] <<  8) |
-                 (d[r[((Sint16)(Sint8)((*p & 0x000000FF)      ))+128]]      ) ;
+        *p = (d[l[((Sint16)(Sint8)((*p & 0xFF000000) >> 24))+128]] << 24) |
+             (d[r[((Sint16)(Sint8)((*p & 0x00FF0000) >> 16))+128]] << 16) |
+             (d[l[((Sint16)(Sint8)((*p & 0x0000FF00) >>  8))+128]] <<  8) |
+             (d[r[((Sint16)(Sint8)((*p & 0x000000FF)      ))+128]]      ) ;
 #else
-        *(p++) = (d[r[((Sint16)(Sint8)((*p & 0xFF000000) >> 24))+128]] << 24) |
-                 (d[l[((Sint16)(Sint8)((*p & 0x00FF0000) >> 16))+128]] << 16) |
-                 (d[r[((Sint16)(Sint8)((*p & 0x0000FF00) >>  8))+128]] <<  8) |
-                 (d[l[((Sint16)(Sint8)((*p & 0x000000FF)      ))+128]]      ) ;
+        *p = (d[r[((Sint16)(Sint8)((*p & 0xFF000000) >> 24))+128]] << 24) |
+             (d[l[((Sint16)(Sint8)((*p & 0x00FF0000) >> 16))+128]] << 16) |
+             (d[r[((Sint16)(Sint8)((*p & 0x0000FF00) >>  8))+128]] <<  8) |
+             (d[l[((Sint16)(Sint8)((*p & 0x000000FF)      ))+128]]      ) ;
 #endif
+        ++p;
     }
 
 
@@ -622,9 +640,9 @@ static void _Eff_position_u16lsb_c4(int chan, void *stream, int len, void *udata
                                     * args->distance_f) + 32768);
         Uint16 swapr = (Uint16) ((Sint16) (((float) sampr * args->right_f)
                                     * args->distance_f) + 32768);
-        Uint16 swaplr = (Uint16) ((Sint16) (((float) samplr * args->left_f)
+        Uint16 swaplr = (Uint16) ((Sint16) (((float) samplr * args->left_rear_f)
                                     * args->distance_f) + 32768);
-        Uint16 swaprr = (Uint16) ((Sint16) (((float) samprr * args->right_f)
+        Uint16 swaprr = (Uint16) ((Sint16) (((float) samprr * args->right_rear_f)
                                     * args->distance_f) + 32768);
 
 	switch (args->room_angle) {
@@ -668,18 +686,18 @@ static void _Eff_position_u16lsb_c6(int chan, void *stream, int len, void *udata
         Sint16 samprr = (Sint16) (SDL_SwapLE16(*(ptr+3)) - 32768);
         Sint16 sampce = (Sint16) (SDL_SwapLE16(*(ptr+4)) - 32768);
         Sint16 sampwf = (Sint16) (SDL_SwapLE16(*(ptr+5)) - 32768);
-        
+
         Uint16 swapl = (Uint16) ((Sint16) (((float) sampl * args->left_f)
                                     * args->distance_f) + 32768);
         Uint16 swapr = (Uint16) ((Sint16) (((float) sampr * args->right_f)
                                     * args->distance_f) + 32768);
-        Uint16 swaplr = (Uint16) ((Sint16) (((float) samplr * args->left_f)
+        Uint16 swaplr = (Uint16) ((Sint16) (((float) samplr * args->left_rear_f)
                                     * args->distance_f) + 32768);
-        Uint16 swaprr = (Uint16) ((Sint16) (((float) samprr * args->right_f)
+        Uint16 swaprr = (Uint16) ((Sint16) (((float) samprr * args->right_rear_f)
                                     * args->distance_f) + 32768);
-        Uint16 swapce = (Uint16) ((Sint16) (((float) sampce * args->left_f)
+        Uint16 swapce = (Uint16) ((Sint16) (((float) sampce * args->center_f)
                                     * args->distance_f) + 32768);
-        Uint16 swapwf = (Uint16) ((Sint16) (((float) sampwf * args->right_f)
+        Uint16 swapwf = (Uint16) ((Sint16) (((float) sampwf * args->lfe_f)
                                     * args->distance_f) + 32768);
 
 	switch (args->room_angle) {
@@ -1277,9 +1295,7 @@ static void set_amplitudes(int channels, int angle, int room_angle)
     int left = 255, right = 255;
     int left_rear = 255, right_rear = 255, center = 255;
 
-        /* unwind the angle...it'll be between 0 and 359. */
-    while (angle >= 360) angle -= 360;
-    while (angle < 0) angle += 360;
+    angle = SDL_abs(angle) % 360;  /* make angle between 0 and 359. */
 
     if (channels == 2)
     {
@@ -1311,16 +1327,16 @@ static void set_amplitudes(int channels, int angle, int room_angle)
          *  An angle in the first quadrant, 0-90, does not attenuate the RF.
          *
          *   ...so, we split our angle circle into 8 ...
-	 *
-	 *             CE
-	 *             0
-	 *     LF      |         RF
-	 *             |
-	 *  270<-------|----------->90
-	 *             |
-	 *     LR      |         RR
-	 *            180
-	 *   
+         *
+         *             CE
+         *             0
+         *     LF      |         RF
+         *             |
+         *  270<-------|----------->90
+         *             |
+         *     LR      |         RR
+         *            180
+         *
          */
         if (angle < 45) {
             left = ((int) (255.0f * (((float) (180 - angle)) / 179.0f)));
@@ -1411,33 +1427,47 @@ int Mix_SetPanning(int channel, Uint8 left, Uint8 right)
     int channels;
     Uint16 format;
     position_args *args = NULL;
+    int retval = 1;
+
     Mix_QuerySpec(NULL, &format, &channels);
 
     if (channels != 2 && channels != 4 && channels != 6)    /* it's a no-op; we call that successful. */
         return(1);
 
     if (channels > 2) {
+        /* left = right = 255 => angle = 0, to unregister effect as when channels = 2 */
     	/* left = 255 =>  angle = -90;  left = 0 => angle = +89 */
-    	int angle = (int)left;
-    	angle = 127 - angle;
-	angle = -angle;
-    	angle = angle * 90 / 128; /* Make it larger for more effect? */
-	return( Mix_SetPosition(channel, angle, 0) );
+        int angle = 0;
+        if ((left != 255) || (right != 255)) {
+	    angle = (int)left;
+    	    angle = 127 - angle;
+	    angle = -angle;
+    	    angle = angle * 90 / 128; /* Make it larger for more effect? */
+        }
+        return( Mix_SetPosition(channel, angle, 0) );
     }
 
     f = get_position_effect_func(format, channels);
     if (f == NULL)
         return(0);
 
+    SDL_LockAudio();
     args = get_position_arg(channel);
-    if (!args)
+    if (!args) {
+        SDL_UnlockAudio();
         return(0);
+    }
 
         /* it's a no-op; unregister the effect, if it's registered. */
-    if ((args->distance_u8 == 255) && (left == 255) &&
-        (right == 255) && (args->in_use))
-    {
-        return(Mix_UnregisterEffect(channel, f));
+    if ((args->distance_u8 == 255) && (left == 255) && (right == 255)) {
+        if (args->in_use) {
+            retval = _Mix_UnregisterEffect_locked(channel, f);
+            SDL_UnlockAudio();
+            return(retval);
+        } else {
+            SDL_UnlockAudio();
+            return(1);
+        }
     }
 
     args->left_u8 = left;
@@ -1448,10 +1478,11 @@ int Mix_SetPanning(int channel, Uint8 left, Uint8 right)
 
     if (!args->in_use) {
         args->in_use = 1;
-        return(Mix_RegisterEffect(channel, f, _Eff_PositionDone, (void *) args));
+        retval=_Mix_RegisterEffect_locked(channel, f, _Eff_PositionDone, (void*)args);
     }
 
-    return(1);
+    SDL_UnlockAudio();
+    return(retval);
 }
 
 
@@ -1461,33 +1492,43 @@ int Mix_SetDistance(int channel, Uint8 distance)
     Uint16 format;
     position_args *args = NULL;
     int channels;
+    int retval = 1;
 
     Mix_QuerySpec(NULL, &format, &channels);
     f = get_position_effect_func(format, channels);
     if (f == NULL)
         return(0);
 
+    SDL_LockAudio();
     args = get_position_arg(channel);
-    if (!args)
+    if (!args) {
+        SDL_UnlockAudio();
         return(0);
+    }
 
     distance = 255 - distance;  /* flip it to our scale. */
 
         /* it's a no-op; unregister the effect, if it's registered. */
-    if ((distance == 255) && (args->left_u8 == 255) &&
-        (args->right_u8 == 255) && (args->in_use))
-    {
-        return(Mix_UnregisterEffect(channel, f));
+    if ((distance == 255) && (args->left_u8 == 255) && (args->right_u8 == 255)) {
+        if (args->in_use) {
+            retval = _Mix_UnregisterEffect_locked(channel, f);
+            SDL_UnlockAudio();
+            return(retval);
+        } else {
+            SDL_UnlockAudio();
+            return(1);
+        }
     }
 
     args->distance_u8 = distance;
     args->distance_f = ((float) distance) / 255.0f;
     if (!args->in_use) {
         args->in_use = 1;
-        return(Mix_RegisterEffect(channel, f, _Eff_PositionDone, (void *) args));
+        retval = _Mix_RegisterEffect_locked(channel, f, _Eff_PositionDone, (void *) args);
     }
 
-    return(1);
+    SDL_UnlockAudio();
+    return(retval);
 }
 
 
@@ -1497,24 +1538,34 @@ int Mix_SetPosition(int channel, Sint16 angle, Uint8 distance)
     Uint16 format;
     int channels;
     position_args *args = NULL;
-    Sint16 room_angle;
+    Sint16 room_angle = 0;
+    int retval = 1;
 
     Mix_QuerySpec(NULL, &format, &channels);
     f = get_position_effect_func(format, channels);
     if (f == NULL)
         return(0);
 
-        /* unwind the angle...it'll be between 0 and 359. */
-    while (angle >= 360) angle -= 360;
-    while (angle < 0) angle += 360;
+    angle = SDL_abs(angle) % 360;  /* make angle between 0 and 359. */
 
+    SDL_LockAudio();
     args = get_position_arg(channel);
-    if (!args)
+    if (!args) {
+        SDL_UnlockAudio();
         return(0);
+    }
 
         /* it's a no-op; unregister the effect, if it's registered. */
-    if ((!distance) && (!angle) && (args->in_use))
-        return(Mix_UnregisterEffect(channel, f));
+    if ((!distance) && (!angle)) {
+        if (args->in_use) {
+            retval = _Mix_UnregisterEffect_locked(channel, f);
+            SDL_UnlockAudio();
+            return(retval);
+        } else {
+            SDL_UnlockAudio();
+            return(1);
+        }
+    }
 
     if (channels == 2)
     {
@@ -1547,17 +1598,18 @@ int Mix_SetPosition(int channel, Sint16 angle, Uint8 distance)
     args->right_rear_f = ((float) speaker_amplitude[3]) / 255.0f;
     args->center_u8 = speaker_amplitude[4];
     args->center_f = ((float) speaker_amplitude[4]) / 255.0f;
-    args->lfe_u8 = 255;
-    args->lfe_f = 255.0f;
+    args->lfe_u8 = speaker_amplitude[5];
+    args->lfe_f = ((float) speaker_amplitude[5]) / 255.0f;
     args->distance_u8 = distance;
     args->distance_f = ((float) distance) / 255.0f;
     args->room_angle = room_angle;
     if (!args->in_use) {
         args->in_use = 1;
-        return(Mix_RegisterEffect(channel, f, _Eff_PositionDone, (void *) args));
+        retval = _Mix_RegisterEffect_locked(channel, f, _Eff_PositionDone, (void *) args);
     }
 
-    return(1);
+    SDL_UnlockAudio();
+    return(retval);
 }
 
 

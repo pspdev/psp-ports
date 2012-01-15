@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
     Copyright (C) 2001  Hsieh-Fu Tsai
 
     This library is free software; you can redistribute it and/or
@@ -23,9 +23,9 @@
     Hsieh-Fu Tsai
     clare@setabox.com
 */
+#include "SDL_config.h"
 
-#include <stdlib.h>
-
+#include "SDL_stdinc.h"
 #include "SDL_nxmodes_c.h"
 
 SDL_Rect ** NX_ListModes (_THIS, SDL_PixelFormat * format, Uint32 flags)
@@ -46,9 +46,9 @@ void NX_FreeVideoModes (_THIS)
 
     if (SDL_modelist) {
         for (i = 0; SDL_modelist [i]; ++ i) {
-            free (SDL_modelist [i]) ;
+            SDL_free (SDL_modelist [i]) ;
         }
-        free (SDL_modelist) ;
+        SDL_free (SDL_modelist) ;
         SDL_modelist = NULL;
     }
 }

@@ -1,42 +1,37 @@
 /*
-    AIX audio module for SDL (Simple DirectMedia Layer)
-    Copyright (C) 2000 Carsten Griwodz
+    SDL - Simple DirectMedia Layer
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Carsten Griwodz
     griff@kom.tu-darmstadt.de
 
     based on linux/SDL_syscdrom.c by Sam Lantinga
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_syscdrom.c,v 1.2 2001/04/26 16:50:17 hercules Exp $";
-#endif
+#ifdef SDL_CDROM_AIX
 
 /* Functions for system-level CD-ROM audio control */
 
-#define DEBUG_CDROM 1
+/*#define DEBUG_CDROM 1*/
 
 #include <sys/types.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <stdio.h>
-#include <string.h>
 #include <errno.h>
 #include <unistd.h>
 
@@ -48,9 +43,8 @@ static char rcsid =
 #include <fstab.h>
 #include <sys/scdisk.h>
 
-#include "SDL_error.h"
 #include "SDL_cdrom.h"
-#include "SDL_syscdrom.h"
+#include "../SDL_syscdrom.h"
 
 /* The maximum number of CD-ROM drives we'll detect */
 #define MAX_DRIVES	16	
@@ -133,12 +127,11 @@ static void AddDrive(char *drive, struct stat *stbuf)
 
 		/* Add this drive to our list */
 		i = SDL_numcds;
-		SDL_cdlist[i] = (char *)malloc(strlen(drive)+1);
+		SDL_cdlist[i] = SDL_strdup(drive);
 		if ( SDL_cdlist[i] == NULL ) {
 			SDL_OutOfMemory();
 			return;
 		}
-		strcpy(SDL_cdlist[i], drive);
 		SDL_cdmode[i] = stbuf->st_rdev;
 		++SDL_numcds;
 #ifdef DEBUG_CDROM
@@ -154,7 +147,7 @@ static void CheckMounts()
     struct vmount* ptr;
     int            ret;
 
-    buffer = (char*)malloc(10);
+    buffer = (char*)SDL_malloc(10);
     bufsz  = 10;
     if ( buffer==NULL )
     {
@@ -172,8 +165,8 @@ static void CheckMounts()
             bufsz = *(int*)buffer; /* Required size is in first word.   */
 				   /* (whatever a word is in AIX 4.3.3) */
 				   /* int seems to be OK in 32bit mode. */
-            free(buffer);
-            buffer = (char*)malloc(bufsz);
+            SDL_free(buffer);
+            buffer = (char*)SDL_malloc(bufsz);
             if ( buffer==NULL )
             {
                 fprintf(stderr,
@@ -242,9 +235,9 @@ static int CheckNonmounts()
     {
         ret = getfsent_r ( &entry, &fsFile, &passNo );
         if ( ret == 0 ) {
-            char* l = strrchr(entry.fs_spec,'/');
+            char* l = SDL_strrchr(entry.fs_spec,'/');
             if ( l != NULL ) {
-                if ( !strncmp("cd",++l,2) ) {
+                if ( !SDL_strncmp("cd",++l,2) ) {
 #ifdef DEBUG_CDROM
                     fprintf(stderr,
 			    "Found unmounted CD ROM drive with device name %s\n",
@@ -271,9 +264,9 @@ static int CheckNonmounts()
     {
         entry = getfsent();
         if ( entry != NULL ) {
-            char* l = strrchr(entry->fs_spec,'/');
+            char* l = SDL_strrchr(entry->fs_spec,'/');
             if ( l != NULL ) {
-                if ( !strncmp("cd",++l,2) ) {
+                if ( !SDL_strncmp("cd",++l,2) ) {
 #ifdef DEBUG_CDROM
                     fprintf(stderr,"Found unmounted CD ROM drive with device name %s", entry->fs_spec);
 #endif
@@ -308,15 +301,16 @@ int  SDL_SYS_CDInit(void)
 	SDL_CDcaps.Close = SDL_SYS_CDClose;
 
 	/* Look in the environment for our CD-ROM drive list */
-	SDLcdrom = getenv("SDL_CDROM");	/* ':' separated list of devices */
+	SDLcdrom = SDL_getenv("SDL_CDROM");	/* ':' separated list of devices */
 	if ( SDLcdrom != NULL ) {
 		char *cdpath, *delim;
-		cdpath = malloc(strlen(SDLcdrom)+1);
+		size_t len = SDL_strlen(SDLcdrom)+1;
+		cdpath = SDL_stack_alloc(char, len);
 		if ( cdpath != NULL ) {
-			strcpy(cdpath, SDLcdrom);
+			SDL_strlcpy(cdpath, SDLcdrom, len);
 			SDLcdrom = cdpath;
 			do {
-				delim = strchr(SDLcdrom, ':');
+				delim = SDL_strchr(SDLcdrom, ':');
 				if ( delim ) {
 					*delim++ = '\0';
 				}
@@ -332,7 +326,7 @@ int  SDL_SYS_CDInit(void)
 					SDLcdrom = NULL;
 				}
 			} while ( SDLcdrom );
-			free(cdpath);
+			SDL_stack_free(cdpath);
 		}
 
 		/* If we found our drives, there's nothing left to do */
@@ -369,21 +363,23 @@ static int SDL_SYS_CDOpen(int drive)
     int   fd;
     char* lastsl;
     char* cdromname;
+    size_t len;
 
     /*
      * We found /dev/cd? drives and that is in our list. But we can
      * open only the /dev/rcd? versions of those devices for Audio CD.
      */
-    cdromname = (char*)malloc( strlen(SDL_cdlist[drive]+2) );
-    strcpy(cdromname,SDL_cdlist[drive]);
-    lastsl = strrchr(cdromname,'/');
+    len = SDL_strlen(SDL_cdlist[drive])+2;
+    cdromname = (char*)SDL_malloc(len);
+    SDL_strlcpy(cdromname,SDL_cdlist[drive],len);
+    lastsl = SDL_strrchr(cdromname,'/');
     if (lastsl) {
 	*lastsl = 0;
-	strcat(cdromname,"/r");
-	lastsl = strrchr(SDL_cdlist[drive],'/');
+	SDL_strlcat(cdromname,"/r",len);
+	lastsl = SDL_strrchr(SDL_cdlist[drive],'/');
 	if (lastsl) {
 	    lastsl++;
-	    strcat(cdromname,lastsl);
+	    SDL_strlcat(cdromname,lastsl,len);
 	}
     }
 
@@ -464,7 +460,7 @@ static int SDL_SYS_CDOpen(int drive)
 #endif
 	}
     }
-    free(cdromname);
+    SDL_free(cdromname);
     return fd;
 }
 
@@ -655,9 +651,10 @@ void SDL_SYS_CDQuit(void)
 
 	if ( SDL_numcds > 0 ) {
 		for ( i=0; i<SDL_numcds; ++i ) {
-			free(SDL_cdlist[i]);
+			SDL_free(SDL_cdlist[i]);
 		}
 		SDL_numcds = 0;
 	}
 }
 
+#endif /* SDL_CDROM_AIX */

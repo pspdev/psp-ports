@@ -1,33 +1,27 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_ph_events.c,v 1.16 2004/07/18 19:46:37 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Handle the event stream, converting photon events into SDL events */
-
-#define DISABLE_X11
 
 #include <stdio.h>
 #include <setjmp.h>
@@ -38,9 +32,9 @@ static char rcsid =
 
 #include "SDL.h"
 #include "SDL_syswm.h"
-#include "SDL_sysevents.h"
-#include "SDL_sysvideo.h"
-#include "SDL_events_c.h"
+#include "../SDL_sysvideo.h"
+#include "../../events/SDL_sysevents.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_ph_video.h"
 #include "SDL_ph_modes_c.h"
 #include "SDL_ph_image_c.h"
@@ -125,15 +119,15 @@ static int ph_DispatchEvent(_THIS)
 	
     posted = 0;
 	
-    switch (event->type)
+    switch (phevent->type)
     {
         case Ph_EV_BOUNDARY:
         {
-            if (event->subtype == Ph_EV_PTR_ENTER)
+            if (phevent->subtype == Ph_EV_PTR_ENTER)
             {
                 posted = SDL_PrivateAppActive(1, SDL_APPMOUSEFOCUS);
             }
-            else if (event->subtype ==Ph_EV_PTR_LEAVE)
+            else if (phevent->subtype ==Ph_EV_PTR_LEAVE)
             {
                 posted = SDL_PrivateAppActive(0, SDL_APPMOUSEFOCUS);	
             }
@@ -145,12 +139,12 @@ static int ph_DispatchEvent(_THIS)
         {
             if (SDL_VideoSurface)
             {
-                pointerEvent = PhGetData(event);
-                rect = PhGetRects(event);
+                pointerEvent = PhGetData(phevent);
+                rect = PhGetRects(phevent);
 
                 if (mouse_relative)
                 {
-                    posted = ph_WarpedMotion(this, event);
+                    posted = ph_WarpedMotion(this, phevent);
                 }
                 else
                 {
@@ -162,8 +156,8 @@ static int ph_DispatchEvent(_THIS)
 
         case Ph_EV_BUT_PRESS:
         {
-            pointerEvent = PhGetData( event );
-            buttons = ph2sdl_mousebutton( pointerEvent->buttons );
+            pointerEvent = PhGetData(phevent);
+            buttons = ph2sdl_mousebutton(pointerEvent->buttons);
             if (buttons != 0)
             {
                 posted = SDL_PrivateMouseButton(SDL_PRESSED, buttons, 0, 0);
@@ -173,13 +167,13 @@ static int ph_DispatchEvent(_THIS)
 
         case Ph_EV_BUT_RELEASE:
         {
-            pointerEvent = PhGetData(event);
+            pointerEvent = PhGetData(phevent);
             buttons = ph2sdl_mousebutton(pointerEvent->buttons);
-            if (event->subtype == Ph_EV_RELEASE_REAL && buttons != 0)
+            if (phevent->subtype == Ph_EV_RELEASE_REAL && buttons != 0)
             {
                 posted = SDL_PrivateMouseButton(SDL_RELEASED, buttons, 0, 0);
             }
-            else if(event->subtype == Ph_EV_RELEASE_PHANTOM)
+            else if(phevent->subtype == Ph_EV_RELEASE_PHANTOM)
             {
                 /* If the mouse is outside the window,
                  * only a phantom release event is sent, so
@@ -197,7 +191,7 @@ static int ph_DispatchEvent(_THIS)
 
         case Ph_EV_WM:
         {
-            winEvent = PhGetData(event);
+            winEvent = PhGetData(phevent);
 
             /* losing focus */
             if ((winEvent->event_f==Ph_WM_FOCUS) && (winEvent->event_state==Ph_WM_EVSTATE_FOCUSLOST))
@@ -251,15 +245,19 @@ static int ph_DispatchEvent(_THIS)
                    int lockedstate=current_overlay->hwdata->locked;
                    int chromastate=current_overlay->hwdata->ischromakey;
                    int error;
-                   SDL_Rect target;
+                   SDL_Rect src, dst;
 
                    current_overlay->hwdata->locked=1;
-                   target.x=current_overlay->hwdata->CurrentViewPort.pos.x;
-                   target.y=current_overlay->hwdata->CurrentViewPort.pos.y;
-                   target.w=current_overlay->hwdata->CurrentViewPort.size.w;
-                   target.h=current_overlay->hwdata->CurrentViewPort.size.h;
+                   src.x = 0;
+                   src.y = 0;
+                   src.w = current_overlay->w;
+                   src.y = current_overlay->h;
+                   dst.x=current_overlay->hwdata->CurrentViewPort.pos.x;
+                   dst.y=current_overlay->hwdata->CurrentViewPort.pos.y;
+                   dst.w=current_overlay->hwdata->CurrentViewPort.size.w;
+                   dst.h=current_overlay->hwdata->CurrentViewPort.size.h;
                    current_overlay->hwdata->ischromakey=0;
-                   error=ph_DisplayYUVOverlay(this, current_overlay, &target);
+                   error=ph_DisplayYUVOverlay(this, current_overlay, &src, &dst);
                    if (!error)
                    {
                        current_overlay->hwdata->ischromakey=chromastate;
@@ -285,20 +283,20 @@ static int ph_DispatchEvent(_THIS)
         /* window has been resized, moved or removed */
         case Ph_EV_EXPOSE:
         {
-            if (event->num_rects!=0)
+            if (phevent->num_rects!=0)
             {
                 int numrects;
 
                 if (SDL_VideoSurface)
                 {
-                    rect = PhGetRects(event);
-                    if (event->num_rects>PH_SDL_MAX_RECTS)
+                    rect = PhGetRects(phevent);
+                    if (phevent->num_rects>PH_SDL_MAX_RECTS)
                     {
                        /* sorry, buffers underrun, we'll update only first PH_SDL_MAX_RECTS rects */
                        numrects=PH_SDL_MAX_RECTS;
                     }
 
-                    for(i=0; i<event->num_rects; i++)
+                    for(i=0; i<phevent->num_rects; i++)
                     {
                         sdlrects[i].x = rect[i].ul.x;
                         sdlrects[i].y = rect[i].ul.y;
@@ -306,21 +304,25 @@ static int ph_DispatchEvent(_THIS)
                         sdlrects[i].h = rect[i].lr.y - rect[i].ul.y + 1;
                     }
 
-                    this->UpdateRects(this, event->num_rects, sdlrects);
+                    this->UpdateRects(this, phevent->num_rects, sdlrects);
 
                     if (current_overlay!=NULL)
                     {
                         int lockedstate=current_overlay->hwdata->locked;
                         int error;
-                        SDL_Rect target;
+                        SDL_Rect src, dst;
 
                         current_overlay->hwdata->locked=1;
-                        target.x=current_overlay->hwdata->CurrentViewPort.pos.x;
-                        target.y=current_overlay->hwdata->CurrentViewPort.pos.y;
-                        target.w=current_overlay->hwdata->CurrentViewPort.size.w;
-                        target.h=current_overlay->hwdata->CurrentViewPort.size.h;
+                        src.x = 0;
+                        src.y = 0;
+                        src.w = current_overlay->w;
+                        src.y = current_overlay->h;
+                        dst.x=current_overlay->hwdata->CurrentViewPort.pos.x;
+                        dst.y=current_overlay->hwdata->CurrentViewPort.pos.y;
+                        dst.w=current_overlay->hwdata->CurrentViewPort.size.w;
+                        dst.h=current_overlay->hwdata->CurrentViewPort.size.h;
                         current_overlay->hwdata->forcedredraw=1;
-                        error=ph_DisplayYUVOverlay(this, current_overlay, &target);
+                        error=ph_DisplayYUVOverlay(this, current_overlay, &src, &dst);
                         if (!error)
                         {
                             current_overlay->hwdata->forcedredraw=0;
@@ -338,7 +340,7 @@ static int ph_DispatchEvent(_THIS)
 
             posted = 0;
 
-            keyEvent = PhGetData( event );
+            keyEvent = PhGetData(phevent);
 
             if (Pk_KF_Key_Down & keyEvent->key_flags)
             {
@@ -375,11 +377,11 @@ static int ph_DispatchEvent(_THIS)
         
         case Ph_EV_INFO:
         {
-           if (event->subtype==Ph_OFFSCREEN_INVALID)
+           if (phevent->subtype==Ph_OFFSCREEN_INVALID)
            {
               unsigned long* EvInfoData;
 
-              EvInfoData=(unsigned long*)PhGetData(event);
+              EvInfoData=(unsigned long*)PhGetData(phevent);
 
               switch (*EvInfoData)
               {
@@ -416,7 +418,7 @@ int ph_Pending(_THIS)
 
     while (1)
     {
-        switch(PhEventPeek(event, EVENT_SIZE))
+        switch(PhEventPeek(phevent, EVENT_SIZE))
         {
             case Ph_EVENT_MSG:
                  return 1;
@@ -439,7 +441,7 @@ void ph_PumpEvents(_THIS)
 
     while (ph_Pending(this))
     {
-        PtEventHandler(event);
+        PtEventHandler(phevent);
         ph_DispatchEvent(this);
     }
 }
@@ -449,13 +451,13 @@ void ph_InitKeymap(void)
     int i;
 
     /* Odd keys used in international keyboards */
-    for (i=0; i<SDL_TABLESIZE(ODD_keymap); ++i)
+    for (i=0; i<SDL_arraysize(ODD_keymap); ++i)
     {
         ODD_keymap[i] = SDLK_UNKNOWN;
     }
 
     /* Map the miscellaneous keys */
-    for (i=0; i<SDL_TABLESIZE(MISC_keymap); ++i)
+    for (i=0; i<SDL_arraysize(MISC_keymap); ++i)
     {
         MISC_keymap[i] = SDLK_UNKNOWN;
     }

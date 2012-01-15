@@ -1,46 +1,37 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_ph_video.c,v 1.26 2004/07/18 19:46:37 slouken Exp $";
-#endif
-
-#include <stdlib.h>
-#include <stdio.h>
 #include <unistd.h>
-#include <string.h>
 #include <sys/ioctl.h>
 
-#include "SDL.h"
-#include "SDL_error.h"
+#include "SDL_endian.h"
 #include "SDL_timer.h"
 #include "SDL_thread.h"
 #include "SDL_video.h"
 #include "SDL_mouse.h"
-#include "SDL_endian.h"
-#include "SDL_sysvideo.h"
-#include "SDL_pixels_c.h"
-#include "SDL_events_c.h"
+#include "../SDL_sysvideo.h"
+#include "../SDL_pixels_c.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_ph_video.h"
 #include "SDL_ph_modes_c.h"
 #include "SDL_ph_image_c.h"
@@ -49,7 +40,7 @@ static char rcsid =
 #include "SDL_ph_wm_c.h"
 #include "SDL_ph_gl.h"
 #include "SDL_phyuv_c.h"
-#include "blank_cursor.h"
+#include "../blank_cursor.h"
 
 static int  ph_VideoInit(_THIS, SDL_PixelFormat *vformat);
 static SDL_Surface *ph_SetVideoMode(_THIS, SDL_Surface *current, int width, int height, int bpp, Uint32 flags);
@@ -81,11 +72,11 @@ static SDL_VideoDevice* ph_CreateDevice(int devindex)
     SDL_VideoDevice* device;
 
     /* Initialize all variables that we clean on shutdown */
-    device = (SDL_VideoDevice *)malloc(sizeof(SDL_VideoDevice));
+    device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
     if (device)
     {
-        memset(device, 0, (sizeof *device));
-        device->hidden = (struct SDL_PrivateVideoData*)malloc((sizeof *device->hidden));
+        SDL_memset(device, 0, (sizeof *device));
+        device->hidden = (struct SDL_PrivateVideoData*)SDL_malloc((sizeof *device->hidden));
         device->gl_data = NULL;
     }
     if ((device == NULL) || (device->hidden == NULL))
@@ -94,7 +85,7 @@ static SDL_VideoDevice* ph_CreateDevice(int devindex)
         ph_DeleteDevice(device);
         return NULL;
     }
-    memset(device->hidden, 0, (sizeof *device->hidden));
+    SDL_memset(device->hidden, 0, (sizeof *device->hidden));
 
     /* Set the driver flags */
     device->handles_any_size = 1;
@@ -133,19 +124,13 @@ static SDL_VideoDevice* ph_CreateDevice(int devindex)
     device->PumpEvents = ph_PumpEvents;
 
     /* OpenGL support. */
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
     device->GL_MakeCurrent = ph_GL_MakeCurrent;
     device->GL_SwapBuffers = ph_GL_SwapBuffers;
     device->GL_GetAttribute = ph_GL_GetAttribute;
     device->GL_LoadLibrary = ph_GL_LoadLibrary;
     device->GL_GetProcAddress = ph_GL_GetProcAddress;
-#else
-    device->GL_MakeCurrent = NULL;
-    device->GL_SwapBuffers = NULL;
-    device->GL_GetAttribute = NULL;
-    device->GL_LoadLibrary = NULL;
-    device->GL_GetProcAddress = NULL;
-#endif /* HAVE_OPENGL */
+#endif /* SDL_VIDEO_OPENGL */
 
     device->free = ph_DeleteDevice;
     
@@ -163,15 +148,15 @@ static void ph_DeleteDevice(SDL_VideoDevice *device)
     {
         if (device->hidden)
         {
-            free(device->hidden);
+            SDL_free(device->hidden);
             device->hidden = NULL;
         }
         if (device->gl_data)
         {
-            free(device->gl_data);
+            SDL_free(device->gl_data);
             device->gl_data = NULL;
         }
-        free(device);
+        SDL_free(device);
         device = NULL;
     }
 }
@@ -262,10 +247,10 @@ static int ph_SetupWindow(_THIS, int w, int h, int flags)
         }
         if (!currently_maximized)
         {
-            windowpos = getenv("SDL_VIDEO_WINDOW_POS");
-            iscentered = getenv("SDL_VIDEO_CENTERED");
+            windowpos = SDL_getenv("SDL_VIDEO_WINDOW_POS");
+            iscentered = SDL_getenv("SDL_VIDEO_CENTERED");
 
-            if ((iscentered) || ((windowpos) && (strcmp(windowpos, "center")==0)))
+            if ((iscentered) || ((windowpos) && (SDL_strcmp(windowpos, "center")==0)))
             {
                 PhWindowQueryVisible(Ph_QUERY_CONSOLE, 0, 0, &desktopextent);
                 if (desktop_mode.width>w)
@@ -285,7 +270,7 @@ static int ph_SetupWindow(_THIS, int w, int h, int flags)
             {
                 if (windowpos)
                 {
-                    if (sscanf(windowpos, "%d,%d", &x, &y) == 2)
+                    if (SDL_sscanf(windowpos, "%d,%d", &x, &y) == 2)
                     {
                         if ((x<desktop_mode.width) && (y<desktop_mode.height))
                         {
@@ -367,22 +352,22 @@ static int ph_VideoInit(_THIS, SDL_PixelFormat* vformat)
     window=NULL;
     desktoppal=SDLPH_PAL_NONE;
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
     oglctx=NULL;
     oglbuffers=NULL;
     oglflags=0;
     oglbpp=0;
-#endif /* HAVE_OPENGL */
+#endif
     
     old_video_mode=-1;
     old_refresh_rate=-1;
 	
-    if (NULL == (event = malloc(EVENT_SIZE)))
+    if (NULL == (phevent = SDL_malloc(EVENT_SIZE)))
     {
         SDL_OutOfMemory();
         return -1;
     }
-    memset(event, 0x00, EVENT_SIZE);
+    SDL_memset(phevent, 0x00, EVENT_SIZE);
 
     window = ph_CreateWindow(this);
     if (window == NULL)
@@ -414,6 +399,10 @@ static int ph_VideoInit(_THIS, SDL_PixelFormat* vformat)
         this->FreeWMCursor(this, SDL_BlankCursor);
         return -1;
     }
+
+   /* Determine the current screen size */
+   this->info.current_w = desktop_mode.width;
+   this->info.current_h = desktop_mode.height;
 
     /* We need to return BytesPerPixel as it in used by CreateRGBsurface */
     vformat->BitsPerPixel = desktop_mode.bits_per_pixel;
@@ -488,12 +477,12 @@ static SDL_Surface* ph_SetVideoMode(_THIS, SDL_Surface *current, int width, int 
 
     if ((current->flags & SDL_OPENGL)==SDL_OPENGL)
     {
-#if !defined(HAVE_OPENGL)
+#if !SDL_VIDEO_OPENGL
         /* if no built-in OpenGL support */
         SDL_SetError("ph_SetVideoMode(): no OpenGL support, you need to recompile SDL.\n");
         current->flags &= ~SDL_OPENGL;
         return NULL;
-#endif /* HAVE_OPENGL */
+#endif /* SDL_VIDEO_OPENGL */
     }
     else
     {
@@ -595,10 +584,10 @@ static void ph_VideoQuit(_THIS)
         window=NULL;
     }
 
-    if (event!=NULL)
+    if (phevent!=NULL)
     {
-        free(event);
-        event=NULL;
+        SDL_free(phevent);
+        phevent=NULL;
     }
 }
 

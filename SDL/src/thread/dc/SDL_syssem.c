@@ -1,46 +1,37 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-    BERO
-    bero@geocities.co.jp
-
-    based on generic/SDL_syssem.c
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_syssem.c,v 1.2 2004/01/04 16:49:18 slouken Exp $";
-#endif
+#include <errno.h>
+
+#include "SDL_config.h"
 
 /* An implementation of semaphores using mutexes and condition variables */
 
-#include <stdlib.h>
-
-#include "SDL_error.h"
 #include "SDL_timer.h"
 #include "SDL_thread.h"
 #include "SDL_systhread_c.h"
 
 
-#ifdef DISABLE_THREADS
+#if SDL_THREADS_DISABLED
 
 SDL_sem *SDL_CreateSemaphore(Uint32 initial_value)
 {
@@ -147,13 +138,15 @@ int SDL_SemWaitTimeout(SDL_sem *sem, Uint32 timeout)
 
 int SDL_SemWait(SDL_sem *sem)
 {
+	int retval;
+
 	if ( ! sem ) {
 		SDL_SetError("Passed a NULL semaphore");
 		return -1;
 	}
 
-	sem_wait(&sem->sem);
-	return 0;
+	while ( ((retval = sem_wait(&sem->sem)) == -1) && (errno == EINTR) ) {}
+	return retval;
 }
 
 Uint32 SDL_SemValue(SDL_sem *sem)
@@ -177,4 +170,4 @@ int SDL_SemPost(SDL_sem *sem)
 	return 0;
 }
 
-#endif /* DISABLE_THREADS */
+#endif /* SDL_THREADS_DISABLED */

@@ -1,52 +1,47 @@
 /*
-	SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    SDL - Simple DirectMedia Layer
+    Copyright (C) 1997-2009 Sam Lantinga
 
-	This library is free software; you can redistribute it and/or
-	modify it under the terms of the GNU Library General Public
-	License as published by the Free Software Foundation; either
-	version 2 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-	This library is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-	Library General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-	You should have received a copy of the GNU Library General Public
-	License along with this library; if not, write to the Free
-	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-	Sam Lantinga
-	slouken@libsdl.org
+    Sam Lantinga
+    slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_dgavideo.c,v 1.15 2004/11/12 21:25:41 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* DGA 2.0 based SDL video driver implementation.
 */
 
-#include <stdlib.h>
-#include <string.h>
+#include <stdio.h>
+
 #include <X11/Xlib.h>
-#include <XFree86/extensions/xf86dga.h>
+#include "../Xext/extensions/xf86dga.h"
 
-#ifdef HAVE_ALLOCA_H
-#include <alloca.h>
-#endif
-
-#include "SDL.h"
-#include "SDL_error.h"
 #include "SDL_video.h"
 #include "SDL_mouse.h"
-#include "SDL_sysvideo.h"
-#include "SDL_pixels_c.h"
-#include "SDL_events_c.h"
+#include "../SDL_sysvideo.h"
+#include "../SDL_pixels_c.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_dgavideo.h"
 #include "SDL_dgamouse_c.h"
 #include "SDL_dgaevents_c.h"
+
+/* get function pointers... */
+#include "../x11/SDL_x11dyn.h"
+
+/*#define DGA_DEBUG*/
 
 /* Initialization/Query functions */
 static int DGA_VideoInit(_THIS, SDL_PixelFormat *vformat);
@@ -72,91 +67,98 @@ static int DGA_FlipHWSurface(_THIS, SDL_Surface *surface);
 
 static int DGA_Available(void)
 {
-	const char *display;
-	Display *dpy;
-	int available;
+	const char *display = NULL;
+	Display *dpy = NULL;
+	int available = 0;
 
 	/* The driver is available is available if the display is local
 	   and the DGA 2.0+ extension is available, and we can map mem.
 	*/
-	available = 0;
-	display = NULL;
-	if ( (strncmp(XDisplayName(display), ":", 1) == 0) ||
-	     (strncmp(XDisplayName(display), "unix:", 5) == 0) ) {
-		dpy = XOpenDisplay(display);
-		if ( dpy ) {
-			int events, errors, major, minor;
+	if ( SDL_X11_LoadSymbols() ) {
+		if ( (SDL_strncmp(XDisplayName(display), ":", 1) == 0) ||
+		     (SDL_strncmp(XDisplayName(display), "unix:", 5) == 0) ) {
+			dpy = XOpenDisplay(display);
+			if ( dpy ) {
+				int events, errors, major, minor;
 
-			if ( SDL_NAME(XDGAQueryExtension)(dpy, &events, &errors) &&
-			     SDL_NAME(XDGAQueryVersion)(dpy, &major, &minor) ) {
-				int screen;
+				if ( SDL_NAME(XDGAQueryExtension)(dpy, &events, &errors) &&
+				     SDL_NAME(XDGAQueryVersion)(dpy, &major, &minor) ) {
+					int screen;
 
-				screen = DefaultScreen(dpy);
-				if ( (major >= 2) && 
-				     SDL_NAME(XDGAOpenFramebuffer)(dpy, screen) ) {
-					available = 1;
-					SDL_NAME(XDGACloseFramebuffer)(dpy, screen);
+					screen = DefaultScreen(dpy);
+					if ( (major >= 2) && 
+					     SDL_NAME(XDGAOpenFramebuffer)(dpy, screen) ) {
+						available = 1;
+						SDL_NAME(XDGACloseFramebuffer)(dpy, screen);
+					}
 				}
+				XCloseDisplay(dpy);
 			}
-			XCloseDisplay(dpy);
 		}
+		SDL_X11_UnloadSymbols();
 	}
 	return(available);
 }
 
 static void DGA_DeleteDevice(SDL_VideoDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	if (device != NULL) {
+		SDL_free(device->hidden);
+		SDL_free(device);
+		SDL_X11_UnloadSymbols();
+	}
 }
 
 static SDL_VideoDevice *DGA_CreateDevice(int devindex)
 {
-	SDL_VideoDevice *device;
+	SDL_VideoDevice *device = NULL;
 
 	/* Initialize all variables that we clean on shutdown */
-	device = (SDL_VideoDevice *)malloc(sizeof(SDL_VideoDevice));
-	if ( device ) {
-		memset(device, 0, (sizeof *device));
-		device->hidden = (struct SDL_PrivateVideoData *)
-				malloc((sizeof *device->hidden));
-	}
-	if ( (device == NULL) || (device->hidden == NULL) ) {
-		SDL_OutOfMemory();
+	if (SDL_X11_LoadSymbols()) {
+		device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
 		if ( device ) {
-			free(device);
+			SDL_memset(device, 0, (sizeof *device));
+			device->hidden = (struct SDL_PrivateVideoData *)
+					SDL_malloc((sizeof *device->hidden));
 		}
-		return(0);
+		if ( (device == NULL) || (device->hidden == NULL) ) {
+			SDL_OutOfMemory();
+			if ( device ) {
+				SDL_free(device);
+			}
+			SDL_X11_UnloadSymbols();
+			return(0);
+		}
+		SDL_memset(device->hidden, 0, (sizeof *device->hidden));
+
+		/* Set the function pointers */
+		device->VideoInit = DGA_VideoInit;
+		device->ListModes = DGA_ListModes;
+		device->SetVideoMode = DGA_SetVideoMode;
+		device->SetColors = DGA_SetColors;
+		device->UpdateRects = NULL;
+		device->VideoQuit = DGA_VideoQuit;
+		device->AllocHWSurface = DGA_AllocHWSurface;
+		device->CheckHWBlit = DGA_CheckHWBlit;
+		device->FillHWRect = DGA_FillHWRect;
+		device->SetHWColorKey = NULL;
+		device->SetHWAlpha = NULL;
+		device->LockHWSurface = DGA_LockHWSurface;
+		device->UnlockHWSurface = DGA_UnlockHWSurface;
+		device->FlipHWSurface = DGA_FlipHWSurface;
+		device->FreeHWSurface = DGA_FreeHWSurface;
+		device->SetGammaRamp = DGA_SetGammaRamp;
+		device->GetGammaRamp = NULL;
+		device->SetCaption = NULL;
+		device->SetIcon = NULL;
+		device->IconifyWindow = NULL;
+		device->GrabInput = NULL;
+		device->GetWMInfo = NULL;
+		device->InitOSKeymap = DGA_InitOSKeymap;
+		device->PumpEvents = DGA_PumpEvents;
+
+		device->free = DGA_DeleteDevice;
 	}
-	memset(device->hidden, 0, (sizeof *device->hidden));
-
-	/* Set the function pointers */
-	device->VideoInit = DGA_VideoInit;
-	device->ListModes = DGA_ListModes;
-	device->SetVideoMode = DGA_SetVideoMode;
-	device->SetColors = DGA_SetColors;
-	device->UpdateRects = NULL;
-	device->VideoQuit = DGA_VideoQuit;
-	device->AllocHWSurface = DGA_AllocHWSurface;
-	device->CheckHWBlit = DGA_CheckHWBlit;
-	device->FillHWRect = DGA_FillHWRect;
-	device->SetHWColorKey = NULL;
-	device->SetHWAlpha = NULL;
-	device->LockHWSurface = DGA_LockHWSurface;
-	device->UnlockHWSurface = DGA_UnlockHWSurface;
-	device->FlipHWSurface = DGA_FlipHWSurface;
-	device->FreeHWSurface = DGA_FreeHWSurface;
-	device->SetGammaRamp = DGA_SetGammaRamp;
-	device->GetGammaRamp = NULL;
-	device->SetCaption = NULL;
-	device->SetIcon = NULL;
-	device->IconifyWindow = NULL;
-	device->GrabInput = NULL;
-	device->GetWMInfo = NULL;
-	device->InitOSKeymap = DGA_InitOSKeymap;
-	device->PumpEvents = DGA_PumpEvents;
-
-	device->free = DGA_DeleteDevice;
 
 	return device;
 }
@@ -169,7 +171,7 @@ VideoBootStrap DGA_bootstrap = {
 static int DGA_AddMode(_THIS, int bpp, int w, int h)
 {
 	SDL_Rect *mode;
-	int i, index;
+	int index;
 	int next_mode;
 
 	/* Check to see if we already have this mode */
@@ -177,15 +179,15 @@ static int DGA_AddMode(_THIS, int bpp, int w, int h)
 		return(0);
 	}
 	index = ((bpp+7)/8)-1;
-	for ( i=0; i<SDL_nummodes[index]; ++i ) {
-		mode = SDL_modelist[index][i];
+	if ( SDL_nummodes[index] > 0 ) {
+		mode = SDL_modelist[index][SDL_nummodes[index]-1];
 		if ( (mode->w == w) && (mode->h == h) ) {
 			return(0);
 		}
 	}
 
 	/* Set up the new video mode rectangle */
-	mode = (SDL_Rect *)malloc(sizeof *mode);
+	mode = (SDL_Rect *)SDL_malloc(sizeof *mode);
 	if ( mode == NULL ) {
 		SDL_OutOfMemory();
 		return(-1);
@@ -198,11 +200,11 @@ static int DGA_AddMode(_THIS, int bpp, int w, int h)
 	/* Allocate the new list of modes, and fill in the new mode */
 	next_mode = SDL_nummodes[index];
 	SDL_modelist[index] = (SDL_Rect **)
-	       realloc(SDL_modelist[index], (1+next_mode+1)*sizeof(SDL_Rect *));
+	       SDL_realloc(SDL_modelist[index], (1+next_mode+1)*sizeof(SDL_Rect *));
 	if ( SDL_modelist[index] == NULL ) {
 		SDL_OutOfMemory();
 		SDL_nummodes[index] = 0;
-		free(mode);
+		SDL_free(mode);
 		return(-1);
 	}
 	SDL_modelist[index][next_mode] = mode;
@@ -228,7 +230,7 @@ static Uint32 get_video_size(_THIS)
 	proc = fopen("/proc/self/maps", "r");
 	if ( proc ) {
 		while ( fgets(line, sizeof(line)-1, proc) ) {
-			sscanf(line, "%x-%x", &start, &stop);
+			SDL_sscanf(line, "%x-%x", &start, &stop);
 			if ( start == mem ) {
 				size = (Uint32)((stop-start)/1024);
 				break;
@@ -281,14 +283,21 @@ static int cmpmodes(const void *va, const void *vb)
     const SDL_NAME(XDGAMode) *a = (const SDL_NAME(XDGAMode) *)va;
     const SDL_NAME(XDGAMode) *b = (const SDL_NAME(XDGAMode) *)vb;
 
-    /* Prefer DirectColor visuals for otherwise equal modes */
     if ( (a->viewportWidth == b->viewportWidth) &&
          (b->viewportHeight == a->viewportHeight) ) {
-        if ( a->visualClass == DirectColor )
+        /* Prefer 32 bpp over 24 bpp, 16 bpp over 15 bpp */
+        int a_bpp = a->depth == 24 ? a->bitsPerPixel : a->depth;
+        int b_bpp = b->depth == 24 ? b->bitsPerPixel : b->depth;
+        if ( a_bpp != b_bpp ) {
+            return b_bpp - a_bpp;
+        }
+        /* Prefer DirectColor visuals, for gamma support */
+        if ( a->visualClass == DirectColor && b->visualClass != DirectColor )
             return -1;
-        if ( b->visualClass == DirectColor )
+        if ( b->visualClass == DirectColor && a->visualClass != DirectColor )
             return 1;
-        return 0;
+        /* Maintain server refresh rate sorting */
+        return a->num - b->num;
     } else if ( a->viewportWidth == b->viewportWidth ) {
         return b->viewportHeight - a->viewportHeight;
     } else {
@@ -319,6 +328,7 @@ static void UpdateHWInfo(_THIS, SDL_NAME(XDGAMode) *mode)
 
 static int DGA_VideoInit(_THIS, SDL_PixelFormat *vformat)
 {
+	const char *env;
 	const char *display;
 	int event_base, error_base;
 	int major_version, minor_version;
@@ -348,6 +358,10 @@ static int DGA_VideoInit(_THIS, SDL_PixelFormat *vformat)
 		return(-1);
 	}
 	DGA_event_base = event_base;
+
+	/* Determine the current screen size */
+	this->info.current_w = DisplayWidth(DGA_Display, DGA_Screen);
+	this->info.current_h = DisplayHeight(DGA_Display, DGA_Screen);
 
 	/* Determine the current screen depth */
 	visual = DefaultVisual(DGA_Display, DGA_Screen);
@@ -383,16 +397,29 @@ static int DGA_VideoInit(_THIS, SDL_PixelFormat *vformat)
 		return(-1);
 	}
 
+	/* Allow environment override of screensaver disable. */
+	env = SDL_getenv("SDL_VIDEO_ALLOW_SCREENSAVER");
+	if ( env ) {
+		allow_screensaver = SDL_atoi(env);
+	} else {
+#ifdef SDL_VIDEO_DISABLE_SCREENSAVER
+		allow_screensaver = 0;
+#else
+		allow_screensaver = 1;
+#endif
+	}
+
 	/* Query for the list of available video modes */
 	modes = SDL_NAME(XDGAQueryModes)(DGA_Display, DGA_Screen, &num_modes);
-	qsort(modes, num_modes, sizeof *modes, cmpmodes);
+	SDL_qsort(modes, num_modes, sizeof *modes, cmpmodes);
 	for ( i=0; i<num_modes; ++i ) {
+		if ( ((modes[i].visualClass == PseudoColor) ||
+		      (modes[i].visualClass == DirectColor) ||
+		      (modes[i].visualClass == TrueColor)) && 
+		     !(modes[i].flags & (XDGAInterlaced|XDGADoublescan)) ) {
 #ifdef DGA_DEBUG
-		PrintMode(&modes[i]);
+			PrintMode(&modes[i]);
 #endif
-		if ( (modes[i].visualClass == PseudoColor) ||
-		     (modes[i].visualClass == DirectColor) ||
-		     (modes[i].visualClass == TrueColor) ) {
 			DGA_AddMode(this, modes[i].bitsPerPixel,
 			            modes[i].viewportWidth,
 			            modes[i].viewportHeight);
@@ -444,11 +471,10 @@ SDL_Surface *DGA_SetVideoMode(_THIS, SDL_Surface *current,
 
 	/* Search for a matching video mode */
 	modes = SDL_NAME(XDGAQueryModes)(DGA_Display, DGA_Screen, &num_modes);
-	qsort(modes, num_modes, sizeof *modes, cmpmodes);
+	SDL_qsort(modes, num_modes, sizeof *modes, cmpmodes);
 	for ( i=0; i<num_modes; ++i ) {
 		int depth;
 
-		
 		depth = modes[i].depth;
 		if ( depth == 24 ) { /* Distinguish between 24 and 32 bpp */
 			depth = modes[i].bitsPerPixel;
@@ -458,7 +484,8 @@ SDL_Surface *DGA_SetVideoMode(_THIS, SDL_Surface *current,
 		     (modes[i].viewportHeight == height) &&
 		     ((modes[i].visualClass == PseudoColor) ||
 		      (modes[i].visualClass == DirectColor) ||
-		      (modes[i].visualClass == TrueColor)) ) {
+		      (modes[i].visualClass == TrueColor)) &&
+		     !(modes[i].flags & (XDGAInterlaced|XDGADoublescan)) ) {
 			break;
 		}
 	}
@@ -466,6 +493,9 @@ SDL_Surface *DGA_SetVideoMode(_THIS, SDL_Surface *current,
 		SDL_SetError("No matching video mode found");
 		return(NULL);
 	}
+#ifdef DGA_DEBUG
+	PrintMode(&modes[i]);
+#endif
 
 	/* Set the video mode */
 	mode = SDL_NAME(XDGASetMode)(DGA_Display, DGA_Screen, modes[i].num);
@@ -600,7 +630,7 @@ static int DGA_InitHWSurfaces(_THIS, SDL_Surface *screen, Uint8 *base, int size)
 	surfaces_memleft = size;
 
 	if ( surfaces_memleft > 0 ) {
-		bucket = (vidmem_bucket *)malloc(sizeof(*bucket));
+		bucket = (vidmem_bucket *)SDL_malloc(sizeof(*bucket));
 		if ( bucket == NULL ) {
 			SDL_OutOfMemory();
 			return(-1);
@@ -632,7 +662,7 @@ static void DGA_FreeHWSurfaces(_THIS)
 	while ( bucket ) {
 		freeable = bucket;
 		bucket = bucket->next;
-		free(freeable);
+		SDL_free(freeable);
 	}
 	surfaces.next = NULL;
 }
@@ -709,7 +739,7 @@ surface->pitch = SDL_VideoSurface->pitch;
 #ifdef DGA_DEBUG
 	fprintf(stderr, "Adding new free bucket of %d bytes\n", extra);
 #endif
-		newbucket = (vidmem_bucket *)malloc(sizeof(*newbucket));
+		newbucket = (vidmem_bucket *)SDL_malloc(sizeof(*newbucket));
 		if ( newbucket == NULL ) {
 			SDL_OutOfMemory();
 			retval = -1;
@@ -745,6 +775,13 @@ static void DGA_FreeHWSurface(_THIS, SDL_Surface *surface)
 {
 	vidmem_bucket *bucket, *freeable;
 
+	/* Wait for any pending operations involving this surface */
+	if ( DGA_IsSurfaceBusy(surface) ) {
+		LOCK_DISPLAY();
+		DGA_WaitBusySurfaces(this);
+		UNLOCK_DISPLAY();
+	}
+
 	/* Look for the bucket in the current list */
 	for ( bucket=&surfaces; bucket; bucket=bucket->next ) {
 		if ( bucket == (vidmem_bucket *)surface->hwdata ) {
@@ -770,7 +807,7 @@ static void DGA_FreeHWSurface(_THIS, SDL_Surface *surface)
 			if ( bucket->next ) {
 				bucket->next->prev = bucket;
 			}
-			free(freeable);
+			SDL_free(freeable);
 		}
 		if ( bucket->prev && ! bucket->prev->used ) {
 #ifdef DGA_DEBUG
@@ -782,7 +819,7 @@ static void DGA_FreeHWSurface(_THIS, SDL_Surface *surface)
 			if ( bucket->next ) {
 				bucket->next->prev = bucket->prev;
 			}
-			free(freeable);
+			SDL_free(freeable);
 		}
 	}
 	surface->pixels = NULL;
@@ -963,7 +1000,7 @@ static int DGA_SetColors(_THIS, int firstcolor, int ncolors, SDL_Color *colors)
 	if ( ! DGA_colormap ) {
 		return(0);
 	}
-	xcmap = (XColor *)alloca(ncolors*sizeof(*xcmap));
+	xcmap = SDL_stack_alloc(XColor, ncolors);
 	for ( i=0; i<ncolors; ++i ) {
 		xcmap[i].pixel = firstcolor + i;
 		xcmap[i].red   = (colors[i].r<<8)|colors[i].r;
@@ -975,6 +1012,7 @@ static int DGA_SetColors(_THIS, int firstcolor, int ncolors, SDL_Color *colors)
 	XStoreColors(DGA_Display, DGA_colormap, xcmap, ncolors);
 	XSync(DGA_Display, False);
 	UNLOCK_DISPLAY();
+	SDL_stack_free(xcmap);
 
 	/* That was easy. :) */
 	return(1);
@@ -1027,7 +1065,7 @@ void DGA_VideoQuit(_THIS)
 		SDL_NAME(XDGACloseFramebuffer)(DGA_Display, DGA_Screen);
 		if ( this->screen ) {
 			/* Tell SDL not to free the pixels */
-			this->screen->pixels = NULL;
+			DGA_FreeHWSurface(this, this->screen);
 		}
 		SDL_NAME(XDGASetMode)(DGA_Display, DGA_Screen, 0);
 
@@ -1043,14 +1081,13 @@ void DGA_VideoQuit(_THIS)
 		}
 #endif /* LOCK_DGA_DISPLAY */
 
-
 		/* Clean up defined video modes */
 		for ( i=0; i<NUM_MODELISTS; ++i ) {
 			if ( SDL_modelist[i] != NULL ) {
 				for ( j=0; SDL_modelist[i][j]; ++j ) {
-					free(SDL_modelist[i][j]);
+					SDL_free(SDL_modelist[i][j]);
 				}
-				free(SDL_modelist[i]);
+				SDL_free(SDL_modelist[i]);
 				SDL_modelist[i] = NULL;
 			}
 		}

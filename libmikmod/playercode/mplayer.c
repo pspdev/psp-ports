@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: mplayer.c,v 1.2 2004/01/21 01:41:55 raph Exp $
+  $Id: mplayer.c,v 1.5 2004/01/31 22:40:22 raph Exp $
 
   The Protracker Player Driver
 
@@ -2365,6 +2365,9 @@ void pt_UpdateVoices(MODULE *mod, int max_volume)
 			if (aout->main.pitflg & EF_ON)
 				envpit = ProcessEnvelope(aout,&aout->cenv,32);
 		}
+		if (aout->main.kick == KICK_NOTE) {
+			aout->main.kick_flag = 1;
+		}
 		aout->main.kick=KICK_ABSENT;
 
 		tmpvol = aout->main.fadevol;	/* max 32768 */
@@ -3359,5 +3362,30 @@ MIKMODAPI void Player_SetTempo(UWORD tempo)
 	}
 	MUTEX_UNLOCK(vars);
 }
+
+MIKMODAPI int Player_QueryVoices(UWORD numvoices, VOICEINFO *vinfo)
+{
+	int i;
+
+	if (numvoices > md_sngchn)
+		numvoices = md_sngchn;
+
+	MUTEX_LOCK(vars);
+	if (pf)
+		for (i = 0; i < md_sngchn; i++) {
+			vinfo [i].i = pf->voice[i].main.i;
+			vinfo [i].s = pf->voice[i].main.s;
+			vinfo [i].panning = pf->voice [i].main.panning;
+			vinfo [i].volume = pf->voice [i].main.chanvol;
+			vinfo [i].period = pf->voice [i].main.period;
+			vinfo [i].kick = pf->voice [i].main.kick_flag;
+			pf->voice [i].main.kick_flag = 0;
+		}
+	MUTEX_UNLOCK(vars);
+
+	return numvoices;
+}
+
+
 
 /* ex:set ts=4: */

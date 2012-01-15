@@ -29,7 +29,7 @@
 #include "playmidi.h"
 #include "readmidi.h"
 #include "output.h"
-#include "controls.h"
+#include "ctrlmode.h"
 #include "timidity.h"
 
 #include "tables.h"
@@ -39,16 +39,16 @@ int free_instruments_afterwards=0;
 static char def_instr_name[256]="";
 
 int AUDIO_BUFFER_SIZE;
-resample_t *resample_buffer;
-int32 *common_buffer;
+resample_t *resample_buffer=NULL;
+int32 *common_buffer=NULL;
 int num_ochannels;
 
 #define MAXWORDS 10
 
-static int read_config_file(char *name)
+static int read_config_file(const char *name)
 {
   FILE *fp;
-  char tmp[1024], *w[MAXWORDS], *cp;
+  char tmp[PATH_MAX], *w[MAXWORDS], *cp;
   ToneBank *bank=0;
   int i, j, k, line=0, words;
   static int rcf_count=0;
@@ -294,8 +294,13 @@ static int read_config_file(char *name)
 
 int Timidity_Init(int rate, int format, int channels, int samples)
 {
-  if (read_config_file(CONFIG_FILE)<0) {
-    return(-1);
+  const char *env = getenv("TIMIDITY_CFG");
+  if (!env || read_config_file(env)<0) {
+    if (read_config_file(CONFIG_FILE)<0) {
+      if (read_config_file(CONFIG_FILE_ETC)<0) {
+        return(-1);
+      }
+    }
   }
 
   if (channels < 1 || channels == 3 || channels == 5 || channels > 6) return(-1);
@@ -362,8 +367,9 @@ int Timidity_Init(int rate, int format, int channels, int samples)
   return(0);
 }
 
-char timidity_error[1024] = "";
-char *Timidity_Error(void)
+char timidity_error[TIMIDITY_ERROR_SIZE] = "";
+const char *Timidity_Error(void)
 {
   return(timidity_error);
 }
+

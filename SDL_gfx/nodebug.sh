@@ -18,6 +18,6 @@ fi
 
 for i in `find . -name "$TARGET" -print`; do
  echo "Patching $i ..."
- cat $i | sed 's/-g -O2/-O2 -Wl,-s/' | sed 's/-shared/-shared -Wl,-s/' >$i.new
+ cat $i | sed 's/-g -O2/-O -Wl,-s/' | sed 's/-shared/-shared -Wl,-s/' >$i.new
  cp -f $i.new $i
 done

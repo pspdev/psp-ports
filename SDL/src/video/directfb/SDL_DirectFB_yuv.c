@@ -1,39 +1,31 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_DirectFB_yuv.c,v 1.2 2004/01/04 16:49:24 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* This is the DirectFB implementation of YUV video overlays */
 
-#include <stdlib.h>
-#include <string.h>
-
-#include "SDL_error.h"
 #include "SDL_video.h"
 #include "SDL_DirectFB_yuv.h"
-#include "SDL_yuvfuncs.h"
+#include "../SDL_yuvfuncs.h"
 
 
 /* The functions used to manipulate software video overlays */
@@ -126,6 +118,15 @@ static DFBResult CreateYUVSurface(_THIS, struct private_yuvhwdata *hwdata,
       break;
     }
 
+  /* Need to set coop level or newer DirectFB versions will fail here. */
+  ret = layer->SetCooperativeLevel (layer, DLSCL_ADMINISTRATIVE);
+  if (ret)
+    {
+      SetDirectFBerror("IDirectFBDisplayLayer::SetCooperativeLevel() failed", ret);
+      layer->Release (layer);
+      return ret;
+    }
+
   ret = layer->SetConfiguration (layer, &conf);
   if (ret)
     {
@@ -153,7 +154,7 @@ SDL_Overlay *DirectFB_CreateYUVOverlay(_THIS, int width, int height, Uint32 form
   struct private_yuvhwdata *hwdata;
 
   /* Create the overlay structure */
-  overlay = calloc (1, sizeof(SDL_Overlay));
+  overlay = SDL_calloc (1, sizeof(SDL_Overlay));
   if (!overlay)
     {
       SDL_OutOfMemory();
@@ -169,7 +170,7 @@ SDL_Overlay *DirectFB_CreateYUVOverlay(_THIS, int width, int height, Uint32 form
   overlay->hwfuncs = &directfb_yuvfuncs;
 
   /* Create the pixel data and lookup tables */
-  hwdata = calloc(1, sizeof(struct private_yuvhwdata));
+  hwdata = SDL_calloc(1, sizeof(struct private_yuvhwdata));
   overlay->hwdata = hwdata;
   if (!hwdata)
     {
@@ -208,7 +209,7 @@ int DirectFB_LockYUVOverlay(_THIS, SDL_Overlay *overlay)
 {
   DFBResult         ret;
   void             *data;
-  unsigned int      pitch;
+  int               pitch;
   IDirectFBSurface *surface = overlay->hwdata->surface;
 
   ret = surface->Lock (surface, DSLF_READ | DSLF_WRITE, &data, &pitch);
@@ -249,7 +250,7 @@ void DirectFB_UnlockYUVOverlay(_THIS, SDL_Overlay *overlay)
   surface->Unlock (surface);
 }
 
-int DirectFB_DisplayYUVOverlay(_THIS, SDL_Overlay *overlay, SDL_Rect *dst)
+int DirectFB_DisplayYUVOverlay(_THIS, SDL_Overlay *overlay, SDL_Rect *src, SDL_Rect *dst)
 {
   DFBResult              ret;
   DFBDisplayLayerConfig  conf;

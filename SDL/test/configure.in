@@ -1,14 +1,9 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(README)
 
-dnl Setup for automake
-SDL_VERSION=1.2.7
-
-dnl Detect the canonical host and target build environment
-AC_CANONICAL_SYSTEM
-
-dnl Setup for automake
-AM_INIT_AUTOMAKE(SDL_tests, $SDL_VERSION)
+dnl Detect the canonical build and host environments
+AC_CONFIG_AUX_DIRS($srcdir/../build-scripts)
+AC_CANONICAL_HOST
 
 dnl Check for tools
 
@@ -18,10 +13,9 @@ dnl Check for compiler environment
 
 AC_C_CONST
 
-AM_CONDITIONAL(TARGET_PSP, test $ARCH = psp)
 dnl Check for a valid PSPSDK installation
 CheckPSPSDK()
-{
+{   
     AC_CHECK_PROG(psp_config, psp-config, psp-config, no)
     if test x$psp_config = xno; then
         AC_MSG_ERROR(Couldn't locate psp-config.)
@@ -29,6 +23,7 @@ CheckPSPSDK()
 
     AC_MSG_CHECKING(for PSPSDK)
     pspsdk_path=`$psp_config --pspsdk-path`
+    psp_prefix=`$psp_config --psp-prefix`
     if test ! -d $pspsdk_path -o -z $pspsdk_path; then
         AC_MSG_RESULT(not found)
         AC_MSG_ERROR(Couldn't locate PSPSDK.)
@@ -36,31 +31,36 @@ CheckPSPSDK()
     AC_MSG_RESULT($pspsdk_path)
 
     # Compile SDL with -G0 to disable the $gp register.
-    CFLAGS="$CFLAGS -G0 -I\"${pspsdk_path}/include\""
+    CFLAGS="$CFLAGS -G0 -I\"${pspsdk_path}/include\" -I\"${psp_prefix}/include\""
     BUILD_PREFIX="psp-"
 }
 
 dnl Figure out which math library to use
-case "$target" in
+case "$host" in
     *-*-cygwin* | *-*-mingw32*)
+        EXE=".exe"
         MATHLIB=""
         SYS_GL_LIBS="-lopengl32"
         ;;
-    *-*-beos*)
+    *-*-beos* | *-*-haiku*)
+        EXE=""
         MATHLIB=""
         SYS_GL_LIBS="-lGL"
         ;;
     *-*-darwin* )
+        EXE=""
         MATHLIB=""
-        SYS_GL_LIBS=""
+        SYS_GL_LIBS="-Wl,-framework,OpenGL"
         ;;
     *-*-aix*)
+        EXE=""
         if test x$ac_cv_prog_gcc = xyes; then
             CFLAGS="-mthreads"
         fi
         SYS_GL_LIBS=""
         ;;
     *-*-mint*)
+        EXE=""
         MATHLIB=""
         AC_PATH_PROG(OSMESA_CONFIG, osmesa-config, no)
         if test "x$OSMESA_CONFIG" = "xyes"; then
@@ -77,27 +77,37 @@ case "$target" in
         CheckPSPSDK
         ;;
     *)
+        EXE=""
         MATHLIB="-lm"
-        AC_PATH_X
-        AC_PATH_XTRA
-        if test x$have_x = xyes; then
-            CFLAGS="$CFLAGS $X_CFLAGS"
-            SYS_GL_LIBS="$X_LIBS -lGL"
-        else
-            SYS_GL_LIBS="-lGL"
-        fi
+        SYS_GL_LIBS="-lGL"
         ;;
 esac
+AC_SUBST(EXE)
 AC_SUBST(MATHLIB)
 
 dnl Check for SDL
-
+SDL_VERSION=1.2.10
 AM_PATH_SDL($SDL_VERSION,
             :,
 	    AC_MSG_ERROR([*** SDL version $SDL_VERSION not found!])
 )
 CFLAGS="$CFLAGS $SDL_CFLAGS"
 LIBS="$LIBS $SDL_LIBS"
+
+dnl Check for X11 path, needed for OpenGL on some systems
+AC_PATH_X
+if test x$have_x = xyes; then
+    if test x$ac_x_includes = xno || test x$ac_x_includes = x; then
+        :
+    else
+        CFLAGS="$CFLAGS -I$ac_x_includes"
+    fi
+    if test x$ac_x_libraries = xno || test x$ac_x_libraries = x; then
+        :
+    else
+        XPATH="-L$ac_x_libraries"
+    fi
+fi
 
 dnl Check for OpenGL
 AC_MSG_CHECKING(for OpenGL support)
@@ -111,11 +121,11 @@ have_opengl=yes
 AC_MSG_RESULT($have_opengl)
 if test x$have_opengl = xyes; then
     CFLAGS="$CFLAGS -DHAVE_OPENGL"
-    GL_LIBS="$SYS_GL_LIBS"
+    GLLIB="$XPATH $SYS_GL_LIBS"
 else
-    GL_LIBS=""
+    GLLIB=""
 fi
-AC_SUBST(GL_LIBS)
+AC_SUBST(GLLIB)
 
-# Finally create all the generated files
+dnl Finally create all the generated files
 AC_OUTPUT([Makefile])

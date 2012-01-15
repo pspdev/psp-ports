@@ -30,7 +30,7 @@ static char rcsid =
 #ifndef _SDL_pspaudio_h
 #define _SDL_pspaudio_h
 
-#include "SDL_sysaudio.h"
+#include "../SDL_sysaudio.h"
 
 /* Hidden "this" pointer for the video functions */
 #define _THIS	SDL_AudioDevice *this

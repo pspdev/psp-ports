@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
     Copyright (C) 2001  Hsieh-Fu Tsai
     Copyright (C) 2002  Greg Haerr <greg@censoft.com>
 
@@ -24,11 +24,7 @@
     Hsieh-Fu Tsai
     clare@setabox.com
 */
-
-#include <stdlib.h>
-#include <string.h>
-
-#include "SDL_error.h"
+#include "SDL_config.h"
 
 #include "SDL_nximage_c.h"
 
@@ -106,7 +102,7 @@ void NX_NormalUpdate (_THIS, int numrects, SDL_Rect * rects)
         else
         {
             for (j = h; j > 0; -- j, src += yinc, dest += destinc)
-                memcpy (dest, src, rowinc) ;
+                SDL_memcpy (dest, src, rowinc) ;
         }
         if (!Clientfb) {
             if (currently_fullscreen) {
@@ -128,13 +124,13 @@ int NX_SetupImage (_THIS, SDL_Surface * screen)
     
     Dprintf ("enter NX_SetupImage\n") ;
 
-    screen -> pixels = (void *) malloc (size) ;
+    screen -> pixels = (void *) SDL_malloc (size) ;
 
     if (!Clientfb) {
-        Image_buff = (unsigned char *) malloc (size) ;
+        Image_buff = (unsigned char *) SDL_malloc (size) ;
         if (screen -> pixels == NULL || Image_buff == NULL) {
-            free (screen -> pixels) ;
-            free (Image_buff) ;
+            SDL_free (screen -> pixels) ;
+            SDL_free (Image_buff) ;
             SDL_OutOfMemory () ;
             return -1 ;
         }
@@ -152,8 +148,8 @@ void NX_DestroyImage (_THIS, SDL_Surface * screen)
 {
     Dprintf ("enter NX_DestroyImage\n") ;
     
-    if (SDL_Image) free (SDL_Image) ;
-    if (Image_buff) free (Image_buff) ;
+    if (SDL_Image) SDL_free (SDL_Image) ;
+    if (Image_buff) SDL_free (Image_buff) ;
     if (screen) screen -> pixels = NULL ;
     
     Dprintf ("leave NX_DestroyImage\n") ;
@@ -215,7 +211,7 @@ void NX_RefreshDisplay (_THIS)
         rowinc = xinc * this -> screen -> w;
 
         for (j = this -> screen -> h; j > 0; -- j, src += yinc, dest += fbinfo.pitch)
-            memcpy (dest, src, rowinc) ;
+            SDL_memcpy (dest, src, rowinc) ;
     }
     else
 #endif

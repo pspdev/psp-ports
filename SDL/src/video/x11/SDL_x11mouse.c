@@ -1,41 +1,32 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_x11mouse.c,v 1.10 2004/05/16 17:40:32 slouken Exp $";
-#endif
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include "SDL_config.h"
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-#include "SDL_error.h"
 #include "SDL_mouse.h"
-#include "SDL_events_c.h"
-#include "SDL_cursor_c.h"
+#include "../../events/SDL_events_c.h"
+#include "../SDL_cursor_c.h"
 #include "SDL_x11dga_c.h"
 #include "SDL_x11mouse_c.h"
 
@@ -54,7 +45,7 @@ void X11_FreeWMCursor(_THIS, WMcursor *cursor)
 		XSync(SDL_Display, False);
 		SDL_Unlock_EventThread();
 	}
-	free(cursor);
+	SDL_free(cursor);
 }
 
 WMcursor *X11_CreateWMCursor(_THIS,
@@ -71,7 +62,7 @@ WMcursor *X11_CreateWMCursor(_THIS,
 	static XColor white = { 0xffff, 0xffff, 0xffff, 0xffff };
 
 	/* Allocate the cursor memory */
-	cursor = (WMcursor *)malloc(sizeof(WMcursor));
+	cursor = (WMcursor *)SDL_malloc(sizeof(WMcursor));
 	if ( cursor == NULL ) {
 		SDL_OutOfMemory();
 		return(NULL);
@@ -79,16 +70,16 @@ WMcursor *X11_CreateWMCursor(_THIS,
 
 	/* Mix the mask and the data */
 	clen = (w/8)*h;
-	x_data = (char *)malloc(clen);
+	x_data = (char *)SDL_malloc(clen);
 	if ( x_data == NULL ) {
-		free(cursor);
+		SDL_free(cursor);
 		SDL_OutOfMemory();
 		return(NULL);
 	}
-	x_mask = (char *)malloc(clen);
+	x_mask = (char *)SDL_malloc(clen);
 	if ( x_mask == NULL ) {
-		free(cursor);
-		free(x_data);
+		SDL_free(cursor);
+		SDL_free(x_data);
 		SDL_OutOfMemory();
 		return(NULL);
 	}
@@ -201,18 +192,20 @@ void X11_WarpWMCursor(_THIS, Uint16 x, Uint16 y)
 static void SetMouseAccel(_THIS, const char *accel_param)
 {
 	int i;
+	size_t len;
 	int accel_value[3];
 	char *mouse_param, *mouse_param_buf, *pin;
 
-	mouse_param_buf = (char *)malloc(strlen(accel_param)+1);
+	len = SDL_strlen(accel_param)+1;
+	mouse_param_buf = SDL_stack_alloc(char, len);
 	if ( ! mouse_param_buf ) {
 		return;
 	}
-	strcpy(mouse_param_buf, accel_param);
+	SDL_strlcpy(mouse_param_buf, accel_param, len);
 	mouse_param = mouse_param_buf;
 
 	for ( i=0; (i < 3) && mouse_param; ++i ) {
-		pin = strchr(mouse_param, '/');
+		pin = SDL_strchr(mouse_param, '/');
 		if ( pin ) {
 			*pin = '\0';
 		}
@@ -223,16 +216,17 @@ static void SetMouseAccel(_THIS, const char *accel_param)
 			mouse_param = NULL;
 		}
 	}
-	if ( mouse_param_buf ) {
+	if ( i == 3 ) {
 		XChangePointerControl(SDL_Display, True, True,
 			accel_value[0], accel_value[1], accel_value[2]);
-		free(mouse_param_buf);
 	}
+	SDL_stack_free(mouse_param_buf);
 }
 
 /* Check to see if we need to enter or leave mouse relative mode */
 void X11_CheckMouseModeNoLock(_THIS)
 {
+	const Uint8 full_focus = (SDL_APPACTIVE|SDL_APPINPUTFOCUS|SDL_APPMOUSEFOCUS);
 	char *env_override;
 	int enable_relative = 1;
 
@@ -240,7 +234,7 @@ void X11_CheckMouseModeNoLock(_THIS)
 	   They almost never want to do this, as it seriously affects
 	   applications that rely on continuous relative mouse motion.
 	*/
-	env_override = getenv("SDL_MOUSE_RELATIVE");
+	env_override = SDL_getenv("SDL_MOUSE_RELATIVE");
 	if ( env_override ) {
 		enable_relative = atoi(env_override);
 	}
@@ -249,7 +243,7 @@ void X11_CheckMouseModeNoLock(_THIS)
 	if ( enable_relative &&
 	     !(SDL_cursorstate & CURSOR_VISIBLE) &&
 	     (this->input_grab != SDL_GRAB_OFF) &&
-             (SDL_GetAppState() & SDL_APPACTIVE) ) {
+             (SDL_GetAppState() & full_focus) == full_focus ) {
 		if ( ! mouse_relative ) {
 			X11_EnableDGAMouse(this);
 			if ( ! (using_dga & DGA_MOUSE) ) {
@@ -261,7 +255,7 @@ void X11_CheckMouseModeNoLock(_THIS)
 						&mouse_accel.numerator, 
 						&mouse_accel.denominator,
 						&mouse_accel.threshold);
-				xmouse_accel=getenv("SDL_VIDEO_X11_MOUSEACCEL");
+				xmouse_accel=SDL_getenv("SDL_VIDEO_X11_MOUSEACCEL");
 				if ( xmouse_accel ) {
 					SetMouseAccel(this, xmouse_accel);
 				}

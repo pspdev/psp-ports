@@ -1,0 +1,131 @@
+#------------------------------------------------------------------------------#
+# This is the Makefile for building libMikMod using GNU Make and GNU C compiler
+# You will need the following tools to do it painlessly:
+# - (P)GCC/DJGPP package
+# - GNU Make
+# - GNU grep
+# - GNU sed
+#------------------------------------------------------------------------------#
+# Targets:
+# - all (default): make libmikmod.a, static MikMod sound library
+# - clean: clean up (remove all generated files)
+# - depend: rebuild dependencies (at the end of this makefile)
+#    You should have makedep tool from Crystal Space project installed.
+#------------------------------------------------------------------------------#
+
+# Set to 1 for debug build
+DEBUG = 0
+
+# The tools
+CC = gcc -c
+CFLAGS = -DHAVE_CONFIG_H $(INCLUDE)
+INCLUDE = -Iinclude -I../include -I../playercode
+AR = ar
+ARFLAGS = cr
+
+ifeq ($(DEBUG),1)
+CFLAGS += -g -Wall
+else
+CFLAGS += -s -O3 -Wall -fomit-frame-pointer -ffast-math -funroll-loops
+endif
+
+# Directory layout
+SRCPATH = ../loaders ../mmio ../playercode
+OUT = out
+
+# MikMod drivers
+DRIVERS = drv_ultra drv_sb drv_wss drv_wav drv_raw drv_stdout drv_pipe drv_nos
+
+# SED script to update configuration files
+SED_CONFIG = \
+  -e s/@LIBMIKMOD_MAJOR_VERSION@/$(LIBMIKMOD_MAJOR_VERSION)/ \
+  -e s/@LIBMIKMOD_MINOR_VERSION@/$(LIBMIKMOD_MINOR_VERSION)/ \
+  -e s/@LIBMIKMOD_MICRO_VERSION@/$(LIBMIKMOD_MICRO_VERSION)/ \
+  -e s/@DOES_NOT_HAVE_SIGNED@//
+
+vpath %.c $(SRCPATH) ../drivers src
+
+# Build rules
+$(OUT)/%.o: %.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+SRC = $(filter-out %mixer_core.c,$(wildcard $(addsuffix /*.c,$(SRCPATH)) \
+  $(addsuffix .c,$(addprefix ../drivers/,$(DRIVERS))))) \
+  src/dosgus.c src/dossb.c src/doswss.c src/dosdma.c src/dosirq.c
+OBJ = $(addprefix $(OUT)/,$(notdir $(SRC:.c=.o)))
+
+# The build targets
+TARGETS = $(OUT) include/mikmod.h include/mikmod_build.h libmikmod.a
+
+all: $(TARGETS)
+
+clean:
+	rm -rf $(TARGETS)
+
+depend: $(SRC)
+	makedep -DHAVE_CONFIG_H -D__DJGPP__ $(INCLUDE) -r -p$(OUT)/ $^
+
+$(OUT):
+	mkdir $@
+
+libmikmod.a: $(OBJ)
+	$(AR) $(ARFLAGS) $@ $^
+
+version.mak: ../configure.in
+	grep "LIBMIKMOD_.*_VERSION=" $< >$@
+
+include/mikmod.h include/mikmod_build.h: ../include/mikmod_h.in
+	sed $(SED_CONFIG) $< >$@
+
+-include version.mak
+
+# DO NOT DELETE this line - makedep depends on it
+
+out/load_669.o: include/config.h ../include/mikmod_internals.h
+out/load_amf.o: include/config.h ../include/mikmod_internals.h
+out/load_asy.o: include/config.h ../include/mikmod_internals.h
+out/load_dsm.o: include/config.h ../include/mikmod_internals.h
+out/load_far.o: include/config.h ../include/mikmod_internals.h
+out/load_gdm.o: include/config.h ../include/mikmod_internals.h
+out/load_imf.o: include/config.h ../include/mikmod_internals.h
+out/load_it.o: include/config.h ../include/mikmod_internals.h
+out/load_m15.o: include/config.h ../include/mikmod_internals.h
+out/load_med.o: include/config.h ../include/mikmod_internals.h
+out/load_mod.o: include/config.h ../include/mikmod_internals.h
+out/load_mtm.o: include/config.h ../include/mikmod_internals.h
+out/load_s3m.o: include/config.h ../include/mikmod_internals.h
+out/load_stm.o: include/config.h ../include/mikmod_internals.h
+out/load_stx.o: include/config.h ../include/mikmod_internals.h
+out/load_ult.o: include/config.h ../include/mikmod_internals.h
+out/load_uni.o: include/config.h ../include/mikmod_internals.h
+out/load_xm.o: include/config.h ../include/mikmod_internals.h
+out/mdreg.o: include/config.h ../include/mikmod_internals.h
+out/mdriver.o: include/config.h ../include/mikmod_internals.h
+out/mixer.o: include/config.h ../include/mikmod_internals.h \
+  ../playercode/mixer_core.c ../playercode/mixer_core.h
+out/mloader.o: include/config.h ../include/mikmod_internals.h
+out/mlreg.o: include/config.h ../include/mikmod_internals.h
+out/mlutil.o: include/config.h ../include/mikmod_internals.h
+out/mmalloc.o: include/config.h ../include/mikmod_internals.h
+out/mmerror.o: include/config.h ../include/mikmod_internals.h
+out/mmio.o: include/config.h ../include/mikmod_internals.h
+out/mplayer.o: include/config.h ../include/mikmod_internals.h
+out/munitrk.o: include/config.h ../include/mikmod_internals.h
+out/mwav.o: include/config.h ../include/mikmod_internals.h
+out/npertab.o: include/config.h ../include/mikmod_internals.h
+out/sloader.o: include/config.h ../include/mikmod_internals.h
+out/drv_ultra.o: include/config.h ../include/mikmod_internals.h
+out/drv_sb.o: include/config.h ../include/mikmod_internals.h include/dossb.h \
+  include/dosdma.h include/dosirq.h
+out/drv_wss.o: include/config.h ../include/mikmod_internals.h \
+  include/doswss.h include/dosdma.h include/dosirq.h
+out/drv_wav.o: include/config.h ../include/mikmod_internals.h
+out/drv_raw.o: include/config.h ../include/mikmod_internals.h
+out/drv_stdout.o: include/config.h ../include/mikmod_internals.h
+out/drv_pipe.o: include/config.h ../include/mikmod_internals.h
+out/drv_nos.o: include/config.h ../include/mikmod_internals.h
+out/dosgus.o: include/dosgus.h include/dosdma.h include/dosirq.h
+out/dossb.o: include/dossb.h include/dosdma.h include/dosirq.h
+out/doswss.o: include/doswss.h include/dosdma.h include/dosirq.h
+out/dosdma.o: include/dosdma.h
+out/dosirq.o: include/dosirq.h

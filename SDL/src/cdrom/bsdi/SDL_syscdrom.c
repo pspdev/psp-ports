@@ -1,29 +1,27 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997, 1998, 1999, 2000  Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_syscdrom.c,v 1.3 2002/03/06 11:23:02 slouken Exp $";
-#endif
+#ifdef SDL_CDROM_BSDI
 
 /*
  * Functions for system-level CD-ROM audio control for BSD/OS 4.x
@@ -34,21 +32,16 @@ static char rcsid =
 */
 
 #include <sys/types.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
 #include <err.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include </sys/dev/scsi/scsi.h>
 #include </sys/dev/scsi/scsi_ioctl.h>
 
-#include "SDL_error.h"
 #include "SDL_cdrom.h"
-#include "SDL_syscdrom.h"
+#include "../SDL_syscdrom.h"
 
 /*
  * The msf_to_frame and frame_to_msf were yanked from libcdrom and inlined
@@ -234,12 +227,11 @@ static void AddDrive(char *drive, struct stat *stbuf)
 
 		/* Add this drive to our list */
 		i = SDL_numcds;
-		SDL_cdlist[i] = (char *)malloc(strlen(drive)+1);
+		SDL_cdlist[i] = SDL_strdup(drive);
 		if ( SDL_cdlist[i] == NULL ) {
 			SDL_OutOfMemory();
 			return;
 		}
-		strcpy(SDL_cdlist[i], drive);
 		SDL_cdmode[i] = stbuf->st_rdev;
 		++SDL_numcds;
 #ifdef DEBUG_CDROM
@@ -272,15 +264,16 @@ int  SDL_SYS_CDInit(void)
 	SDL_CDcaps.Close = SDL_SYS_CDClose;
 
 	/* Look in the environment for our CD-ROM drive list */
-	SDLcdrom = getenv("SDL_CDROM");	/* ':' separated list of devices */
+	SDLcdrom = SDL_getenv("SDL_CDROM");	/* ':' separated list of devices */
 	if ( SDLcdrom != NULL ) {
 		char *cdpath, *delim;
-		cdpath = malloc(strlen(SDLcdrom)+1);
+		size_t len = SDL_strlen(SDLcdrom)+1;
+		cdpath = SDL_stack_alloc(char, len);
 		if ( cdpath != NULL ) {
-			strcpy(cdpath, SDLcdrom);
+			SDL_strlcpy(cdpath, SDLcdrom, len);
 			SDLcdrom = cdpath;
 			do {
-				delim = strchr(SDLcdrom, ':');
+				delim = SDL_strchr(SDLcdrom, ':');
 				if ( delim ) {
 					*delim++ = '\0';
 				}
@@ -293,7 +286,7 @@ int  SDL_SYS_CDInit(void)
 					SDLcdrom = NULL;
 				}
 			} while ( SDLcdrom );
-			free(cdpath);
+			SDL_stack_free(cdpath);
 		}
 
 		/* If we found our drives, there's nothing left to do */
@@ -308,8 +301,8 @@ int  SDL_SYS_CDInit(void)
 			char *insert;
 			exists = 1;
 			for ( j=checklist[i][1]; exists; ++j ) {
-				sprintf(drive, "/dev/%sc", &checklist[i][3]);
-				insert = strchr(drive, '?');
+				SDL_snprintf(drive, SDL_arraysize(drive), "/dev/%sc", &checklist[i][3]);
+				insert = SDL_strchr(drive, '?');
 				if ( insert != NULL ) {
 					*insert = j;
 				}
@@ -328,7 +321,7 @@ int  SDL_SYS_CDInit(void)
 				}
 			}
 		} else {
-			sprintf(drive, "/dev/%s", checklist[i]);
+			SDL_snprintf(drive, SDL_arraysize(drive), "/dev/%s", checklist[i]);
 			if ( CheckDrive(drive, &stbuf) > 0 ) {
 				AddDrive(drive, &stbuf);
 			}
@@ -365,7 +358,7 @@ static int SDL_SYS_CDGetTOC(SDL_CD *cdrom)
 	ntracks = last_track - first_track + 1;
 	cdrom->numtracks = ntracks;
 	toc_size = 4 + (ntracks + 1) * 8;
-	toc = (u_char *)malloc(toc_size);
+	toc = (u_char *)SDL_malloc(toc_size);
 	if	(toc == NULL)
 		return(-1);
 	bzero(cdb, sizeof (cdb));
@@ -378,7 +371,7 @@ static int SDL_SYS_CDGetTOC(SDL_CD *cdrom)
 			&sus);
 	if	(sts < 0)
 		{
-		free(toc);
+		SDL_free(toc);
 		return(-1);
 		}
 
@@ -398,7 +391,7 @@ static int SDL_SYS_CDGetTOC(SDL_CD *cdrom)
 			cdrom->track[i-1].length = cdrom->track[i].offset -
 						   cdrom->track[i-1].offset;
 		}
-	free(toc);
+	SDL_free(toc);
 	return(0);
 	}
 
@@ -540,8 +533,10 @@ void SDL_SYS_CDQuit(void)
 
 	if ( SDL_numcds > 0 ) {
 		for ( i=0; i<SDL_numcds; ++i ) {
-			free(SDL_cdlist[i]);
+			SDL_free(SDL_cdlist[i]);
 			}
 		}
 	SDL_numcds = 0;
 }
+
+#endif /* SDL_CDROM_BSDI */

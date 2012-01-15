@@ -1,49 +1,41 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_artsaudio.c,v 1.11 2004/09/17 13:25:06 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Allow access to a raw mixing buffer */
 
-#include <sys/types.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
+#ifdef HAVE_SIGNAL_H
 #include <signal.h>
+#endif
 #include <unistd.h>
 
-#include "SDL_audio.h"
-#include "SDL_error.h"
-#include "SDL_audiomem.h"
-#include "SDL_audio_c.h"
 #include "SDL_timer.h"
-#include "SDL_audiodev_c.h"
+#include "SDL_audio.h"
+#include "../SDL_audiomem.h"
+#include "../SDL_audio_c.h"
+#include "../SDL_audiodev_c.h"
 #include "SDL_artsaudio.h"
 
-#ifdef ARTSC_DYNAMIC
+#ifdef SDL_AUDIO_DRIVER_ARTS_DYNAMIC
 #include "SDL_name.h"
 #include "SDL_loadso.h"
 #else
@@ -51,18 +43,18 @@ static char rcsid =
 #endif
 
 /* The tag name used by artsc audio */
-#define ARTSC_DRIVER_NAME         "arts"
+#define ARTS_DRIVER_NAME         "arts"
 
 /* Audio driver functions */
-static int ARTSC_OpenAudio(_THIS, SDL_AudioSpec *spec);
-static void ARTSC_WaitAudio(_THIS);
-static void ARTSC_PlayAudio(_THIS);
-static Uint8 *ARTSC_GetAudioBuf(_THIS);
-static void ARTSC_CloseAudio(_THIS);
+static int ARTS_OpenAudio(_THIS, SDL_AudioSpec *spec);
+static void ARTS_WaitAudio(_THIS);
+static void ARTS_PlayAudio(_THIS);
+static Uint8 *ARTS_GetAudioBuf(_THIS);
+static void ARTS_CloseAudio(_THIS);
 
-#ifdef ARTSC_DYNAMIC
+#ifdef SDL_AUDIO_DRIVER_ARTS_DYNAMIC
 
-static const char *arts_library = ARTSC_DYNAMIC;
+static const char *arts_library = SDL_AUDIO_DRIVER_ARTS_DYNAMIC;
 static void *arts_handle = NULL;
 static int arts_loaded = 0;
 
@@ -73,6 +65,8 @@ static int (*SDL_NAME(arts_stream_set))(arts_stream_t s, arts_parameter_t param,
 static int (*SDL_NAME(arts_stream_get))(arts_stream_t s, arts_parameter_t param);
 static int (*SDL_NAME(arts_write))(arts_stream_t s, const void *buffer, int count);
 static void (*SDL_NAME(arts_close_stream))(arts_stream_t s);
+static int (*SDL_NAME(arts_suspended))(void);
+static const char *(*SDL_NAME(arts_error_text))(int errorcode);
 
 static struct {
 	const char *name;
@@ -85,6 +79,8 @@ static struct {
 	{ "arts_stream_get",	(void **)&SDL_NAME(arts_stream_get)	},
 	{ "arts_write",		(void **)&SDL_NAME(arts_write)		},
 	{ "arts_close_stream",	(void **)&SDL_NAME(arts_close_stream)	},
+	{ "arts_suspended",	(void **)&SDL_NAME(arts_suspended)	},
+	{ "arts_error_text",	(void **)&SDL_NAME(arts_error_text)	},
 };
 
 static void UnloadARTSLibrary()
@@ -104,7 +100,7 @@ static int LoadARTSLibrary(void)
 	if ( arts_handle ) {
 		arts_loaded = 1;
 		retval = 0;
-		for ( i=0; i<SDL_TABLESIZE(arts_functions); ++i ) {
+		for ( i=0; i<SDL_arraysize(arts_functions); ++i ) {
 			*arts_functions[i].func = SDL_LoadFunction(arts_handle, arts_functions[i].name);
 			if ( !*arts_functions[i].func ) {
 				retval = -1;
@@ -128,7 +124,7 @@ static int LoadARTSLibrary(void)
 	return 0;
 }
 
-#endif /* ARTSC_DYNAMIC */
+#endif /* SDL_AUDIO_DRIVER_ARTS_DYNAMIC */
 
 /* Audio driver bootstrap functions */
 
@@ -140,14 +136,14 @@ static int Audio_Available(void)
 		return available;
 	}
 	if ( SDL_NAME(arts_init)() == 0 ) {
-#define ARTS_CRASH_HACK	/* Play a stream so aRts doesn't crash */
-#ifdef ARTS_CRASH_HACK
-		arts_stream_t stream2;
-		stream2=SDL_NAME(arts_play_stream)(44100, 16, 2, "SDL");
-		SDL_NAME(arts_write)(stream2, "", 0);
-		SDL_NAME(arts_close_stream)(stream2);
-#endif
-		available = 1;
+		if ( SDL_NAME(arts_suspended)() ) {
+			/* Play a stream so aRts doesn't crash */
+			arts_stream_t stream2;
+			stream2=SDL_NAME(arts_play_stream)(44100, 16, 2, "SDL");
+			SDL_NAME(arts_write)(stream2, "", 0);
+			SDL_NAME(arts_close_stream)(stream2);
+			available = 1;
+		}
 		SDL_NAME(arts_free)();
 	}
 	UnloadARTSLibrary();
@@ -157,8 +153,8 @@ static int Audio_Available(void)
 
 static void Audio_DeleteDevice(SDL_AudioDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	SDL_free(device->hidden);
+	SDL_free(device);
 	UnloadARTSLibrary();
 }
 
@@ -168,41 +164,41 @@ static SDL_AudioDevice *Audio_CreateDevice(int devindex)
 
 	/* Initialize all variables that we clean on shutdown */
 	LoadARTSLibrary();
-	this = (SDL_AudioDevice *)malloc(sizeof(SDL_AudioDevice));
+	this = (SDL_AudioDevice *)SDL_malloc(sizeof(SDL_AudioDevice));
 	if ( this ) {
-		memset(this, 0, (sizeof *this));
+		SDL_memset(this, 0, (sizeof *this));
 		this->hidden = (struct SDL_PrivateAudioData *)
-				malloc((sizeof *this->hidden));
+				SDL_malloc((sizeof *this->hidden));
 	}
 	if ( (this == NULL) || (this->hidden == NULL) ) {
 		SDL_OutOfMemory();
 		if ( this ) {
-			free(this);
+			SDL_free(this);
 		}
 		return(0);
 	}
-	memset(this->hidden, 0, (sizeof *this->hidden));
+	SDL_memset(this->hidden, 0, (sizeof *this->hidden));
 	stream = 0;
 
 	/* Set the function pointers */
-	this->OpenAudio = ARTSC_OpenAudio;
-	this->WaitAudio = ARTSC_WaitAudio;
-	this->PlayAudio = ARTSC_PlayAudio;
-	this->GetAudioBuf = ARTSC_GetAudioBuf;
-	this->CloseAudio = ARTSC_CloseAudio;
+	this->OpenAudio = ARTS_OpenAudio;
+	this->WaitAudio = ARTS_WaitAudio;
+	this->PlayAudio = ARTS_PlayAudio;
+	this->GetAudioBuf = ARTS_GetAudioBuf;
+	this->CloseAudio = ARTS_CloseAudio;
 
 	this->free = Audio_DeleteDevice;
 
 	return this;
 }
 
-AudioBootStrap ARTSC_bootstrap = {
-	ARTSC_DRIVER_NAME, "Analog Realtime Synthesizer",
+AudioBootStrap ARTS_bootstrap = {
+	ARTS_DRIVER_NAME, "Analog Realtime Synthesizer",
 	Audio_Available, Audio_CreateDevice
 };
 
 /* This function waits until it is possible to write a full sound buffer */
-static void ARTSC_WaitAudio(_THIS)
+static void ARTS_WaitAudio(_THIS)
 {
 	Sint32 ticks;
 
@@ -225,7 +221,7 @@ static void ARTSC_WaitAudio(_THIS)
 	}
 }
 
-static void ARTSC_PlayAudio(_THIS)
+static void ARTS_PlayAudio(_THIS)
 {
 	int written;
 
@@ -246,12 +242,12 @@ static void ARTSC_PlayAudio(_THIS)
 #endif
 }
 
-static Uint8 *ARTSC_GetAudioBuf(_THIS)
+static Uint8 *ARTS_GetAudioBuf(_THIS)
 {
 	return(mixbuf);
 }
 
-static void ARTSC_CloseAudio(_THIS)
+static void ARTS_CloseAudio(_THIS)
 {
 	if ( mixbuf != NULL ) {
 		SDL_FreeAudioMem(mixbuf);
@@ -264,10 +260,11 @@ static void ARTSC_CloseAudio(_THIS)
 	SDL_NAME(arts_free)();
 }
 
-static int ARTSC_OpenAudio(_THIS, SDL_AudioSpec *spec)
+static int ARTS_OpenAudio(_THIS, SDL_AudioSpec *spec)
 {
 	int bits, frag_spec;
 	Uint16 test_format, format;
+	int error_code;
 
 	/* Reset the timer synchronization flag */
 	frame_ticks = 0.0;
@@ -305,8 +302,13 @@ static int ARTSC_OpenAudio(_THIS, SDL_AudioSpec *spec)
 	}
 	spec->format = test_format;
 
-	if ( SDL_NAME(arts_init)() != 0 ) {
-		SDL_SetError("Unable to initialize ARTS");
+	error_code = SDL_NAME(arts_init)();
+	if ( error_code != 0 ) {
+		SDL_SetError("Unable to initialize ARTS: %s", SDL_NAME(arts_error_text)(error_code));
+		return(-1);
+	}
+	if ( ! SDL_NAME(arts_suspended)() ) {
+		SDL_SetError("ARTS can not open audio device");
 		return(-1);
 	}
 	stream = SDL_NAME(arts_play_stream)(spec->freq, bits, spec->channels, "SDL");
@@ -336,7 +338,7 @@ static int ARTSC_OpenAudio(_THIS, SDL_AudioSpec *spec)
 	if ( mixbuf == NULL ) {
 		return(-1);
 	}
-	memset(mixbuf, spec->silence, spec->size);
+	SDL_memset(mixbuf, spec->silence, spec->size);
 
 	/* Get the parent process id (we're the parent of the audio thread) */
 	parent = getpid();

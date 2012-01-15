@@ -1,42 +1,38 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_syscdrom.c,v 1.11 2005/05/20 07:34:34 slouken Exp $";
-#endif
+#ifdef SDL_CDROM_LINUX
 
 /* Functions for system-level CD-ROM audio control */
 
+#include <string.h>	/* For strerror() */
 #include <sys/types.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
-#include <stdio.h>
-#include <string.h>
 #include <errno.h>
 #include <unistd.h>
-#ifdef __linux__
+#ifdef __LINUX__
 #ifdef HAVE_LINUX_VERSION_H
 /* linux 2.6.9 workaround */
 #include <linux/version.h>
@@ -88,9 +84,8 @@ static char rcsid =
 #endif
 #endif /* USE_MNTENT */
 
-#include "SDL_error.h"
 #include "SDL_cdrom.h"
-#include "SDL_syscdrom.h"
+#include "../SDL_syscdrom.h"
 
 
 /* The maximum number of CD-ROM drives we'll detect */
@@ -147,7 +142,7 @@ static int CheckDrive(char *drive, char *mnttype, struct stat *stbuf)
 		}
 #ifdef USE_MNTENT
 		/* Even if we can't read it, it might be mounted */
-		else if ( mnttype && (strcmp(mnttype, MNTTYPE_CDROM) == 0) ) {
+		else if ( mnttype && (SDL_strcmp(mnttype, MNTTYPE_CDROM) == 0) ) {
 			is_cd = 1;
 		}
 #endif
@@ -175,12 +170,11 @@ static void AddDrive(char *drive, struct stat *stbuf)
 
 		/* Add this drive to our list */
 		i = SDL_numcds;
-		SDL_cdlist[i] = (char *)malloc(strlen(drive)+1);
+		SDL_cdlist[i] = SDL_strdup(drive);
 		if ( SDL_cdlist[i] == NULL ) {
 			SDL_OutOfMemory();
 			return;
 		}
-		strcpy(SDL_cdlist[i], drive);
 		SDL_cdmode[i] = stbuf->st_rdev;
 		++SDL_numcds;
 #ifdef DEBUG_CDROM
@@ -200,48 +194,52 @@ static void CheckMounts(const char *mtab)
 	if ( mntfp != NULL ) {
 		char *tmp;
 		char *mnt_type;
+		size_t mnt_type_len;
 		char *mnt_dev;
+		size_t mnt_dev_len;
 
 		while ( (mntent=getmntent(mntfp)) != NULL ) {
-			mnt_type = malloc(strlen(mntent->mnt_type) + 1);
+			mnt_type_len = SDL_strlen(mntent->mnt_type) + 1;
+			mnt_type = SDL_stack_alloc(char, mnt_type_len);
 			if (mnt_type == NULL)
 				continue;  /* maybe you'll get lucky next time. */
 
-			mnt_dev = malloc(strlen(mntent->mnt_fsname) + 1);
+			mnt_dev_len = SDL_strlen(mntent->mnt_fsname) + 1;
+			mnt_dev = SDL_stack_alloc(char, mnt_dev_len);
 			if (mnt_dev == NULL) {
-				free(mnt_type);
+				SDL_stack_free(mnt_type);
 				continue;
 			}
 
-			strcpy(mnt_type, mntent->mnt_type);
-			strcpy(mnt_dev, mntent->mnt_fsname);
+			SDL_strlcpy(mnt_type, mntent->mnt_type, mnt_type_len);
+			SDL_strlcpy(mnt_dev, mntent->mnt_fsname, mnt_dev_len);
 
 			/* Handle "supermount" filesystem mounts */
-			if ( strcmp(mnt_type, MNTTYPE_SUPER) == 0 ) {
-				tmp = strstr(mntent->mnt_opts, "fs=");
+			if ( SDL_strcmp(mnt_type, MNTTYPE_SUPER) == 0 ) {
+				tmp = SDL_strstr(mntent->mnt_opts, "fs=");
 				if ( tmp ) {
-					free(mnt_type);
-					mnt_type = strdup(tmp + strlen("fs="));
+					SDL_stack_free(mnt_type);
+					mnt_type = SDL_strdup(tmp + SDL_strlen("fs="));
 					if ( mnt_type ) {
-						tmp = strchr(mnt_type, ',');
+						tmp = SDL_strchr(mnt_type, ',');
 						if ( tmp ) {
 							*tmp = '\0';
 						}
 					}
 				}
-				tmp = strstr(mntent->mnt_opts, "dev=");
+				tmp = SDL_strstr(mntent->mnt_opts, "dev=");
 				if ( tmp ) {
-					free(mnt_dev);
-					mnt_dev = strdup(tmp + strlen("dev="));
+					SDL_stack_free(mnt_dev);
+					mnt_dev = SDL_strdup(tmp + SDL_strlen("dev="));
 					if ( mnt_dev ) {
-						tmp = strchr(mnt_dev, ',');
+						tmp = SDL_strchr(mnt_dev, ',');
 						if ( tmp ) {
 							*tmp = '\0';
 						}
 					}
 				}
 			}
-			if ( strcmp(mnt_type, MNTTYPE_CDROM) == 0 ) {
+			if ( SDL_strcmp(mnt_type, MNTTYPE_CDROM) == 0 ) {
 #ifdef DEBUG_CDROM
   fprintf(stderr, "Checking mount path from %s: %s mounted on %s of %s\n",
 	mtab, mnt_dev, mntent->mnt_dir, mnt_type);
@@ -250,8 +248,8 @@ static void CheckMounts(const char *mtab)
 					AddDrive(mnt_dev, &stbuf);
 				}
 			}
-			free(mnt_dev);
-			free(mnt_type);
+			SDL_stack_free(mnt_dev);
+			SDL_stack_free(mnt_type);
 		}
 		endmntent(mntfp);
 	}
@@ -282,15 +280,16 @@ int  SDL_SYS_CDInit(void)
 	SDL_CDcaps.Close = SDL_SYS_CDClose;
 
 	/* Look in the environment for our CD-ROM drive list */
-	SDLcdrom = getenv("SDL_CDROM");	/* ':' separated list of devices */
+	SDLcdrom = SDL_getenv("SDL_CDROM");	/* ':' separated list of devices */
 	if ( SDLcdrom != NULL ) {
 		char *cdpath, *delim;
-		cdpath = malloc(strlen(SDLcdrom)+1);
+		size_t len = SDL_strlen(SDLcdrom)+1;
+		cdpath = SDL_stack_alloc(char, len);
 		if ( cdpath != NULL ) {
-			strcpy(cdpath, SDLcdrom);
+			SDL_strlcpy(cdpath, SDLcdrom, len);
 			SDLcdrom = cdpath;
 			do {
-				delim = strchr(SDLcdrom, ':');
+				delim = SDL_strchr(SDLcdrom, ':');
 				if ( delim ) {
 					*delim++ = '\0';
 				}
@@ -306,7 +305,7 @@ int  SDL_SYS_CDInit(void)
 					SDLcdrom = NULL;
 				}
 			} while ( SDLcdrom );
-			free(cdpath);
+			SDL_stack_free(cdpath);
 		}
 
 		/* If we found our drives, there's nothing left to do */
@@ -341,8 +340,8 @@ int  SDL_SYS_CDInit(void)
 			char *insert;
 			exists = 1;
 			for ( j=checklist[i][1]; exists; ++j ) {
-				sprintf(drive, "/dev/%s", &checklist[i][3]);
-				insert = strchr(drive, '?');
+				SDL_snprintf(drive, SDL_arraysize(drive), "/dev/%s", &checklist[i][3]);
+				insert = SDL_strchr(drive, '?');
 				if ( insert != NULL ) {
 					*insert = j;
 				}
@@ -364,7 +363,7 @@ int  SDL_SYS_CDInit(void)
 				}
 			}
 		} else {
-			sprintf(drive, "/dev/%s", checklist[i]);
+			SDL_snprintf(drive, SDL_arraysize(drive), "/dev/%s", checklist[i]);
 #ifdef DEBUG_CDROM
   fprintf(stderr, "Checking possible CD-ROM drive: %s\n", drive);
 #endif
@@ -556,9 +555,10 @@ void SDL_SYS_CDQuit(void)
 
 	if ( SDL_numcds > 0 ) {
 		for ( i=0; i<SDL_numcds; ++i ) {
-			free(SDL_cdlist[i]);
+			SDL_free(SDL_cdlist[i]);
 		}
 		SDL_numcds = 0;
 	}
 }
 
+#endif /* SDL_CDROM_LINUX */

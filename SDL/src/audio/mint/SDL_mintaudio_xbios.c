@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,6 +19,7 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /*
 	MiNT audio driver
@@ -27,23 +28,19 @@
 	Patrice Mandin, Didier Méquignon
 */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <unistd.h>
+#include <support.h>
 
 /* Mint includes */
 #include <mint/osbind.h>
 #include <mint/falcon.h>
 #include <mint/cookie.h>
 
-#include "SDL_endian.h"
 #include "SDL_audio.h"
-#include "SDL_audio_c.h"
-#include "SDL_audiomem.h"
-#include "SDL_sysaudio.h"
+#include "../SDL_audio_c.h"
+#include "../SDL_sysaudio.h"
 
-#include "SDL_atarimxalloc_c.h"
+#include "../../video/ataricommon/SDL_atarimxalloc_c.h"
 
 #include "SDL_mintaudio.h"
 #include "SDL_mintaudio_dma8.h"
@@ -82,10 +79,19 @@ static void Mint_InitAudio(_THIS, SDL_AudioSpec *spec);
 
 static int Audio_Available(void)
 {
-	const char *envr = getenv("SDL_AUDIODRIVER");
+	unsigned long dummy;
+	const char *envr = SDL_getenv("SDL_AUDIODRIVER");
+
+	/*SDL_MintAudio_mint_present = (Getcookie(C_MiNT, &dummy) == C_FOUND);*/
+	SDL_MintAudio_mint_present = SDL_FALSE;
+
+	/* We can't use XBIOS in interrupt with Magic, don't know about thread */
+	/*if (Getcookie(C_MagX, &dummy) == C_FOUND) {
+		return(0);
+	}*/
 
 	/* Check if user asked a different audio driver */
-	if ((envr) && (strcmp(envr, MINT_AUDIO_DRIVER_NAME)!=0)) {
+	if ((envr) && (SDL_strcmp(envr, MINT_AUDIO_DRIVER_NAME)!=0)) {
 		DEBUG_PRINT((DEBUG_NAME "user asked a different audio driver\n"));
 		return(0);
 	}
@@ -115,8 +121,8 @@ static int Audio_Available(void)
 
 static void Audio_DeleteDevice(SDL_AudioDevice *device)
 {
-    free(device->hidden);
-    free(device);
+    SDL_free(device->hidden);
+    SDL_free(device);
 }
 
 static SDL_AudioDevice *Audio_CreateDevice(int devindex)
@@ -124,20 +130,20 @@ static SDL_AudioDevice *Audio_CreateDevice(int devindex)
 	SDL_AudioDevice *this;
 
 	/* Initialize all variables that we clean on shutdown */
-	this = (SDL_AudioDevice *)malloc(sizeof(SDL_AudioDevice));
+	this = (SDL_AudioDevice *)SDL_malloc(sizeof(SDL_AudioDevice));
     if ( this ) {
-        memset(this, 0, (sizeof *this));
+        SDL_memset(this, 0, (sizeof *this));
         this->hidden = (struct SDL_PrivateAudioData *)
-                malloc((sizeof *this->hidden));
+                SDL_malloc((sizeof *this->hidden));
     }
     if ( (this == NULL) || (this->hidden == NULL) ) {
         SDL_OutOfMemory();
         if ( this ) {
-            free(this);
+            SDL_free(this);
         }
         return(0);
     }
-    memset(this->hidden, 0, (sizeof *this->hidden));
+    SDL_memset(this->hidden, 0, (sizeof *this->hidden));
 
     /* Set the function pointers */
     this->OpenAudio   = Mint_OpenAudio;
@@ -169,10 +175,13 @@ static void Mint_UnlockAudio(_THIS)
 static void Mint_CloseAudio(_THIS)
 {
 	/* Stop replay */
+	SDL_MintAudio_WaitThread();
 	Buffoper(0);
 
-	/* Uninstall interrupt */
-	Jdisint(MFP_DMASOUND);
+	if (!SDL_MintAudio_mint_present) {
+		/* Uninstall interrupt */
+		Jdisint(MFP_DMASOUND);
+	}
 
 	/* Wait if currently playing sound */
 	while (SDL_MintAudio_mutex != 0) {
@@ -252,31 +261,28 @@ static void Devconnect2(int src, int dst, int sclk, int pre)
 	Super(oldstack);
 }
 
-static Uint32 Mint_CheckExternalClock(void)
+static void Mint_CheckExternalClock(_THIS)
 {
 #define SIZE_BUF_CLOCK_MEASURE (44100/10)
 
 	unsigned long cookie_snd;
-	Uint32 masterclock;
 	char *buffer;
-	int i;
+	int i, j;
 
 	/* DSP present with its GPIO port ? */
 	if (Getcookie(C__SND, &cookie_snd) == C_NOTFOUND) {
-		return 0;
+		return;
 	}
 	if ((cookie_snd & SND_DSP)==0) {
-		return 0;
+		return;
 	}
 
 	buffer = Atari_SysMalloc(SIZE_BUF_CLOCK_MEASURE, MX_STRAM);
 	if (buffer==NULL) {
 		DEBUG_PRINT((DEBUG_NAME "Not enough memory for the measure\n"));
-		return 0;
+		return;
 	}
-	memset(buffer, 0, SIZE_BUF_CLOCK_MEASURE);
-
-	masterclock=0;
+	SDL_memset(buffer, 0, SIZE_BUF_CLOCK_MEASURE);
 
 	Buffoper(0);
 	Settracks(0,0);
@@ -302,13 +308,13 @@ static Uint32 Mint_CheckExternalClock(void)
 				khz = ((SIZE_BUF_CLOCK_MEASURE/SDL_MintAudio_clocktics) +1) & 0xFFFFFFFE;
 				DEBUG_PRINT((DEBUG_NAME "measure %d: freq=%lu KHz\n", i+1, khz));
 
-				if (i==0) {
-					if(khz==44) {
-						masterclock = MASTERCLOCK_44K;
+				if(khz==44) {
+					for (j=1; j<4; j++) {
+						SDL_MintAudio_AddFrequency(this, MASTERCLOCK_44K/(MASTERPREDIV_FALCON*(1<<j)), MASTERCLOCK_44K, (1<<j)-1, 2+i);
 					}
-				} else {
-					if(khz==48) {
-						masterclock = MASTERCLOCK_48K;
+				} else if (khz==48) {
+					for (j=1; j<4; j++) {
+						SDL_MintAudio_AddFrequency(this, MASTERCLOCK_48K/(MASTERPREDIV_FALCON*(1<<j)), MASTERCLOCK_48K, (1<<j)-1, 2+i);
 					}
 				}
 			} else {
@@ -320,12 +326,9 @@ static Uint32 Mint_CheckExternalClock(void)
 
 		Buffoper(0);             /* stop */
 		Jdisint(MFP_TIMERA);     /* Uninstall interrupt */
-		if (masterclock == 0)
-			break;
 	}
 
 	Mfree(buffer);
-	return masterclock;
 }
 
 static int Mint_CheckAudio(_THIS, SDL_AudioSpec *spec)
@@ -339,28 +342,28 @@ static int Mint_CheckAudio(_THIS, SDL_AudioSpec *spec)
 	DEBUG_PRINT(("channels=%d, ", spec->channels));
 	DEBUG_PRINT(("freq=%d\n", spec->freq));
 
+    if (spec->channels > 2) {
+        spec->channels = 2;  /* no more than stereo! */
+    }
+
 	spec->format |= 0x8000;	/* Audio is always signed */
 	if ((spec->format & 0x00ff)==16) {
 		spec->format |= 0x1000;	/* Audio is always big endian */
 		spec->channels=2;	/* 16 bits always stereo */
 	}
 
-	extclock=Mint_CheckExternalClock();
+	MINTAUDIO_freqcount=0;
+
+	/* Add external clocks if present */
+	Mint_CheckExternalClock(this);
 
 	/* Standard clocks */
-	MINTAUDIO_freqcount=0;
 	for (i=1;i<12;i++) {
 		/* Remove unusable Falcon codec predivisors */
 		if ((i==6) || (i==8) || (i==10)) {
 			continue;
 		}
-		SDL_MintAudio_AddFrequency(this, MASTERCLOCK_FALCON1/(MASTERPREDIV_FALCON*(i+1)), MASTERCLOCK_FALCON1, i);
-	}
-
-	if (extclock>0) {
-		for (i=1; i<4; i++) {
-			SDL_MintAudio_AddFrequency(this, extclock/(MASTERPREDIV_FALCON*(1<<i)), extclock, (1<<i)-1);
-		}
+		SDL_MintAudio_AddFrequency(this, MASTERCLOCK_FALCON1/(MASTERPREDIV_FALCON*(i+1)), MASTERCLOCK_FALCON1, i, -1);
 	}
 
 #if 1
@@ -390,6 +393,9 @@ static void Mint_InitAudio(_THIS, SDL_AudioSpec *spec)
 	void *buffer;
 
 	/* Stop currently playing sound */
+	SDL_MintAudio_quit_thread = SDL_FALSE;
+	SDL_MintAudio_thread_finished = SDL_TRUE;
+	SDL_MintAudio_WaitThread();
 	Buffoper(0);
 
 	/* Set replay tracks */
@@ -413,16 +419,12 @@ static void Mint_InitAudio(_THIS, SDL_AudioSpec *spec)
 
 	dmaclock = MINTAUDIO_frequencies[MINTAUDIO_numfreq].masterclock;
 	prediv = MINTAUDIO_frequencies[MINTAUDIO_numfreq].predivisor;
-	if (dmaclock != MASTERCLOCK_FALCON1) {
+	if (MINTAUDIO_frequencies[MINTAUDIO_numfreq].gpio_bits != -1) {
 		Gpio(GPIO_SET,7);		/* DSP port gpio outputs */
-		if (dmaclock == MASTERCLOCK_44K) {
-			Gpio(GPIO_WRITE,2);	/* 22.5792 MHz for 44.1KHz */
-		} else {
-			Gpio(GPIO_WRITE,3);	/* 24.576 MHz for 48KHz */
-		}
-		Devconnect2(DMAPLAY, DAC, CLKEXT, prediv);
+		Gpio(GPIO_WRITE, MINTAUDIO_frequencies[MINTAUDIO_numfreq].gpio_bits);
+		Devconnect2(DMAPLAY, DAC|EXTOUT, CLKEXT, prediv);
 	} else {
-		Devconnect(DMAPLAY, DAC, CLK25M, prediv, 1);
+		Devconnect2(DMAPLAY, DAC, CLK25M, prediv);
 	}
 
 	/* Set buffer */
@@ -431,13 +433,18 @@ static void Mint_InitAudio(_THIS, SDL_AudioSpec *spec)
 		DEBUG_PRINT((DEBUG_NAME "Setbuffer() failed\n"));
 	}
 	
-	/* Install interrupt */
-	Jdisint(MFP_DMASOUND);
-	Xbtimer(XB_TIMERA, 8, 1, SDL_MintAudio_XbiosInterrupt);
-	Jenabint(MFP_DMASOUND);
+	if (SDL_MintAudio_mint_present) {
+		SDL_MintAudio_thread_pid = tfork(SDL_MintAudio_Thread, 0);
+	} else {
+		/* Install interrupt */
+		Jdisint(MFP_DMASOUND);
+		/*Xbtimer(XB_TIMERA, 8, 1, SDL_MintAudio_XbiosInterrupt);*/
+		Xbtimer(XB_TIMERA, 8, 1, SDL_MintAudio_Dma8Interrupt);
+		Jenabint(MFP_DMASOUND);
 
-	if (Setinterrupt(SI_TIMERA, SI_PLAY)<0) {
-		DEBUG_PRINT((DEBUG_NAME "Setinterrupt() failed\n"));
+		if (Setinterrupt(SI_TIMERA, SI_PLAY)<0) {
+			DEBUG_PRINT((DEBUG_NAME "Setinterrupt() failed\n"));
+		}
 	}
 
 	/* Go */
@@ -472,15 +479,17 @@ static int Mint_OpenAudio(_THIS, SDL_AudioSpec *spec)
 	}
 	SDL_MintAudio_audiobuf[1] = SDL_MintAudio_audiobuf[0] + spec->size ;
 	SDL_MintAudio_numbuf=0;
-	memset(SDL_MintAudio_audiobuf[0], spec->silence, spec->size *2);
+	SDL_memset(SDL_MintAudio_audiobuf[0], spec->silence, spec->size *2);
 	SDL_MintAudio_audiosize = spec->size;
 	SDL_MintAudio_mutex = 0;
 
 	DEBUG_PRINT((DEBUG_NAME "buffer 0 at 0x%08x\n", SDL_MintAudio_audiobuf[0]));
 	DEBUG_PRINT((DEBUG_NAME "buffer 1 at 0x%08x\n", SDL_MintAudio_audiobuf[1]));
 
+	SDL_MintAudio_CheckFpu();
+
 	/* Setup audio hardware */
 	Mint_InitAudio(this, spec);
 
-    return(1);	/* We don't use threaded audio */
+    return(1);	/* We don't use SDL threaded audio */
 }

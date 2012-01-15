@@ -1,42 +1,41 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_romvideo.c,v 1.9 2005/01/25 16:57:11 slouken Exp $";
-#endif
-
-#include <stdio.h>
-#include <stdlib.h>
-
-#if TARGET_API_MAC_CARBON
-#include <Carbon.h>
-/* The fullscreen code requires the QuickTime framework, and the window
-   is still at the back on MacOS X, which is where this code is needed.
- */
+#if defined(__APPLE__) && defined(__MACH__)
+#include <Carbon/Carbon.h>
 #if USE_QUICKTIME
 #include <QuickTime/Movies.h>
 #endif
+#elif TARGET_API_MAC_CARBON && (UNIVERSAL_INTERFACES_VERSION > 0x0335)
+#include <Carbon.h>
+/* The fullscreen code requires the QuickTime framework, and the window
+   is still at the back on Mac OS X, which is where this code is needed.
+ */
+#if USE_QUICKTIME
+#include <Movies.h>
+#endif
 #else
+#include <Quickdraw.h>
 #include <LowMem.h>
 #include <Gestalt.h>
 #include <Devices.h>
@@ -45,14 +44,13 @@ static char rcsid =
 #endif
 
 #include "SDL_video.h"
-#include "SDL_error.h"
 #include "SDL_syswm.h"
-#include "SDL_sysvideo.h"
+#include "../SDL_sysvideo.h"
 #include "SDL_romvideo.h"
-#include "SDL_macgl_c.h"
-#include "SDL_macwm_c.h"
-#include "SDL_macmouse_c.h"
-#include "SDL_macevents_c.h"
+#include "../maccommon/SDL_macgl_c.h"
+#include "../maccommon/SDL_macwm_c.h"
+#include "../maccommon/SDL_macmouse_c.h"
+#include "../maccommon/SDL_macevents_c.h"
 
 /* Initialization/Query functions */
 static int ROM_VideoInit(_THIS, SDL_PixelFormat *vformat);
@@ -120,8 +118,8 @@ static int ROM_Available(void)
 
 static void ROM_DeleteDevice(SDL_VideoDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	SDL_free(device->hidden);
+	SDL_free(device);
 }
 
 static SDL_VideoDevice *ROM_CreateDevice(int devindex)
@@ -129,20 +127,20 @@ static SDL_VideoDevice *ROM_CreateDevice(int devindex)
 	SDL_VideoDevice *device;
 
 	/* Initialize all variables that we clean on shutdown */
-	device = (SDL_VideoDevice *)malloc(sizeof(SDL_VideoDevice));
+	device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
 	if ( device ) {
-		memset(device, 0, (sizeof *device));
+		SDL_memset(device, 0, (sizeof *device));
 		device->hidden = (struct SDL_PrivateVideoData *)
-				malloc((sizeof *device->hidden));
+				SDL_malloc((sizeof *device->hidden));
 	}
 	if ( (device == NULL) || (device->hidden == NULL) ) {
 		SDL_OutOfMemory();
 		if ( device ) {
-			free(device);
+			SDL_free(device);
 		}
 		return(0);
 	}
-	memset(device->hidden, 0, (sizeof *device->hidden));
+	SDL_memset(device->hidden, 0, (sizeof *device->hidden));
 
 	/* Set the function pointers */
 	device->VideoInit = ROM_VideoInit;
@@ -160,12 +158,16 @@ static SDL_VideoDevice *ROM_CreateDevice(int devindex)
 	device->UnlockHWSurface = ROM_UnlockHWSurface;
 	device->FlipHWSurface = NULL;
 	device->FreeHWSurface = ROM_FreeHWSurface;
-#ifdef HAVE_OPENGL
+#if SDL_MACCLASSIC_GAMMA_SUPPORT
+	device->SetGammaRamp = Mac_SetGammaRamp;
+	device->GetGammaRamp = Mac_GetGammaRamp;
+#endif
+#if SDL_VIDEO_OPENGL
 	device->GL_MakeCurrent = Mac_GL_MakeCurrent;
 	device->GL_SwapBuffers = Mac_GL_SwapBuffers;
 	device->GL_LoadLibrary = Mac_GL_LoadLibrary;
 	device->GL_GetProcAddress = Mac_GL_GetProcAddress;
-#endif	// Have OpenGL
+#endif	/* Have OpenGL */
 	device->SetCaption = Mac_SetCaption;
 	device->SetIcon = NULL;
 	device->IconifyWindow = NULL;
@@ -206,6 +208,10 @@ static int ROM_VideoInit(_THIS, SDL_PixelFormat *vformat)
 	/* Get a handle to the main monitor */
 	SDL_Display = GetMainDevice();
 
+	/* Determine the current screen size */
+	this->info.current_w = (**SDL_Display).gdRect.right;
+	this->info.current_h = (**SDL_Display).gdRect.bottom;
+
 	/* Determine pixel format */
 	vformat->BitsPerPixel = (**(**SDL_Display).gdPMap).pixelSize;
 	switch (vformat->BitsPerPixel) {
@@ -231,9 +237,9 @@ static int ROM_VideoInit(_THIS, SDL_PixelFormat *vformat)
 	SDL_CPal = NewPalette(256, SDL_CTab, pmExplicit+pmTolerant, 0);
 
 	/* Get a list of available fullscreen modes */
-	SDL_modelist = (SDL_Rect **)malloc((1+1)*sizeof(SDL_Rect *));
+	SDL_modelist = (SDL_Rect **)SDL_malloc((1+1)*sizeof(SDL_Rect *));
 	if ( SDL_modelist ) {
-		SDL_modelist[0] = (SDL_Rect *)malloc(sizeof(SDL_Rect));
+		SDL_modelist[0] = (SDL_Rect *)SDL_malloc(sizeof(SDL_Rect));
 		if ( SDL_modelist[0] ) {
 			SDL_modelist[0]->x = 0;
 			SDL_modelist[0]->y = 0;
@@ -502,7 +508,7 @@ static SDL_Surface *ROM_SetVideoMode(_THIS, SDL_Surface *current,
 		(SDL_modelist[0]->w-width)/2, (SDL_modelist[0]->h-height)/2);
 	}
 
-#if MACOSX && !USE_QUICKTIME
+#if defined(__MACOSX__) && !USE_QUICKTIME
 	/* Hum.. fullscreen mode is broken */
 	flags &= ~SDL_FULLSCREEN;
 #endif
@@ -636,12 +642,12 @@ static void ROM_WindowUpdate(_THIS, int numrects, SDL_Rect *rects)
 	SetPortWindowPort(SDL_Window);
 	thePort = GetWindowPort(SDL_Window);
 	memworld = (GWorldPtr)GetWRefCon(SDL_Window);
-#if TARGET_API_MAC_CARBON
+#if TARGET_API_MAC_CARBON && ACCESSOR_CALLS_ARE_FUNCTIONS
 	memBits = GetPortBitMapForCopyBits((CGrafPtr) memworld);
 #else
 	memBits = &((GrafPtr)memworld)->portBits;
 #endif
-#if TARGET_API_MAC_CARBON
+#if TARGET_API_MAC_CARBON && ACCESSOR_CALLS_ARE_FUNCTIONS
 	winBits = GetPortBitMapForCopyBits(thePort);
 #else
 	winBits = &SDL_Window->portBits;
@@ -687,8 +693,11 @@ static int ROM_SetColors(_THIS, int firstcolor, int ncolors, SDL_Color *colors)
 		(**cTab).ctTable[j].rgb.green = colors[i].g << 8 | colors[i].g;
 		(**cTab).ctTable[j].rgb.blue = colors[i].b << 8 | colors[i].b;
 	}
-//	if ( (this->screen->flags & SDL_FULLSCREEN) == SDL_FULLSCREEN ) 
-{
+
+#if 0
+	if ( (this->screen->flags & SDL_FULLSCREEN) == SDL_FULLSCREEN )
+#endif
+	{
 		GDevice **odisplay;
 		odisplay = GetGDevice();
 		SetGDevice(SDL_Display);
@@ -720,12 +729,16 @@ void ROM_VideoQuit(_THIS)
 	}
 	RestoreDeviceClut(GetMainDevice());
 
+#if SDL_MACCLASSIC_GAMMA_SUPPORT
+	Mac_QuitGamma(this);
+#endif
+
 	/* Free list of video modes */
 	if ( SDL_modelist != NULL ) {
 		for ( i=0; SDL_modelist[i]; ++i ) {
-			free(SDL_modelist[i]);
+			SDL_free(SDL_modelist[i]);
 		}
-		free(SDL_modelist);
+		SDL_free(SDL_modelist);
 		SDL_modelist = NULL;
 	}
 }

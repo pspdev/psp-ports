@@ -1,40 +1,32 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_ph_image.c,v 1.19 2004/07/18 19:46:37 slouken Exp $";
-#endif
-
-#include <stdlib.h>
+#include "SDL_config.h"
 
 #include <Ph.h>
 #include <photon/Pg.h>
 
-#include "SDL.h"
-#include "SDL_error.h"
 #include "SDL_endian.h"
 #include "SDL_video.h"
-#include "SDL_pixels_c.h"
+#include "../SDL_pixels_c.h"
 #include "SDL_ph_video.h"
 #include "SDL_ph_image_c.h"
 #include "SDL_ph_modes_c.h"
@@ -82,7 +74,7 @@ int ph_SetupImage(_THIS, SDL_Surface *screen)
     if ((bpp==8) && (desktoppal==SDLPH_PAL_EMULATE))
     {
         /* creating image palette */
-        palette=malloc(_Pg_MAX_PALETTE*sizeof(PgColor_t));
+        palette=SDL_malloc(_Pg_MAX_PALETTE*sizeof(PgColor_t));
         if (palette==NULL)
         {
             SDL_SetError("ph_SetupImage(): can't allocate memory for palette !\n");
@@ -94,7 +86,7 @@ int ph_SetupImage(_THIS, SDL_Surface *screen)
         if ((SDL_Image = PhCreateImage(NULL, screen->w, screen->h, type, palette, _Pg_MAX_PALETTE, 1)) == NULL)
         {
             SDL_SetError("ph_SetupImage(): PhCreateImage() failed for bpp=8 !\n");
-            free(palette);
+            SDL_free(palette);
             return -1;
         }
     }
@@ -259,11 +251,11 @@ int ph_SetupFullScreenImage(_THIS, SDL_Surface* screen)
            
            for (i=0; i<40; i++)
            {
-              memset(screen->pixels+screen->pitch*i, 0x00, screen->pitch);
+              SDL_memset(screen->pixels+screen->pitch*i, 0x00, screen->pitch);
            }
            for (i=440; i<480; i++)
            {
-              memset(screen->pixels+screen->pitch*i, 0x00, screen->pitch);
+              SDL_memset(screen->pixels+screen->pitch*i, 0x00, screen->pitch);
            }
            screen->pixels+=screen->pitch*40;
         }
@@ -283,11 +275,11 @@ int ph_SetupFullScreenImage(_THIS, SDL_Surface* screen)
            
            for (i=0; i<40; i++)
            {
-              memset(screen->pixels+screen->pitch*i, 0x00, screen->pitch);
+              SDL_memset(screen->pixels+screen->pitch*i, 0x00, screen->pitch);
            }
            for (i=440; i<480; i++)
            {
-              memset(screen->pixels+screen->pitch*i, 0x00, screen->pitch);
+              SDL_memset(screen->pixels+screen->pitch*i, 0x00, screen->pitch);
            }
            screen->pixels+=screen->pitch*40;
         }
@@ -302,7 +294,7 @@ int ph_SetupFullScreenImage(_THIS, SDL_Surface* screen)
     return 0;
 }
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 
 int ph_SetupOpenGLImage(_THIS, SDL_Surface* screen)
 {
@@ -330,12 +322,12 @@ int ph_SetupOpenGLImage(_THIS, SDL_Surface* screen)
     return 0;
 }
 
-#endif /* HAVE_OPENGL */
+#endif /* SDL_VIDEO_OPENGL */
 
 void ph_DestroyImage(_THIS, SDL_Surface* screen)
 {
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
     if ((screen->flags & SDL_OPENGL)==SDL_OPENGL)
     {
         if (oglctx)
@@ -363,7 +355,7 @@ void ph_DestroyImage(_THIS, SDL_Surface* screen)
 
         return;
     }
-#endif /* HAVE_OPENGL */
+#endif /* SDL_VIDEO_OPENGL */
 
     if (currently_fullscreen)
     {
@@ -396,10 +388,10 @@ void ph_DestroyImage(_THIS, SDL_Surface* screen)
         /* if palette allocated, free it */
         if (SDL_Image->palette)
         {
-            free(SDL_Image->palette);
+            SDL_free(SDL_Image->palette);
         }
         PgShmemDestroy(SDL_Image->image);
-        free(SDL_Image);
+        SDL_free(SDL_Image);
     }
 
     /* Must be zeroed everytime */
@@ -493,14 +485,14 @@ int ph_SetupUpdateFunction(_THIS, SDL_Surface* screen, Uint32 flags)
 
     ph_DestroyImage(this, screen);
     
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
     if ((flags & SDL_OPENGL)==SDL_OPENGL)
     {
         setupresult=ph_SetupOpenGLImage(this, screen);
     }
     else
     {
-#endif /* HAVE_OPENGL */
+#endif
        if ((flags & SDL_FULLSCREEN)==SDL_FULLSCREEN)
        {
            setupresult=ph_SetupFullScreenImage(this, screen);
@@ -516,9 +508,9 @@ int ph_SetupUpdateFunction(_THIS, SDL_Surface* screen, Uint32 flags)
               setupresult=ph_SetupImage(this, screen);
           }
        }
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
     }
-#endif /* HAVE_OPENGL */
+#endif
     if (setupresult!=-1)
     {
        ph_UpdateHWInfo(this);
@@ -536,8 +528,8 @@ int ph_AllocHWSurface(_THIS, SDL_Surface* surface)
        SDL_SetError("ph_AllocHWSurface(): hwdata already exists!\n");
        return -1;
     }
-    surface->hwdata=malloc(sizeof(struct private_hwdata));
-    memset(surface->hwdata, 0x00, sizeof(struct private_hwdata));
+    surface->hwdata=SDL_malloc(sizeof(struct private_hwdata));
+    SDL_memset(surface->hwdata, 0x00, sizeof(struct private_hwdata));
     surface->hwdata->offscreenctx=PdCreateOffscreenContext(0, surface->w, surface->h, Pg_OSC_MEM_PAGE_ALIGN);
     if (surface->hwdata->offscreenctx == NULL)
     {
@@ -606,7 +598,7 @@ void ph_FreeHWSurface(_THIS, SDL_Surface* surface)
 
     PhDCRelease(surface->hwdata->offscreenctx);
     
-    free(surface->hwdata);
+    SDL_free(surface->hwdata);
     surface->hwdata=NULL;
 
     /* Update video ram amount */
@@ -963,14 +955,14 @@ int ph_SetHWAlpha(_THIS, SDL_Surface* surface, Uint8 alpha)
     return 0;
 }
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 void ph_OpenGLUpdate(_THIS, int numrects, SDL_Rect* rects)
 {
    this->GL_SwapBuffers(this);
    
    return;
 }
-#endif /* HAVE_OPENGL */
+#endif /* SDL_VIDEO_OPENGL */
 
 void ph_NormalUpdate(_THIS, int numrects, SDL_Rect *rects)
 {

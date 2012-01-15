@@ -1,29 +1,25 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_gemvideo.c,v 1.38 2005/06/07 13:30:06 pmandin Exp $";
-#endif
+#include "SDL_config.h"
 
 /*
 	GEM video driver
@@ -33,36 +29,31 @@ static char rcsid =
 	Olivier Landemarre, Johan Klockars, Xavier Joubert, Claude Attard
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 /* Mint includes */
 #include <gem.h>
 #include <gemx.h>
 #include <mint/osbind.h>
 #include <mint/cookie.h>
 
-#include "SDL.h"
-#include "SDL_error.h"
+#include "SDL_endian.h"
 #include "SDL_video.h"
 #include "SDL_mouse.h"
-#include "SDL_endian.h"
-#include "SDL_sysvideo.h"
-#include "SDL_pixels_c.h"
-#include "SDL_events_c.h"
-#include "SDL_cursor_c.h"
+#include "../SDL_sysvideo.h"
+#include "../SDL_pixels_c.h"
+#include "../../events/SDL_events_c.h"
+#include "../SDL_cursor_c.h"
 
-#include "SDL_ataric2p_s.h"
-#include "SDL_atarieddi_s.h"
-#include "SDL_atarimxalloc_c.h"
-#include "SDL_atarigl_c.h"
+#include "../ataricommon/SDL_ataric2p_s.h"
+#include "../ataricommon/SDL_atarieddi_s.h"
+#include "../ataricommon/SDL_atarimxalloc_c.h"
+#include "../ataricommon/SDL_atarigl_c.h"
 
 #include "SDL_gemvideo.h"
 #include "SDL_gemevents_c.h"
 #include "SDL_gemmouse_c.h"
 #include "SDL_gemwm_c.h"
-#include "SDL_xbiosevents_c.h"
+#include "../ataricommon/SDL_xbiosevents_c.h"
+#include "../ataricommon/SDL_ataridevmouse_c.h"
 
 /* Defines */
 
@@ -111,7 +102,7 @@ static void GEM_LockScreen(_THIS);
 static void GEM_UnlockScreen(_THIS);
 static void refresh_window(_THIS, int winhandle, short *rect);
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 /* OpenGL functions */
 static void GEM_GL_SwapBuffers(_THIS);
 #endif
@@ -130,32 +121,34 @@ static int GEM_Available(void)
 
 static void GEM_DeleteDevice(SDL_VideoDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	SDL_free(device->hidden);
+	SDL_free(device);
 }
 
 static SDL_VideoDevice *GEM_CreateDevice(int devindex)
 {
 	SDL_VideoDevice *device;
+	int vectors_mask;
+	unsigned long dummy;
 
 	/* Initialize all variables that we clean on shutdown */
-	device = (SDL_VideoDevice *)malloc(sizeof(SDL_VideoDevice));
+	device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
 	if ( device ) {
-		memset(device, 0, (sizeof *device));
+		SDL_memset(device, 0, (sizeof *device));
 		device->hidden = (struct SDL_PrivateVideoData *)
-				malloc((sizeof *device->hidden));
+				SDL_malloc((sizeof *device->hidden));
 		device->gl_data = (struct SDL_PrivateGLData *)
-				malloc((sizeof *device->gl_data));
+				SDL_malloc((sizeof *device->gl_data));
 	}
 	if ( (device == NULL) || (device->hidden == NULL) ) {
 		SDL_OutOfMemory();
 		if ( device ) {
-			free(device);
+			SDL_free(device);
 		}
 		return(0);
 	}
-	memset(device->hidden, 0, (sizeof *device->hidden));
-	memset(device->gl_data, 0, sizeof(*device->gl_data));
+	SDL_memset(device->hidden, 0, (sizeof *device->hidden));
+	SDL_memset(device->gl_data, 0, sizeof(*device->gl_data));
 
 	/* Set the function pointers */
 	device->VideoInit = GEM_VideoInit;
@@ -188,7 +181,7 @@ static SDL_VideoDevice *GEM_CreateDevice(int devindex)
 	device->WarpWMCursor = NULL /*GEM_WarpWMCursor*/;
 	device->CheckMouseMode = GEM_CheckMouseMode;
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	/* OpenGL functions */
 	device->GL_LoadLibrary = SDL_AtariGL_LoadLibrary;
 	device->GL_GetProcAddress = SDL_AtariGL_GetProcAddress;
@@ -197,8 +190,18 @@ static SDL_VideoDevice *GEM_CreateDevice(int devindex)
 	device->GL_SwapBuffers = GEM_GL_SwapBuffers;
 #endif
 
-	/* Joystick + Mouse relative motion */
-	SDL_AtariXbios_InstallVectors(ATARI_XBIOS_MOUSEEVENTS|ATARI_XBIOS_JOYSTICKEVENTS);
+	device->hidden->use_dev_mouse =
+		(SDL_AtariDevMouse_Open()!=0) ? SDL_TRUE : SDL_FALSE;
+
+	vectors_mask = ATARI_XBIOS_JOYSTICKEVENTS;	/* XBIOS joystick events */
+	if (!(device->hidden->use_dev_mouse)) {
+		vectors_mask |= ATARI_XBIOS_MOUSEEVENTS;	/* XBIOS mouse events */
+	}
+/*	if (Getcookie(C_MiNT, &dummy)==C_FOUND) {
+		vectors_mask = 0;
+	}*/
+
+	SDL_AtariXbios_InstallVectors(vectors_mask);
 
 	device->free = GEM_DeleteDevice;
 
@@ -398,7 +401,7 @@ int GEM_VideoInit(_THIS, SDL_PixelFormat *vformat)
 		VDI_oldpalette[i][2] = rgb[2];
 	}
 	VDI_setpalette = GEM_SetNewPalette;
-	memcpy(VDI_curpalette,VDI_oldpalette,sizeof(VDI_curpalette));
+	SDL_memcpy(VDI_curpalette,VDI_oldpalette,sizeof(VDI_curpalette));
 
 	/* Setup screen info */
 	GEM_title_name = empty_name;
@@ -427,9 +430,9 @@ int GEM_VideoInit(_THIS, SDL_PixelFormat *vformat)
 	/* Setup destination mfdb */
 	VDI_dst_mfdb.fd_addr = NULL;
 
-	/* Update hardware info */
-	this->info.hw_available = 0;
-	this->info.video_mem = 0;
+	/* Determine the current screen size */
+	this->info.current_w = VDI_w;
+	this->info.current_h = VDI_h;
 
 	/* Determine the screen depth */
 	/* we change this during the SDL_SetVideoMode implementation... */
@@ -437,6 +440,7 @@ int GEM_VideoInit(_THIS, SDL_PixelFormat *vformat)
 
 	/* Set mouse cursor to arrow */
 	graf_mouse(ARROW, NULL);
+	GEM_cursor = NULL;
 
 	/* Init chunky to planar routine */
 	SDL_Atari_C2pConvert = SDL_Atari_C2pConvert8;
@@ -451,7 +455,7 @@ int GEM_VideoInit(_THIS, SDL_PixelFormat *vformat)
 	GEM_menubar=Atari_SysMalloc(menubar_size,MX_PREFTTRAM);
 
 	/* Fill video modes list */
-	SDL_modelist[0] = malloc(sizeof(SDL_Rect));
+	SDL_modelist[0] = SDL_malloc(sizeof(SDL_Rect));
 	SDL_modelist[0]->x = 0;
 	SDL_modelist[0]->y = 0;
 	SDL_modelist[0]->w = VDI_w;
@@ -459,9 +463,11 @@ int GEM_VideoInit(_THIS, SDL_PixelFormat *vformat)
 
 	SDL_modelist[1] = NULL;
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	SDL_AtariGL_InitPointers(this);
 #endif
+
+	this->info.wm_available = 1;
 
 	/* We're done! */
 	return(0);
@@ -615,28 +621,25 @@ static void GEM_UnlockScreen(_THIS)
 SDL_Surface *GEM_SetVideoMode(_THIS, SDL_Surface *current,
 				int width, int height, int bpp, Uint32 flags)
 {
-	int maxwidth, maxheight;
 	Uint32 modeflags, screensize;
 	SDL_bool use_shadow1, use_shadow2;
-
-	/*--- Verify if asked mode can be used ---*/
-	if (flags & SDL_FULLSCREEN) {
-		maxwidth=VDI_w;
-		maxheight=VDI_h;
-	} else {
-		/* Windowed mode */
-		maxwidth=GEM_desk_w;
-		maxheight=GEM_desk_h;
-	}
 
 	/* width must be multiple of 16, for vro_cpyfm() and c2p_convert() */
 	if ((width & 15) != 0) {
 		width = (width | 15) +1;
 	}
 
-	if ((maxwidth < width) || (maxheight < height) || (VDI_bpp != bpp)) {
-		SDL_SetError("Couldn't find requested mode in list");
+	/*--- Verify if asked mode can be used ---*/
+	if (VDI_bpp != bpp) {
+		SDL_SetError("%d bpp mode not supported", bpp);
 		return(NULL);
+	}
+
+	if (flags & SDL_FULLSCREEN) {
+		if ((VDI_w < width) || (VDI_h < height)) {
+			SDL_SetError("%dx%d mode is too large", width, height);
+			return(NULL);
+		}
 	}
 
 	/*--- Allocate the new pixel format for the screen ---*/
@@ -674,10 +677,10 @@ SDL_Surface *GEM_SetVideoMode(_THIS, SDL_Surface *current,
 	if (use_shadow1) {
 		GEM_buffer1 = Atari_SysMalloc(screensize, MX_PREFTTRAM);
 		if (GEM_buffer1==NULL) {
-			SDL_SetError("Unable to allocate shadow buffer");
+			SDL_SetError("Can not allocate %d KB for frame buffer", screensize>>10);
 			return NULL;
 		}
-		memset(GEM_buffer1, 0, screensize);
+		SDL_memset(GEM_buffer1, 0, screensize);
 #ifdef DEBUG_VIDEO_GEM
 		printf("sdl:video:gem: setvideomode(): allocated buffer 1\n");
 #endif
@@ -686,17 +689,17 @@ SDL_Surface *GEM_SetVideoMode(_THIS, SDL_Surface *current,
 	if (use_shadow2) {
 		GEM_buffer2 = Atari_SysMalloc(screensize, MX_PREFTTRAM);
 		if (GEM_buffer2==NULL) {
-			SDL_SetError("Unable to allocate shadow buffer");
+			SDL_SetError("Can not allocate %d KB for shadow buffer", screensize>>10);
 			return NULL;
 		}
-		memset(GEM_buffer2, 0, screensize);
+		SDL_memset(GEM_buffer2, 0, screensize);
 #ifdef DEBUG_VIDEO_GEM
 		printf("sdl:video:gem: setvideomode(): allocated buffer 2\n");
 #endif
 	}
 
 	/*--- Initialize screen ---*/
-	modeflags = 0;
+	modeflags = SDL_PREALLOC;
 	if (VDI_bpp == 8) {
 		modeflags |= SDL_HWPALETTE;
 	}
@@ -744,8 +747,16 @@ SDL_Surface *GEM_SetVideoMode(_THIS, SDL_Surface *current,
 			}
 
 			/* Center window */
-			x2 = GEM_desk_x+((GEM_desk_w-w2)>>1);
-			y2 = GEM_desk_y+((GEM_desk_h-h2)>>1);
+			x2 = (GEM_desk_w-w2)>>1;
+			y2 = (GEM_desk_h-h2)>>1;
+			if (x2<0) {
+				x2 = 0;
+			}
+			if (y2<0) {
+				y2 = 0;
+			}
+			x2 += GEM_desk_x;
+			y2 += GEM_desk_y;
 
 			/* Destroy existing window */
 			if (GEM_handle >= 0) {
@@ -772,17 +783,10 @@ SDL_Surface *GEM_SetVideoMode(_THIS, SDL_Surface *current,
 			/* Open the window */
 			wind_open(GEM_handle,x2,y2,w2,h2);
 		} else {
-			/* Resize window if needed, to fit asked video mode */
-			if (modeflags & SDL_RESIZABLE) {
-				wind_get (GEM_handle, WF_WORKXYWH, &x2,&y2,&w2,&h2);
-				if ((w2&15)!=0) {
-					w2=(w2|15)+1;
-				}
-				if ((w2!=width) || (h2!=height)) {
-					if (wind_calc(WC_BORDER, GEM_win_type, x2,y2,width,height, &x2,&y2,&w2,&h2)) {
-						wind_set (GEM_handle, WF_CURRXYWH, x2,y2,w2,h2);
-					}
-				}
+			/* Resize window to fit asked video mode */
+			wind_get (GEM_handle, WF_WORKXYWH, &x2,&y2,&w2,&h2);
+			if (wind_calc(WC_BORDER, GEM_win_type, x2,y2,width,height, &x2,&y2,&w2,&h2)) {
+				wind_set (GEM_handle, WF_CURRXYWH, x2,y2,w2,h2);
 			}
 		}
 
@@ -800,7 +804,7 @@ SDL_Surface *GEM_SetVideoMode(_THIS, SDL_Surface *current,
 		current->pitch = VDI_pitch;
 	}
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	if (flags & SDL_OPENGL) {
 		if (!SDL_AtariGL_Init(this, current)) {
 			GEM_FreeBuffers(this);
@@ -1097,10 +1101,13 @@ static int GEM_ToggleFullScreen(_THIS, int on)
 void GEM_VideoQuit(_THIS)
 {
 	SDL_AtariXbios_RestoreVectors();
+	if (GEM_usedevmouse) {
+		SDL_AtariDevMouse_Close();
+	}
 
 	GEM_FreeBuffers(this);
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	if (gl_active) {
 		SDL_AtariGL_Quit(this, SDL_TRUE);
 	}
@@ -1130,7 +1137,7 @@ void GEM_VideoQuit(_THIS)
 
 	/* Free mode list */
 	if (SDL_modelist[0]) {
-		free(SDL_modelist[0]);
+		SDL_free(SDL_modelist[0]);
 		SDL_modelist[0]=NULL;
 	}
 
@@ -1322,7 +1329,7 @@ static void refresh_window(_THIS, int winhandle, short *rect)
 	vro_cpyfm( VDI_handle, S_ONLY, pxy, &mfdb_src, &VDI_dst_mfdb);
 }
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 
 static void GEM_GL_SwapBuffers(_THIS)
 {

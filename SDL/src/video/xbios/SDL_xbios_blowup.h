@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,6 +19,7 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /*
 	Blowup extension definitions
@@ -80,6 +81,6 @@ typedef struct {
 
 /*--- Functions prototypes ---*/
 
-void SDL_XBIOS_BlowupInit(_THIS, blow_cookie_t *cookie_blow);
+void SDL_XBIOS_ListBlowupModes(_THIS, int actually_add, blow_cookie_t *cookie_blow);
 
 #endif /* _SDL_xbios_blowup_h */

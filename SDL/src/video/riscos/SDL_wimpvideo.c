@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -17,8 +17,9 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
     Sam Lantinga
-    slouken@devolution.com
+    slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /*
      File added by Alan Buckley (alan_baa@hotmail.com) for RISC OS compatability
@@ -27,17 +28,11 @@
      Implements RISC OS Wimp display.
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "SDL.h"
-#include "SDL_error.h"
 #include "SDL_video.h"
 #include "SDL_mouse.h"
-#include "SDL_sysvideo.h"
-#include "SDL_pixels_c.h"
-#include "SDL_events_c.h"
+#include "../SDL_sysvideo.h"
+#include "../SDL_pixels_c.h"
+#include "../../events/SDL_events_c.h"
 
 #include "SDL_riscostask.h"
 #include "SDL_riscosvideo.h"
@@ -151,7 +146,7 @@ SDL_Surface *WIMP_SetVideoMode(_THIS, SDL_Surface *current,
 	this->hidden->bank[1] = buffer;      /* Start of buffer */
 
 	/* Remember sprite buffer so it can be freed later */
-	if (this->hidden->alloc_bank) free(this->hidden->alloc_bank);
+	if (this->hidden->alloc_bank) SDL_free(this->hidden->alloc_bank);
 	this->hidden->alloc_bank = buffer;
 
 	current->pitch = width * bytesPerPixel;
@@ -165,7 +160,7 @@ SDL_Surface *WIMP_SetVideoMode(_THIS, SDL_Surface *current,
 
 	WIMP_ReadModeInfo(this);
 	
-    memset(this->hidden->bank[0], 0, height * current->pitch);
+    SDL_memset(this->hidden->bank[0], 0, height * current->pitch);
 
 	this->hidden->current_bank = 0;
 	current->pixels = this->hidden->bank[0];
@@ -390,8 +385,7 @@ void WIMP_SetWMCaption(_THIS, const char *title, const char *icon)
 {
 	_kernel_swi_regs regs;
 
-	strncpy(this->hidden->title, title, 255);
-	this->hidden->title[255] = 0;
+	SDL_strlcpy(this->hidden->title, title, SDL_arraysize(this->hidden->title));
 
 	if (RISCOS_GetWimpVersion() < 380)
 	{
@@ -462,7 +456,7 @@ int WIMP_ToggleFromFullScreen(_THIS)
       if (bpp == 8) data += 2048;  /* 8bpp sprite have palette first */
 
       if (buffer == NULL) return 0;
-      memcpy(data, this->hidden->bank[0], width * height * this->screen->format->BytesPerPixel);
+      SDL_memcpy(data, this->hidden->bank[0], width * height * this->screen->format->BytesPerPixel);
    }
    /* else We've switch to full screen before so we already have a sprite */
 
@@ -488,7 +482,7 @@ int WIMP_ToggleFromFullScreen(_THIS)
 
       if (riscos_backbuffer == 0) riscos_backbuffer = 1;
 
-      if (buffer && old_alloc_bank) free(old_alloc_bank);
+      if (buffer && old_alloc_bank) SDL_free(old_alloc_bank);
 
       return 1;
    } else
@@ -497,7 +491,7 @@ int WIMP_ToggleFromFullScreen(_THIS)
       this->hidden->bank[0] = old_bank[0];
       this->hidden->bank[1] = old_bank[1];
       this->hidden->alloc_bank = old_alloc_bank;
-      if (buffer) free(buffer);
+      if (buffer) SDL_free(buffer);
       
       RISCOS_StoreWimpMode();
       FULLSCREEN_SetMode(width, height, bpp);

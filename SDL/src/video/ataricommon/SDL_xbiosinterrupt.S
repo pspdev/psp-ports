@@ -1,29 +1,24 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002  Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_xbiosinterrupt.S,v 1.4 2005/05/20 20:37:28 pmandin Exp $";
-#endif
 
 /*
  *	XBIOS mouse & joystick vectors
@@ -38,6 +33,7 @@ static char rcsid =
 	.globl	_SDL_AtariXbios_MouseVector
 	.globl	_SDL_AtariXbios_JoystickVector
 
+	.globl	_SDL_AtariXbios_mouselock
 	.globl	_SDL_AtariXbios_mouseb
 	.globl	_SDL_AtariXbios_mousex
 	.globl	_SDL_AtariXbios_mousey
@@ -130,6 +126,13 @@ _SDL_AtariXbios_MouseVector:
 	extw	d0
 	addw	d0,_SDL_AtariXbios_mousey
 
+	/* Lock mouse position ? */
+	tstw	_SDL_AtariXbios_mouselock
+	beq.s	no_mouse_lock
+	clrb	a0@(1)
+	clrb	a0@(2)
+no_mouse_lock:
+
 	/* Jump through old vector */
 	movel	sp@+,d0
 
@@ -138,10 +141,9 @@ _SDL_AtariXbios_MouseVector:
 
 	.data
 	.even
+	.comm	_SDL_AtariXbios_mouselock,2*1
 	.comm	_SDL_AtariXbios_mousex,2*1
-	.even
 	.comm	_SDL_AtariXbios_mousey,2*1
-	.even
 	.comm	_SDL_AtariXbios_mouseb,2*1
 
 /*--- Our joystick vector ---*/

@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: mikmod_internals.h,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: mikmod_internals.h,v 1.4 2004/02/18 13:29:17 raph Exp $
 
   MikMod sound library internal definitions
 
@@ -57,6 +57,9 @@ typedef long		SLONGLONG;
 typedef __int64		SLONGLONG;
 #elif defined(WIN32) && !defined(__MWERKS__)
 typedef LONGLONG	SLONGLONG;
+#elif macintosh && !TYPE_LONGLONG
+#include <Types.h>
+typedef SInt64	    SLONGLONG;
 #else
 typedef long long	SLONGLONG;
 #endif
@@ -103,7 +106,8 @@ extern void* _mm_calloc(size_t,size_t);
 	if(_mm_mutex_##name)	\
 		ReleaseMutex(_mm_mutex_##name)
 #else
-#define DECLARE_MUTEX(name)
+#define DECLARE_MUTEX(name)	\
+	extern void *_mm_mutex_##name
 #define MUTEX_LOCK(name)
 #define MUTEX_UNLOCK(name)
 #endif
@@ -428,6 +432,7 @@ typedef struct MP_CHANNEL {
 	UWORD       fadevol;      /* fading volume rate */
 	SWORD       panning;      /* panning position */
 	UBYTE       kick;         /* if true = sample has to be restarted */
+	UBYTE       kick_flag;    /* kick has been true */
 	UWORD       period;       /* period to play the sample at */
 	UBYTE       nna;          /* New note action type + master/slave flags */
 

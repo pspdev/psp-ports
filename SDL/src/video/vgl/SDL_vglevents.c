@@ -1,29 +1,25 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997, 1998, 1999, 2000  Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_vglevents.c,v 1.3 2002/03/06 11:23:08 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Handle the event stream, converting X11 events into SDL events */
 
@@ -36,8 +32,8 @@ static char rcsid =
 
 #include "SDL.h"
 #include "SDL_thread.h"
-#include "SDL_sysevents.h"
-#include "SDL_events_c.h"
+#include "../../events/SDL_sysevents.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_vglvideo.h"
 #include "SDL_vglevents_c.h"
 
@@ -59,13 +55,13 @@ static struct mouse_info mouseinfo;
  */
 int VGL_initkeymaps(int fd)
 {
-	vga_keymap = malloc(sizeof(keymap_t));
+	vga_keymap = SDL_malloc(sizeof(keymap_t));
 	if ( ! vga_keymap ) {
 		SDL_OutOfMemory();
 		return(-1);
 	}
 	if (ioctl(fd, GIO_KEYMAP, vga_keymap) == -1) {
-		free(vga_keymap);
+		SDL_free(vga_keymap);
 		vga_keymap = NULL;
 		SDL_SetError("Unable to get keyboard map");
 		return(-1);
@@ -148,7 +144,7 @@ void VGL_InitOSKeymap(_THIS)
 	int i;
 
 	/* Initialize the BeOS key translation table */
-	for ( i=0; i<SDL_TABLESIZE(keymap); ++i )
+	for ( i=0; i<SDL_arraysize(keymap); ++i )
 		keymap[i] = SDLK_UNKNOWN;
 
 	keymap[SCANCODE_ESCAPE] = SDLK_ESCAPE;

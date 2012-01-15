@@ -1,31 +1,25 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_bmp.c,v 1.6 2004/12/14 06:20:49 slouken Exp $";
-#endif
-
-#ifndef DISABLE_FILE
+#include "SDL_config.h"
 
 /* 
    Code to load and save surfaces in Windows BMP format.
@@ -39,9 +33,6 @@ static char rcsid =
    This code currently supports Win32 DIBs in uncompressed 8 and 24 bpp.
 */
 
-#include <string.h>
-
-#include "SDL_error.h"
 #include "SDL_video.h"
 #include "SDL_endian.h"
 
@@ -56,7 +47,7 @@ static char rcsid =
 
 SDL_Surface * SDL_LoadBMP_RW (SDL_RWops *src, int freesrc)
 {
-	int was_error;
+	SDL_bool was_error;
 	long fp_offset;
 	int bmpPitch;
 	int i, pad;
@@ -66,6 +57,8 @@ SDL_Surface * SDL_LoadBMP_RW (SDL_RWops *src, int freesrc)
 	Uint32 Bmask;
 	SDL_Palette *palette;
 	Uint8 *bits;
+	Uint8 *top, *end;
+	SDL_bool topDown;
 	int ExpandBMP;
 
 	/* The Win32 BMP file header (14 bytes) */
@@ -90,9 +83,9 @@ SDL_Surface * SDL_LoadBMP_RW (SDL_RWops *src, int freesrc)
 
 	/* Make sure we are passed a valid data source */
 	surface = NULL;
-	was_error = 0;
+	was_error = SDL_FALSE;
 	if ( src == NULL ) {
-		was_error = 1;
+		was_error = SDL_TRUE;
 		goto done;
 	}
 
@@ -101,12 +94,12 @@ SDL_Surface * SDL_LoadBMP_RW (SDL_RWops *src, int freesrc)
 	SDL_ClearError();
 	if ( SDL_RWread(src, magic, 1, 2) != 2 ) {
 		SDL_Error(SDL_EFREAD);
-		was_error = 1;
+		was_error = SDL_TRUE;
 		goto done;
 	}
-	if ( strncmp(magic, "BM", 2) != 0 ) {
+	if ( SDL_strncmp(magic, "BM", 2) != 0 ) {
 		SDL_SetError("File is not a Windows BMP file");
-		was_error = 1;
+		was_error = SDL_TRUE;
 		goto done;
 	}
 	bfSize		= SDL_ReadLE32(src);
@@ -139,10 +132,16 @@ SDL_Surface * SDL_LoadBMP_RW (SDL_RWops *src, int freesrc)
 		biClrUsed	= SDL_ReadLE32(src);
 		biClrImportant	= SDL_ReadLE32(src);
 	}
+	if (biHeight < 0) {
+		topDown = SDL_TRUE;
+		biHeight = -biHeight;
+	} else {
+		topDown = SDL_FALSE;
+	}
 
 	/* Check for read error */
-	if ( strcmp(SDL_GetError(), "") != 0 ) {
-		was_error = 1;
+	if ( SDL_strcmp(SDL_GetError(), "") != 0 ) {
+		was_error = SDL_TRUE;
 		goto done;
 	}
 
@@ -206,7 +205,7 @@ SDL_Surface * SDL_LoadBMP_RW (SDL_RWops *src, int freesrc)
 			break;
 		default:
 			SDL_SetError("Compressed BMP files not supported");
-			was_error = 1;
+			was_error = SDL_TRUE;
 			goto done;
 	}
 
@@ -214,7 +213,7 @@ SDL_Surface * SDL_LoadBMP_RW (SDL_RWops *src, int freesrc)
 	surface = SDL_CreateRGBSurface(SDL_SWSURFACE,
 			biWidth, biHeight, biBitCount, Rmask, Gmask, Bmask, 0);
 	if ( surface == NULL ) {
-		was_error = 1;
+		was_error = SDL_TRUE;
 		goto done;
 	}
 
@@ -243,12 +242,13 @@ SDL_Surface * SDL_LoadBMP_RW (SDL_RWops *src, int freesrc)
 	}
 
 	/* Read the surface pixels.  Note that the bmp image is upside down */
-	if ( SDL_RWseek(src, fp_offset+bfOffBits, SEEK_SET) < 0 ) {
+	if ( SDL_RWseek(src, fp_offset+bfOffBits, RW_SEEK_SET) < 0 ) {
 		SDL_Error(SDL_EFSEEK);
-		was_error = 1;
+		was_error = SDL_TRUE;
 		goto done;
 	}
-	bits = (Uint8 *)surface->pixels+(surface->h*surface->pitch);
+	top = (Uint8 *)surface->pixels;
+	end = (Uint8 *)surface->pixels+(surface->h*surface->pitch);
 	switch (ExpandBMP) {
 		case 1:
 			bmpPitch = (biWidth + 7) >> 3;
@@ -263,8 +263,12 @@ SDL_Surface * SDL_LoadBMP_RW (SDL_RWops *src, int freesrc)
 					(4-(surface->pitch%4)) : 0);
 			break;
 	}
-	while ( bits > (Uint8 *)surface->pixels ) {
-		bits -= surface->pitch;
+	if ( topDown ) {
+		bits = top;
+	} else {
+		bits = end - surface->pitch;
+	}
+	while ( bits >= top && bits < end ) {
 		switch (ExpandBMP) {
 			case 1:
 			case 4: {
@@ -275,7 +279,7 @@ SDL_Surface * SDL_LoadBMP_RW (SDL_RWops *src, int freesrc)
 					if ( !SDL_RWread(src, &pixel, 1, 1) ) {
 						SDL_SetError(
 					"Error reading from BMP");
-						was_error = 1;
+						was_error = SDL_TRUE;
 						goto done;
 					}
 				}
@@ -288,7 +292,7 @@ SDL_Surface * SDL_LoadBMP_RW (SDL_RWops *src, int freesrc)
 			if ( SDL_RWread(src, bits, 1, surface->pitch)
 							 != surface->pitch ) {
 				SDL_Error(SDL_EFREAD);
-				was_error = 1;
+				was_error = SDL_TRUE;
 				goto done;
 			}
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
@@ -320,9 +324,17 @@ SDL_Surface * SDL_LoadBMP_RW (SDL_RWops *src, int freesrc)
 				SDL_RWread(src, &padbyte, 1, 1);
 			}
 		}
+		if ( topDown ) {
+			bits += surface->pitch;
+		} else {
+			bits -= surface->pitch;
+		}
 	}
 done:
 	if ( was_error ) {
+		if ( src ) {
+			SDL_RWseek(src, fp_offset, RW_SEEK_SET);
+		}
 		if ( surface ) {
 			SDL_FreeSurface(surface);
 		}
@@ -477,11 +489,11 @@ int SDL_SaveBMP_RW (SDL_Surface *saveme, SDL_RWops *dst, int freedst)
 
 		/* Write the bitmap offset */
 		bfOffBits = SDL_RWtell(dst)-fp_offset;
-		if ( SDL_RWseek(dst, fp_offset+10, SEEK_SET) < 0 ) {
+		if ( SDL_RWseek(dst, fp_offset+10, RW_SEEK_SET) < 0 ) {
 			SDL_Error(SDL_EFSEEK);
 		}
 		SDL_WriteLE32(dst, bfOffBits);
-		if ( SDL_RWseek(dst, fp_offset+bfOffBits, SEEK_SET) < 0 ) {
+		if ( SDL_RWseek(dst, fp_offset+bfOffBits, RW_SEEK_SET) < 0 ) {
 			SDL_Error(SDL_EFSEEK);
 		}
 
@@ -504,11 +516,11 @@ int SDL_SaveBMP_RW (SDL_Surface *saveme, SDL_RWops *dst, int freedst)
 
 		/* Write the BMP file size */
 		bfSize = SDL_RWtell(dst)-fp_offset;
-		if ( SDL_RWseek(dst, fp_offset+2, SEEK_SET) < 0 ) {
+		if ( SDL_RWseek(dst, fp_offset+2, RW_SEEK_SET) < 0 ) {
 			SDL_Error(SDL_EFSEEK);
 		}
 		SDL_WriteLE32(dst, bfSize);
-		if ( SDL_RWseek(dst, fp_offset+bfSize, SEEK_SET) < 0 ) {
+		if ( SDL_RWseek(dst, fp_offset+bfSize, RW_SEEK_SET) < 0 ) {
 			SDL_Error(SDL_EFSEEK);
 		}
 
@@ -522,7 +534,5 @@ int SDL_SaveBMP_RW (SDL_Surface *saveme, SDL_RWops *dst, int freedst)
 	if ( freedst && dst ) {
 		SDL_RWclose(dst);
 	}
-	return((strcmp(SDL_GetError(), "") == 0) ? 0 : -1);
+	return((SDL_strcmp(SDL_GetError(), "") == 0) ? 0 : -1);
 }
-
-#endif /* ENABLE_FILE */

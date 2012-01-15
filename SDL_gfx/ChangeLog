@@ -1,6 +1,142 @@
 CHANGES/VERSION
 ===============
 
+Ver 2.0.23 - Sat Dec  3 22:55:04 PST 2011
+* Updated sources to resolve some splint (static code analysis)
+  issues
+* Updates for OpenSDK (WinCE6/ARM) build target (patch contributed
+  itsnotabigtruck)
+* Added OSX Xcode3+ template files to Other Builds collection
+  (contributed by Vasyl)
+* Added various fixes and improvements contributed by folks on 
+  sourceforge (thanks contributors).
+* Switched library and test code to zlib license.
+
+Ver 2.0.22 - Sat Sep 11 23:26:42 EDT 2010
+* Fixed line width calculation for normal and textured polygons
+  (patch contributed by Daniel (SupSuper) 
+* Fixed version setup in configure.in
+* Added rounded rectangle and rounded box primitives
+* Updated test program for roundedbox + left/right-click support
+* Fixed pie calculation (line-case detection, end-angle clipping)
+* Updated DLL_EXPORT handling and added WIN64 test 
+  (patch contributed by tigerfishdaisy)
+* Added thick line primitive based on Murphy's algorithm
+
+Ver 2.0.21 - Thu May 27 21:14:37 PDT 2010
+* Add VC9 project files, source code formatting, fix compiler 
+  warnings, move VC8 project files, remove leftover autoconf/m4 files
+* Move static transfer lookup array from .h to .c 
+  (patch contributed by Zbigniew Holdys)
+* Add support for VC++ compiler/MASM assembly with active USE_MMX 
+  (contributed by Markus Hossner)
+* Added Haiku build support in configure.in 
+  (contributed by Scott McCreary)
+* Added helper function that multiplies the alpha channel in
+  a 32bit surface (contributed by Zbigniew Holdys)
+* Disable MMX for 64bit platforms due to lack of support for
+  pusha/popa (contributed by Olivier Boudeville)
+* Update all library functions for doxygen markup. Add doxygen
+  configuration file.
+* Added font rotation support and updated TestFonts sample
+* Fixed rotate90 for 0 degree case
+  (contributed by Chris Allport)
+* Updated TestRotozoom with rotate90 case and message display
+* Added support for SDL 1.3
+* Added doxygen generated documentation.
+
+Ver 2.0.20 - Wed Sep 23 18:42:02 PDT 2009
+* Fix for 1-pixel postponement with 8bit scaling 
+* Updates to headers and configure to allow for cross-compiling 
+  to DLL (not just static .a) and fixes for compiling on Windows 
+  using autotools
+* Added Visual CE Project to Other Builds
+* Added Symbian and Windows 64bit fix for lrint function.
+
+Ver 2.0.19 - Mon Apr 20 22:56:59 PDT 2009
+
+* gcc43 compiler patch for asm code in image filters 
+  as per http://bugs.gentoo.org/219621 (Peter Alfredsen)
+* off-by-one hline patch for 1byte indexed surfaces (Manuel Lausch)
+* update acinclude.m4 from SDL-1.2 and moved # serial in file
+* applied patch to add pkg-config support for SDL_gfx (Luca Bigliardi)
+* changed configure.in INTERFACE_AGE and BINARY_AGE based on Debian
+  build feedback (Barry deFreese)
+* fixed zoom XY-flip code and made it available for all modes in
+  zoom and rotations
+* fixed edge issue on interpolated rotozoom modes
+* updated TestRotozoom custom test mode, added delay parameter, added
+  tests which include flipping, included negative rotation
+* update libtool files
+* updated Makefile.mingw (Jan Leike)
+
+Ver 2.0.18 - Sun Dec 21 08:38:20 PST 2008
+
+* libtool update for dependencies
+* MSVC C89 variable hoisting to enable MSVC compile (sweetlilmre)
+* addition of VC9 (Visual Studio 2008) project file (sweetlilmre)
+* update to MinGW make file (Sergio Padrino, sweetlilmre)
+* fix uninitialised variables in _putPixelAlpha() (Paul Pedriana)
+* reverted to original alpha routine in _putPixelAlpha() as new one was causing issues in 16bbp
+  new routine #define has been renamed to EXPERIMENTAL_ALPHA_PIXEL_ROUTINE
+  original is now DEFAULT_ALPHA_PIXEL_ROUTINE
+* added colorkey handling patch to rotozoom (Sergio Padrino)
+* downgraded optimization to -O for asm compatibility with gcc4
+
+
+Ver 2.0.17 - Sun Jun  1 15:39:38 EDT 2008
+
+* hline/vline clipping and swap-logic fixed
+* clipping box dimension check added and clipping-checks optimized
+* TestFonts program updated
+* Updated documentation on cross-compilation, AMD64
+* Fixed circleColor overdraw
+* Added arcColor routine
+* Added polygonColorMT and polygonTextureMT routines
+* Updated 32bit alpha blending routine
+
+
+Ver 2.0.16 - Mon Feb  5 19:03:31 AST 2007
+* updated config.sub to newer version 
+* added custom RGBA blitter function that sets/maintains target alpha
+* added setAlpha function that sets alpha values in 32bit surfaces
+* added TextGfxBlit testprogram for new functions
+* Fixed C++ type in .h files (thanks Olivier)
+* Update some text in README and .spec file
+* Removed broken Uint filter routines from test program
+* "Cosmetic" changes to test programs and Automake.am
+
+
+Ver 2.0.15 - Fri Dec 22 08:44:31 AST 2006
+* bugfixes in 32bit _putPixelAlpha/filledRectAlpha (thanks CISC)
+* various bugfixes in return value generation and return (thanks CISC)
+* lock font-surface before using it (thanks CISC)
+* fix some breakage in non-MMX filter routines (thanks CISC)
+* fix typo in TestABGR (thanks CISC)
+* fix double buffer flipping in Tets programs (thanks CISC)
+* fixed microversion in .h
+* fixed texturePolygon inverted bug
+* fixed wrong surface use in test 21 of TestRotozoom
+* added pitch handling in font surface (thanks CISC)
+
+
+Ver 2.0.14 - Tue Dec 19 08:49:02 AST 2006
+* added texturedPolygon routine to library (thanks Jees)
+* changed iterator condition in aaellipse to add some overdraw to smooth circle
+* added ShrinkImage routine to rotozoom code
+* added TestABGR Test program (bug in SDL_gfx or SDL??)
+* improved TestImageFilter program (bug in Uint filters) 
+* changed .so versioning from .so.13.0.0 to .so.0.0.14
+  (best is to remove all old libs before installing)
+* added updated MacOSX ProjectBuilder file (thanks Brian)
+* added info on MacOSX 10.3 build
+* added mingw (on cygwin) makefile (thanks Brian)
+* added Dev-Cpp makefile (thanks Sebastian)
+* removed some unused variables from gfx and rotozoom code (thanks Thi)
+* fixed a non-critical typecast mistake (thanks Thi)
+* converted all C++ comments to C comments in SDL_imageFilter
+
+
 Ver 2.0.13 - Tue Dec 21 08:41:25 EST 2004
 * changed include back to "SDL.h"
 * compile fixes for OSX fink  (thanks (Michael)

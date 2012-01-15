@@ -10,27 +10,18 @@
 ; Used with permission.
 ; 
 
-	
 BITS 32
 
-GLOBAL _ConvertX86p16_32RGB888
-GLOBAL _ConvertX86p16_32BGR888
-GLOBAL _ConvertX86p16_32RGBA888
-GLOBAL _ConvertX86p16_32BGRA888
-GLOBAL _ConvertX86p16_24RGB888
-GLOBAL _ConvertX86p16_24BGR888
-GLOBAL _ConvertX86p16_16BGR565
-GLOBAL _ConvertX86p16_16RGB555
-GLOBAL _ConvertX86p16_16BGR555
-GLOBAL _ConvertX86p16_8RGB332
+%include "common.inc"
+
+SDL_FUNC _ConvertX86p16_16BGR565
+SDL_FUNC _ConvertX86p16_16RGB555
+SDL_FUNC _ConvertX86p16_16BGR555
+SDL_FUNC _ConvertX86p16_8RGB332
 
 EXTERN _ConvertX86
-EXTERN _x86return
-
 
 SECTION .text
-
-
 
 _ConvertX86p16_16BGR565:
 
@@ -57,7 +48,7 @@ _ConvertX86p16_16BGR565:
     dec ecx
     jnz .L1
 .L2
-    jmp _x86return
+    retn
 
 .L3 ; head
     mov eax,edi
@@ -135,7 +126,7 @@ _ConvertX86p16_16BGR565:
     add edi,BYTE 2
 
 .L7
-    jmp _x86return
+    retn
 
 
 
@@ -164,7 +155,7 @@ _ConvertX86p16_16RGB555:
     dec ecx
     jnz .L1
 .L2
-    jmp _x86return
+    retn
 
 .L3 ; head
     mov eax,edi
@@ -243,7 +234,7 @@ _ConvertX86p16_16RGB555:
     jmp SHORT .L6
 
 .L7 pop ebp
-    jmp _x86return
+    retn
 
 
 
@@ -277,7 +268,7 @@ _ConvertX86p16_16BGR555:
     dec ecx
     jnz .L1
 .L2
-    jmp _x86return
+    retn
 
 .L3 ; head
     mov eax,edi
@@ -361,7 +352,7 @@ _ConvertX86p16_16BGR555:
     add edi,BYTE 2
 
 .L7
-    jmp _x86return
+    retn
 
 
 
@@ -394,7 +385,7 @@ _ConvertX86p16_8RGB332:
     dec ecx
     jnz .L1
 .L2
-    jmp _x86return
+    retn
 
 .L3 mov eax,edi
     and eax,BYTE 11b
@@ -492,5 +483,8 @@ _ConvertX86p16_8RGB332:
     jnz .L6
 
 .L7 pop ebp
-    jmp _x86return
+    retn
 
+%ifidn __OUTPUT_FORMAT__,elf
+section .note.GNU-stack noalloc noexec nowrite progbits
+%endif

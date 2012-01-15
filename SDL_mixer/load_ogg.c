@@ -1,6 +1,6 @@
 /*
     SDL_mixer:  An audio mixer library based on the SDL library
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -20,24 +20,20 @@
     This file by Vaclav Slavik (vaclav.slavik@matfyz.cz).
 */
 
-/* $Id: load_ogg.c,v 1.3 2004/01/04 17:37:04 slouken Exp $ */
+/* $Id: load_ogg.c 5214 2009-11-08 17:11:09Z slouken $ */
 
 #ifdef OGG_MUSIC
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef USE_TREMOR
-#include <tremor/ivorbisfile.h>
-#else
-#include <vorbis/vorbisfile.h>
-#endif
 
 #include "SDL_mutex.h"
 #include "SDL_endian.h"
 #include "SDL_timer.h"
 
 #include "SDL_mixer.h"
+#include "dynamic_ogg.h"
 #include "load_ogg.h"
 
 static size_t sdl_read_func(void *ptr, size_t size, size_t nmemb, void *datasource)
@@ -57,7 +53,7 @@ static int sdl_close_func_freesrc(void *datasource)
 
 static int sdl_close_func_nofreesrc(void *datasource)
 {
-    return SDL_RWseek((SDL_RWops*)datasource, 0, SEEK_SET);
+    return SDL_RWseek((SDL_RWops*)datasource, 0, RW_SEEK_SET);
 }
 
 static long sdl_tell_func(void *datasource)
@@ -84,13 +80,16 @@ SDL_AudioSpec *Mix_LoadOGG_RW (SDL_RWops *src, int freesrc,
     if ( (!src) || (!audio_buf) || (!audio_len) )   /* sanity checks. */
         goto done;
 
+    if ( !Mix_Init(MIX_INIT_OGG) )
+        goto done;
+
     callbacks.read_func = sdl_read_func;
     callbacks.seek_func = sdl_seek_func;
     callbacks.tell_func = sdl_tell_func;
     callbacks.close_func = freesrc ? 
                            sdl_close_func_freesrc : sdl_close_func_nofreesrc;
 
-    if (ov_open_callbacks(src, &vf, NULL, 0, callbacks) != 0)
+    if (vorbis.ov_open_callbacks(src, &vf, NULL, 0, callbacks) != 0)
     {
         SDL_SetError("OGG bitstream is not valid Vorbis stream!");
         goto done;
@@ -98,7 +97,7 @@ SDL_AudioSpec *Mix_LoadOGG_RW (SDL_RWops *src, int freesrc,
 
     must_close = 0;
     
-    info = ov_info(&vf, -1);
+    info = vorbis.ov_info(&vf, -1);
     
     *audio_buf = NULL;
     *audio_len = 0;
@@ -109,7 +108,7 @@ SDL_AudioSpec *Mix_LoadOGG_RW (SDL_RWops *src, int freesrc,
     spec->freq = info->rate;
     spec->samples = 4096; /* buffer size */
     
-    samples = (long)ov_pcm_total(&vf, -1);
+    samples = (long)vorbis.ov_pcm_total(&vf, -1);
 
     *audio_len = spec->size = samples * spec->channels * 2;
     *audio_buf = malloc(*audio_len);
@@ -118,17 +117,15 @@ SDL_AudioSpec *Mix_LoadOGG_RW (SDL_RWops *src, int freesrc,
 
     buf = *audio_buf;
     to_read = *audio_len;
-#if USE_TREMOR
-    for (read = ov_read(&vf, buf, to_read, &bitstream);
+#ifdef OGG_USE_TREMOR
+    for (read = vorbis.ov_read(&vf, (char *)buf, to_read, &bitstream);
+	 read > 0;
+	 read = vorbis.ov_read(&vf, (char *)buf, to_read, &bitstream))
 #else
-    for (read = ov_read(&vf, buf, to_read, 0/*LE*/, 2/*16bit*/, 1/*signed*/, &bitstream);
-#endif  
+    for (read = vorbis.ov_read(&vf, (char *)buf, to_read, 0/*LE*/, 2/*16bit*/, 1/*signed*/, &bitstream);
          read > 0;
-#if USE_TREMOR
-         read = ov_read(&vf, buf, to_read, &bitstream))
-#else
-         read = ov_read(&vf, buf, to_read, 0, 2, 1, &bitstream))
-#endif
+         read = vorbis.ov_read(&vf, (char *)buf, to_read, 0, 2, 1, &bitstream))
+#endif	 
     {
         if (read == OV_HOLE || read == OV_EBADLINK)
             break; /* error */
@@ -137,7 +134,7 @@ SDL_AudioSpec *Mix_LoadOGG_RW (SDL_RWops *src, int freesrc,
         buf += read;
     }
 
-    ov_clear(&vf);
+    vorbis.ov_clear(&vf);
     was_error = 0;
 
     /* Don't return a buffer that isn't a multiple of samplesize */
@@ -150,7 +147,7 @@ done:
         if (freesrc)
             SDL_RWclose(src);
         else
-            SDL_RWseek(src, 0, SEEK_SET);
+            SDL_RWseek(src, 0, RW_SEEK_SET);
     }
 
     if ( was_error )

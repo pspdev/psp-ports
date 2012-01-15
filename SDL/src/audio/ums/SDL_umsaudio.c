@@ -1,37 +1,30 @@
 /*
-    AIX support for the SDL - Simple DirectMedia Layer
-    Copyright (C) 2000  Carsten Griwodz
+    SDL - Simple DirectMedia Layer
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Carsten Griwodz
     griff@kom.tu-darmstadt.de
 
     based on linux/SDL_dspaudio.c by Sam Lantinga
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_umsaudio.c,v 1.2 2001/04/26 16:50:17 hercules Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Allow access to a raw mixing buffer */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -42,9 +35,8 @@ static char rcsid =
 #include <sys/mman.h>
 
 #include "SDL_audio.h"
-#include "SDL_error.h"
-#include "SDL_audio_c.h"
-#include "SDL_audiodev_c.h"
+#include "../SDL_audio_c.h"
+#include "../SDL_audiodev_c.h"
 #include "SDL_umsaudio.h"
 
 /* The tag name used by UMS audio */
@@ -89,11 +81,11 @@ static int Audio_Available(void)
 
 static void Audio_DeleteDevice(_THIS)
 {
-    if(this->hidden->playbuf._buffer) free(this->hidden->playbuf._buffer);
-    if(this->hidden->fillbuf._buffer) free(this->hidden->fillbuf._buffer);
+    if(this->hidden->playbuf._buffer) SDL_free(this->hidden->playbuf._buffer);
+    if(this->hidden->fillbuf._buffer) SDL_free(this->hidden->fillbuf._buffer);
     _somFree( this->hidden->umsdev );
-    free(this->hidden);
-    free(this);
+    SDL_free(this->hidden);
+    SDL_free(this);
 }
 
 static SDL_AudioDevice *Audio_CreateDevice(int devindex)
@@ -104,19 +96,19 @@ static SDL_AudioDevice *Audio_CreateDevice(int devindex)
      * Allocate and initialize management storage and private management
      * storage for this SDL-using library.
      */
-    this = (SDL_AudioDevice *)malloc(sizeof(SDL_AudioDevice));
+    this = (SDL_AudioDevice *)SDL_malloc(sizeof(SDL_AudioDevice));
     if ( this ) {
-        memset(this, 0, (sizeof *this));
-        this->hidden = (struct SDL_PrivateAudioData *)malloc((sizeof *this->hidden));
+        SDL_memset(this, 0, (sizeof *this));
+        this->hidden = (struct SDL_PrivateAudioData *)SDL_malloc((sizeof *this->hidden));
     }
     if ( (this == NULL) || (this->hidden == NULL) ) {
         SDL_OutOfMemory();
         if ( this ) {
-            free(this);
+            SDL_free(this);
         }
         return(0);
     }
-    memset(this->hidden, 0, (sizeof *this->hidden));
+    SDL_memset(this->hidden, 0, (sizeof *this->hidden));
 #ifdef DEBUG_AUDIO
     fprintf(stderr, "Creating UMS Audio device\n");
 #endif
@@ -144,7 +136,7 @@ static SDL_AudioDevice *Audio_CreateDevice(int devindex)
 }
 
 AudioBootStrap UMS_bootstrap = {
-	UMS_DRIVER_NAME, "AUX UMS audio",
+	UMS_DRIVER_NAME, "AIX UMS audio",
 	Audio_Available, Audio_CreateDevice
 };
 
@@ -209,9 +201,9 @@ static void UMS_PlayAudio(_THIS)
     while(samplesToWrite>0);
 
     SDL_LockAudio();
-    memcpy( &swpbuf,                &this->hidden->playbuf, sizeof(UMSAudioTypes_Buffer) );
-    memcpy( &this->hidden->playbuf, &this->hidden->fillbuf, sizeof(UMSAudioTypes_Buffer) );
-    memcpy( &this->hidden->fillbuf, &swpbuf,                sizeof(UMSAudioTypes_Buffer) );
+    SDL_memcpy( &swpbuf,                &this->hidden->playbuf, sizeof(UMSAudioTypes_Buffer) );
+    SDL_memcpy( &this->hidden->playbuf, &this->hidden->fillbuf, sizeof(UMSAudioTypes_Buffer) );
+    SDL_memcpy( &this->hidden->fillbuf, &swpbuf,                sizeof(UMSAudioTypes_Buffer) );
     SDL_UnlockAudio();
 
 #ifdef DEBUG_AUDIO
@@ -335,10 +327,10 @@ static int UMS_OpenAudio(_THIS, SDL_AudioSpec *spec)
 
     this->hidden->playbuf._length  = 0;
     this->hidden->playbuf._maximum = spec->size;
-    this->hidden->playbuf._buffer  = (unsigned char*)malloc(spec->size);
+    this->hidden->playbuf._buffer  = (unsigned char*)SDL_malloc(spec->size);
     this->hidden->fillbuf._length  = 0;
     this->hidden->fillbuf._maximum = spec->size;
-    this->hidden->fillbuf._buffer  = (unsigned char*)malloc(spec->size);
+    this->hidden->fillbuf._buffer  = (unsigned char*)SDL_malloc(spec->size);
 
     rc = UADSetBitsPerSample(this,  bitsPerSample );
     rc = UADSetDMABufferSize(this,  frag_spec, &outBufSize );

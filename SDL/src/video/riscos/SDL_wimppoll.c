@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -17,8 +17,9 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
     Sam Lantinga
-    slouken@devolution.com
+    slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /*
      File added by Alan Buckley (alan_baa@hotmail.com) for RISC OS compatability
@@ -29,12 +30,12 @@
 
 #include "SDL.h"
 #include "SDL_syswm.h"
-#include "SDL_sysevents.h"
-#include "SDL_events_c.h"
+#include "../../events/SDL_sysevents.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_riscosvideo.h"
 #include "SDL_riscosevents_c.h"
 #include "SDL_riscosmouse_c.h"
-#include "SDL_timer_c.h"
+#include "../../timer/SDL_timer_c.h"
 
 #include "memory.h"
 #include "stdlib.h"
@@ -44,7 +45,7 @@
 #include "swis.h"
 #include "unixlib/os.h"
 
-#ifndef DISABLE_THREADS
+#if !SDL_THREADS_DISABLED
 #include <pthread.h>
 #endif
 
@@ -61,16 +62,16 @@ void WIMP_PaletteChanged(_THIS);
 extern void WIMP_PollMouse(_THIS);
 extern void RISCOS_PollKeyboard();
 
-#ifdef DISABLE_THREADS
+#if SDL_THREADS_DISABLED
 /* Timer running function */
 extern void RISCOS_CheckTimer();
-
 #else
 extern int riscos_using_threads;
 #endif
 
 /* Mouse cursor handling */
 extern void WIMP_ReshowCursor(_THIS);
+extern void WIMP_RestoreWimpCursor();
 
 int hasFocus = 0;
 int mouseInWindow = 0;
@@ -83,7 +84,7 @@ void WIMP_PumpEvents(_THIS)
 	WIMP_Poll(this, 0);
 	if (hasFocus) RISCOS_PollKeyboard();
 	if (mouseInWindow) WIMP_PollMouse(this);
-#ifdef DISABLE_THREADS
+#if SDL_THREADS_DISABLED
 	if (SDL_timer_running) RISCOS_CheckTimer();
 #endif
 }
@@ -109,7 +110,7 @@ void WIMP_Poll(_THIS, int waitTime)
 
     while (doPoll)
     {
-#ifndef DISABLE_THREADS
+#if !SDL_THREADS_DISABLED
        /* Stop thread callbacks while program is paged out */
        if (riscos_using_threads) __pthread_stop_ticker();
 #endif
@@ -191,10 +192,7 @@ void WIMP_Poll(_THIS, int waitTime)
 				mouseInWindow = 0;
 				//TODO: Lose buttons / dragging
 				 /* Reset to default pointer */
-   				 regs.r[0] = 106;
-				 regs.r[1] = 1;
-				 regs.r[2] = 0;
-				 _kernel_swi(OS_Byte, &regs, &regs);
+				 WIMP_RestoreWimpCursor();
 				 SDL_PrivateAppActive(0, SDL_APPMOUSEFOCUS);
 			} else
 				sysEvent = 1;
@@ -286,12 +284,12 @@ void WIMP_Poll(_THIS, int waitTime)
 
 			SDL_VERSION(&wmmsg.version);
 			wmmsg.eventCode = code;
-			memcpy(wmmsg.pollBlock, message, 64 * sizeof(int));
+			SDL_memcpy(wmmsg.pollBlock, message, 64 * sizeof(int));
 
 			/* Fall out of polling loop if message is successfully posted */
 			if (SDL_PrivateSysWMEvent(&wmmsg)) doPoll = 0;
 		}
-#ifndef DISABLE_THREADS
+#if !SDL_THREADS_DISABLED
 		if (riscos_using_threads)
 		{
                    /* Restart ticker here so other thread can not interfere
@@ -326,7 +324,7 @@ void RISCOS_BackgroundTasks(void)
 	{
 		WIMP_Poll(current_video, 0);
 	}
-#ifdef DISABLE_THREADS
+#if SDL_THREADS_DISABLED
 	if (SDL_timer_running) RISCOS_CheckTimer();
 #endif
 }

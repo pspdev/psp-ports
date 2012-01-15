@@ -28,7 +28,7 @@
 #include "config.h"
 #include "common.h"
 #include "output.h"
-#include "controls.h"
+#include "ctrlmode.h"
 #include "instrum.h"
 #include "playmidi.h"
 
@@ -115,7 +115,7 @@ static int cmsg(int type, int verbosity_level, char *fmt, ...)
       ctl.verbosity<verbosity_level)
     return 0;
   va_start(ap, fmt);
-  vsprintf(timidity_error, fmt, ap);
+  SDL_vsnprintf(timidity_error, TIMIDITY_ERROR_SIZE, fmt, ap);
   va_end(ap);
   return 0;
 #endif

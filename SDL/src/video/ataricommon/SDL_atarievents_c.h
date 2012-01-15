@@ -1,29 +1,25 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_atarievents_c.h,v 1.3 2004/01/04 16:49:23 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /*
  *	Atari keyboard events manager
@@ -34,14 +30,36 @@ static char rcsid =
 #ifndef _SDL_ATARI_EVENTS_H_
 #define _SDL_ATARI_EVENTS_H_
 
-#include "SDL_sysvideo.h"
+#include "../SDL_sysvideo.h"
 
 /* Hidden "this" pointer for the video functions */
 #define _THIS	SDL_VideoDevice *this
+
+#define ATARIBIOS_MAXKEYS 128
+
+/* Special keys state */
+#ifndef K_RSHIFT
+enum {
+	K_RSHIFT=0,
+	K_LSHIFT,
+	K_CTRL,
+	K_ALT,
+	K_CAPSLOCK,
+	K_CLRHOME,
+	K_INSERT
+};
+#endif
 
 extern void (*Atari_ShutdownEvents)(void);
 
 extern void Atari_InitOSKeymap(_THIS);
 extern void Atari_PumpEvents(_THIS);
+
+extern void SDL_Atari_InitInternalKeymap(_THIS);
+
+/* Atari to Unicode charset translation table */
+extern Uint16 SDL_AtariToUnicodeTable[256];
+SDL_keysym *SDL_Atari_TranslateKey(int scancode, SDL_keysym *keysym,
+	SDL_bool pressed);
 
 #endif /* _SDL_ATARI_EVENTS_H_ */

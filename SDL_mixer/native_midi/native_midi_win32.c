@@ -19,10 +19,11 @@
     Florian 'Proff' Schulze
     florian.proff.schulze@gmx.net
 */
+#include "SDL_config.h"
 
 /* everything below is currently one very big bad hack ;) Proff */
 
-#ifdef WIN32
+#if __WIN32__
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <windowsx.h>
@@ -157,17 +158,17 @@ static void MIDItoStream(NativeMidiSong *song, MIDIEvent *evntlist)
   song->MusicLoaded=1;
 }
 
-void CALLBACK MidiProc( HMIDIIN hMidi, UINT uMsg, DWORD dwInstance,
-                        DWORD dwParam1, DWORD dwParam2 )
+void CALLBACK MidiProc( HMIDIIN hMidi, UINT uMsg, DWORD_PTR dwInstance,
+                        DWORD_PTR dwParam1, DWORD_PTR dwParam2 )
 {
     switch( uMsg )
     {
     case MOM_DONE:
-      if ((currentsong->MusicLoaded) && ((DWORD)dwParam1 == (DWORD)&currentsong->MidiStreamHdr))
+      if ((currentsong->MusicLoaded) && (dwParam1 == (DWORD_PTR)&currentsong->MidiStreamHdr))
         BlockOut(currentsong);
       break;
     case MOM_POSITIONCB:
-      if ((currentsong->MusicLoaded) && ((DWORD)dwParam1 == (DWORD)&currentsong->MidiStreamHdr))
+      if ((currentsong->MusicLoaded) && (dwParam1 == (DWORD_PTR)&currentsong->MidiStreamHdr))
         currentsong->MusicPlaying=0;
       break;
     default:
@@ -180,39 +181,66 @@ int native_midi_detect()
   MMRESULT merr;
   HMIDISTRM MidiStream;
 
-  merr=midiStreamOpen(&MidiStream,&MidiDevice,1,(DWORD)&MidiProc,0,CALLBACK_FUNCTION);
+  merr=midiStreamOpen(&MidiStream,&MidiDevice,(DWORD)1,(DWORD_PTR)MidiProc,(DWORD_PTR)0,CALLBACK_FUNCTION);
   if (merr!=MMSYSERR_NOERROR)
-    MidiStream=0;
-  midiStreamClose(MidiStream);
-  if (!MidiStream)
     return 0;
-  else
-    return 1;
+  midiStreamClose(MidiStream);
+  return 1;
 }
 
-NativeMidiSong *native_midi_loadsong(char *midifile)
+NativeMidiSong *native_midi_loadsong(const char *midifile)
 {
-  NativeMidiSong *newsong;
+	NativeMidiSong *newsong;
 	MIDIEvent		*evntlist = NULL;
+	SDL_RWops	*rw;
 
-  newsong=malloc(sizeof(NativeMidiSong));
-  if (!newsong)
-    return NULL;
-  memset(newsong,0,sizeof(NativeMidiSong));
+	newsong=malloc(sizeof(NativeMidiSong));
+	if (!newsong)
+		return NULL;
+	memset(newsong,0,sizeof(NativeMidiSong));
 
-  /* Attempt to load the midi file */
-	evntlist = CreateMIDIEventList(midifile, &newsong->ppqn);
-	if (!evntlist)
-  {
-    free(newsong);
-    return NULL;
-  }
+	/* Attempt to load the midi file */
+	rw = SDL_RWFromFile(midifile, "rb");
+	if (rw) {
+		evntlist = CreateMIDIEventList(rw, &newsong->ppqn);
+		SDL_RWclose(rw);
+		if (!evntlist)
+		{
+			free(newsong);
+			return NULL;
+		}
+	}
 
-  MIDItoStream(newsong, evntlist);
+	MIDItoStream(newsong, evntlist);
 
 	FreeMIDIEventList(evntlist);
 
-  return newsong;
+	return newsong;
+}
+
+NativeMidiSong *native_midi_loadsong_RW(SDL_RWops *rw)
+{
+	NativeMidiSong *newsong;
+	MIDIEvent		*evntlist = NULL;
+
+	newsong=malloc(sizeof(NativeMidiSong));
+	if (!newsong)
+		return NULL;
+	memset(newsong,0,sizeof(NativeMidiSong));
+
+	/* Attempt to load the midi file */
+	evntlist = CreateMIDIEventList(rw, &newsong->ppqn);
+	if (!evntlist)
+	{
+		free(newsong);
+		return NULL;
+	}
+
+	MIDItoStream(newsong, evntlist);
+
+	FreeMIDIEventList(evntlist);
+
+	return newsong;
 }
 
 void native_midi_freesong(NativeMidiSong *song)
@@ -283,7 +311,7 @@ void native_midi_setvolume(int volume)
   midiOutSetVolume((HMIDIOUT)hMidiStream, MAKELONG(calcVolume , calcVolume));
 }
 
-char *native_midi_error()
+const char *native_midi_error(void)
 {
   return "";
 }

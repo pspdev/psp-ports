@@ -1,45 +1,38 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997  Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_beaudio.cc,v 1.5 2002/03/06 11:23:02 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Allow access to the audio stream on BeOS */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <SoundPlayer.h>
 
-#include "SDL_BeApp.h"
+#include "../../main/beos/SDL_BeApp.h"
 
 extern "C" {
 
 #include "SDL_audio.h"
-#include "SDL_audio_c.h"
-#include "SDL_sysaudio.h"
-#include "SDL_systhread_c.h"
+#include "../SDL_audio_c.h"
+#include "../SDL_sysaudio.h"
+#include "../../thread/beos/SDL_systhread_c.h"
 #include "SDL_beaudio.h"
 
 
@@ -59,8 +52,8 @@ static int Audio_Available(void)
 
 static void Audio_DeleteDevice(SDL_AudioDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	SDL_free(device->hidden);
+	SDL_free(device);
 }
 
 static SDL_AudioDevice *Audio_CreateDevice(int devindex)
@@ -68,20 +61,20 @@ static SDL_AudioDevice *Audio_CreateDevice(int devindex)
 	SDL_AudioDevice *device;
 
 	/* Initialize all variables that we clean on shutdown */
-	device = (SDL_AudioDevice *)malloc(sizeof(SDL_AudioDevice));
+	device = (SDL_AudioDevice *)SDL_malloc(sizeof(SDL_AudioDevice));
 	if ( device ) {
-		memset(device, 0, (sizeof *device));
+		SDL_memset(device, 0, (sizeof *device));
 		device->hidden = (struct SDL_PrivateAudioData *)
-				malloc((sizeof *device->hidden));
+				SDL_malloc((sizeof *device->hidden));
 	}
 	if ( (device == NULL) || (device->hidden == NULL) ) {
 		SDL_OutOfMemory();
 		if ( device ) {
-			free(device);
+			SDL_free(device);
 		}
 		return(0);
 	}
-	memset(device->hidden, 0, (sizeof *device->hidden));
+	SDL_memset(device->hidden, 0, (sizeof *device->hidden));
 
 	/* Set the function pointers */
 	device->OpenAudio = BE_OpenAudio;
@@ -107,7 +100,7 @@ static void FillSound(void *device, void *stream, size_t len,
 	SDL_AudioDevice *audio = (SDL_AudioDevice *)device;
 
 	/* Silence the buffer, since it's ours */
-	memset(stream, audio->spec.silence, len);
+	SDL_memset(stream, audio->spec.silence, len);
 
 	/* Only do soemthing if audio is enabled */
 	if ( ! audio->enabled )
@@ -120,7 +113,7 @@ static void FillSound(void *device, void *stream, size_t len,
 				(Uint8 *)audio->convert.buf,audio->convert.len);
 			SDL_mutexV(audio->mixer_lock);
 			SDL_ConvertAudio(&audio->convert);
-			memcpy(stream,audio->convert.buf,audio->convert.len_cvt);
+			SDL_memcpy(stream,audio->convert.buf,audio->convert.len_cvt);
 		} else {
 			SDL_mutexP(audio->mixer_lock);
 			(*audio->spec.callback)(audio->spec.userdata,
@@ -159,38 +152,55 @@ void BE_CloseAudio(_THIS)
 
 int BE_OpenAudio(_THIS, SDL_AudioSpec *spec)
 {
-	media_raw_audio_format format;
+    int valid_datatype = 0;
+    media_raw_audio_format format;
+    Uint16 test_format = SDL_FirstAudioFormat(spec->format);
 
-	/* Initialize the Be Application, if it's not already started */
-	if ( SDL_InitBeApp() < 0 ) {
-		return(-1);
-	}
+    /* Parse the audio format and fill the Be raw audio format */
+    memset(&format, '\0', sizeof (media_raw_audio_format));
+    format.byte_order = B_MEDIA_LITTLE_ENDIAN;
+    format.frame_rate = (float) spec->freq;
+    format.channel_count = spec->channels;  /* !!! FIXME: support > 2? */
+    while ((!valid_datatype) && (test_format)) {
+        valid_datatype = 1;
+        spec->format = test_format;
+        switch (test_format) {
+            case AUDIO_S8:
+                format.format = media_raw_audio_format::B_AUDIO_CHAR;
+                break;
 
-	/* Parse the audio format and fill the Be raw audio format */
-	format.frame_rate = (float)spec->freq;
-	format.channel_count = spec->channels;
-	switch (spec->format&~0x1000) {
-		case AUDIO_S8:
-			/* Signed 8-bit audio unsupported, convert to U8 */
-			spec->format = AUDIO_U8;
-		case AUDIO_U8:
-			format.format = media_raw_audio_format::B_AUDIO_UCHAR;
-			format.byte_order = 0;
-			break;
-		case AUDIO_U16:
-			/* Unsigned 16-bit audio unsupported, convert to S16 */
-			spec->format ^= 0x8000;
-		case AUDIO_S16:
-			format.format = media_raw_audio_format::B_AUDIO_SHORT;
-			if ( spec->format & 0x1000 ) {
-				format.byte_order = 1; /* Big endian */
-			} else {
-				format.byte_order = 2; /* Little endian */
-			}
-			break;
-	}
-	format.buffer_size = spec->samples;
-	
+            case AUDIO_U8:
+                format.format = media_raw_audio_format::B_AUDIO_UCHAR;
+                break;
+
+            case AUDIO_S16LSB:
+                format.format = media_raw_audio_format::B_AUDIO_SHORT;
+                break;
+
+            case AUDIO_S16MSB:
+                format.format = media_raw_audio_format::B_AUDIO_SHORT;
+                format.byte_order = B_MEDIA_BIG_ENDIAN;
+                break;
+
+            default:
+                valid_datatype = 0;
+                test_format = SDL_NextAudioFormat();
+                break;
+        }
+    }
+
+    if (!valid_datatype) { /* shouldn't happen, but just in case... */
+        SDL_SetError("Unsupported audio format");
+        return (-1);
+    }
+
+    /* Initialize the Be Application, if it's not already started */
+    if (SDL_InitBeApp() < 0) {
+        return (-1);
+    }
+
+    format.buffer_size = spec->samples;
+
 	/* Calculate the final parameters for this audio specification */
 	SDL_CalculateAudioSpec(spec);
 

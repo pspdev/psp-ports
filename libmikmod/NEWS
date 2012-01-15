@@ -1,3 +1,35 @@
+Summary of changes between libmikmod 3.1.11 and libmikmod 3.2.0 ():
+==========================================================================
+
+THANKS
+
+- Axel "awe" Wefers <awe@fruitz-of-dojo.de>,
+  for creating the CoreAudio driver, the new
+  AIFF driver and updating the Carbon driver.
+- Frank Loemker, for sending me his collection of patches
+  for libmikmod.
+- Anders F Björklund <afb@algonet.se>, for updates, fixes and tests on
+  Mac Platforms.
+
+NEW FEATURES
+
+- MacOS X CoreAudio driver
+- Carbon support
+- Loader for ASYLUM Music Format v1.0 (.amf) modules,
+  as used in crusader games.
+- New function 'Player_QueryVoices' added, which is used to return
+  dynamic channel information about the module player. (Mikmod 3.2.2 uses
+  it for it's dynamic panels).
+- Mixing with floating point output. The MacOSX CoreAudio driver uses it. 
+  Thanks goes to Anders F Björklund for implementing this.
+- AIFF disk writer driver.  
+
+BUGFIXES
+
+- The sun driver now compiles on solaris (Thanks to Nicolas Gros d'Aillon
+  for sending me Jonathan Perkin's fix)
+
+
 Summary of changes between libmikmod 3.1.10 and libmikmod 3.1.11 (Thiers):
 ==========================================================================
 

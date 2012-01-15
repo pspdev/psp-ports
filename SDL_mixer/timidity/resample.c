@@ -29,7 +29,7 @@
 #include "instrum.h"
 #include "playmidi.h"
 #include "output.h"
-#include "controls.h"
+#include "ctrlmode.h"
 #include "tables.h"
 #include "resample.h"
 
@@ -38,18 +38,18 @@
 #   define RESAMPLATION \
        v1=src[ofs>>FRACTION_BITS];\
        v2=src[(ofs>>FRACTION_BITS)+1];\
-       *dest++ = v1 + (iplookup[(((v2-v1)<<5) & 0x03FE0) | \
-           ((ofs & FRACTION_MASK) >> (FRACTION_BITS-5))]);
+       *dest++ = (resample_t)(v1 + (iplookup[(((v2-v1)<<5) & 0x03FE0) | \
+           ((ofs & FRACTION_MASK) >> (FRACTION_BITS-5))]));
 # else
 #   define RESAMPLATION \
       v1=src[ofs>>FRACTION_BITS];\
       v2=src[(ofs>>FRACTION_BITS)+1];\
-      *dest++ = v1 + (((v2-v1) * (ofs & FRACTION_MASK)) >> FRACTION_BITS);
+      *dest++ = (resample_t)(v1 + (((v2-v1) * (ofs & FRACTION_MASK)) >> FRACTION_BITS));
 # endif
 #  define INTERPVARS sample_t v1, v2
 #else
 /* Earplugs recommended for maximum listening enjoyment */
-#  define RESAMPLATION *dest++=src[ofs>>FRACTION_BITS];
+#  define RESAMPLATION *dest++ = src[ofs>>FRACTION_BITS];
 #  define INTERPVARS
 #endif
 
@@ -720,7 +720,7 @@ void pre_resample(Sample * sp)
   while (--count)
     {
       vptr = src + (ofs >> FRACTION_BITS);
-      v1 = *(vptr - 1);
+      v1 = (vptr == src) ? *vptr : *(vptr - 1);
       v2 = *vptr;
       v3 = *(vptr + 1);
       v4 = *(vptr + 2);
@@ -734,7 +734,7 @@ void pre_resample(Sample * sp)
     {
       v1 = src[ofs >> FRACTION_BITS];
       v2 = src[(ofs >> FRACTION_BITS) + 1];
-      *dest++ = v1 + (((v2 - v1) * (ofs & FRACTION_MASK)) >> FRACTION_BITS);
+      *dest++ = (resample_t)(v1 + (((v2 - v1) * (ofs & FRACTION_MASK)) >> FRACTION_BITS));
     }
   else
     *dest++ = src[ofs >> FRACTION_BITS];

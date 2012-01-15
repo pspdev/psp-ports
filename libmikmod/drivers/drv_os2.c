@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_os2.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: drv_os2.c,v 1.2 2004/01/31 22:39:40 raph Exp $
 
   Driver for output on OS/2 using MMPM/2 MCI interface
 
@@ -342,7 +342,8 @@ MIKMODAPI MDRIVER drv_os2 = {
 	"OS/2 MMPM/2 MCI driver v1.2",
 	0,255,
 	"os2",
-
+	"device:r:0,8,0:Waveaudio device index to use (0 - default)\n"
+        "buffer:r:12,16:Audio buffer log2 size\n",
 	OS2_CommandLine,
 	OS2_IsPresent,
 	VC_SampleLoad,

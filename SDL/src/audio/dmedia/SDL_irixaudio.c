@@ -1,42 +1,33 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997, 1998  Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
-    5635-34 Springhouse Dr.
-    Pleasanton, CA 94588 (USA)
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_irixaudio.c,v 1.7 2004/07/18 18:33:28 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Allow access to a raw mixing buffer (For IRIX 6.5 and higher) */
 /* patch for IRIX 5 by Georg Schwarz 18/07/2004 */
 
-#include <stdlib.h>
-
-#include "SDL_endian.h"
 #include "SDL_timer.h"
 #include "SDL_audio.h"
-#include "SDL_audiomem.h"
-#include "SDL_audio_c.h"
+#include "../SDL_audiomem.h"
+#include "../SDL_audio_c.h"
 #include "SDL_irixaudio.h"
 
 
@@ -69,8 +60,8 @@ static int Audio_Available(void)
 
 static void Audio_DeleteDevice(SDL_AudioDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	SDL_free(device->hidden);
+	SDL_free(device);
 }
 
 static SDL_AudioDevice *Audio_CreateDevice(int devindex)
@@ -78,20 +69,20 @@ static SDL_AudioDevice *Audio_CreateDevice(int devindex)
 	SDL_AudioDevice *this;
 
 	/* Initialize all variables that we clean on shutdown */
-	this = (SDL_AudioDevice *)malloc(sizeof(SDL_AudioDevice));
+	this = (SDL_AudioDevice *)SDL_malloc(sizeof(SDL_AudioDevice));
 	if ( this ) {
-		memset(this, 0, (sizeof *this));
+		SDL_memset(this, 0, (sizeof *this));
 		this->hidden = (struct SDL_PrivateAudioData *)
-				malloc((sizeof *this->hidden));
+				SDL_malloc((sizeof *this->hidden));
 	}
 	if ( (this == NULL) || (this->hidden == NULL) ) {
 		SDL_OutOfMemory();
 		if ( this ) {
-			free(this);
+			SDL_free(this);
 		}
 		return(0);
 	}
-	memset(this->hidden, 0, (sizeof *this->hidden));
+	SDL_memset(this->hidden, 0, (sizeof *this->hidden));
 
 	/* Set the function pointers */
 	this->OpenAudio = AL_OpenAudio;
@@ -148,78 +139,104 @@ static void AL_CloseAudio(_THIS)
 	}
 }
 
-static int AL_OpenAudio(_THIS, SDL_AudioSpec *spec)
+static int AL_OpenAudio(_THIS, SDL_AudioSpec * spec)
 {
-	ALconfig audio_config;
+	Uint16 test_format = SDL_FirstAudioFormat(spec->format);
+	long width = 0;
+	long fmt = 0;
+	int valid = 0;
+
 #ifdef OLD_IRIX_AUDIO
-	long audio_param[2];
+	{
+		long audio_param[2];
+		audio_param[0] = AL_OUTPUT_RATE;
+		audio_param[1] = spec->freq;
+		valid = (ALsetparams(AL_DEFAULT_DEVICE, audio_param, 2) < 0);
+	}
 #else
-	ALpv audio_param;
+	{
+		ALpv audio_param;
+		audio_param.param = AL_RATE;
+		audio_param.value.i = spec->freq;
+		valid = (alSetParams(AL_DEFAULT_OUTPUT, &audio_param, 1) < 0);
+	}
 #endif
-	int width;
 
-	/* Determine the audio parameters from the AudioSpec */
-	switch ( spec->format & 0xFF ) {
+	while ((!valid) && (test_format)) {
+		valid = 1;
+		spec->format = test_format;
 
-		case 8: { /* Signed 8 bit audio data */
-			spec->format = AUDIO_S8;
-			width = AL_SAMPLE_8;
+		switch (test_format) {
+			case AUDIO_S8:
+				width = AL_SAMPLE_8;
+				fmt = AL_SAMPFMT_TWOSCOMP;
+				break;
+
+			case AUDIO_S16SYS:
+				width = AL_SAMPLE_16;
+				fmt = AL_SAMPFMT_TWOSCOMP;
+				break;
+
+			default:
+				valid = 0;
+				test_format = SDL_NextAudioFormat();
+				break;
 		}
-		break;
 
-		case 16: { /* Signed 16 bit audio data */
-			spec->format = AUDIO_S16MSB;
-			width = AL_SAMPLE_16;
-		}
-		break;
+		if (valid) {
+			ALconfig audio_config = alNewConfig();
+			valid = 0;
+			if (audio_config) {
+				if (alSetChannels(audio_config, spec->channels) < 0) {
+					if (spec->channels > 2) {  /* can't handle > stereo? */
+						spec->channels = 2;  /* try again below. */
+					}
+				}
 
-		default: {
-			SDL_SetError("Unsupported audio format");
-			return(-1);
+				if ((alSetSampFmt(audio_config, fmt) >= 0) &&
+				    ((!width) || (alSetWidth(audio_config, width) >= 0)) &&
+				    (alSetQueueSize(audio_config, spec->samples * 2) >= 0) &&
+				    (alSetChannels(audio_config, spec->channels) >= 0)) {
+
+					audio_port = alOpenPort("SDL audio", "w", audio_config);
+					if (audio_port == NULL) {
+						/* docs say AL_BAD_CHANNELS happens here, too. */
+						int err = oserror();
+						if (err == AL_BAD_CHANNELS) {
+							spec->channels = 2;
+							alSetChannels(audio_config, spec->channels);
+							audio_port = alOpenPort("SDL audio", "w",
+							                        audio_config);
+						}
+					}
+
+					if (audio_port != NULL) {
+						valid = 1;
+					}
+				}
+
+				alFreeConfig(audio_config);
+			}
 		}
+	}
+
+	if (!valid) {
+		SDL_SetError("Unsupported audio format");
+		return (-1);
 	}
 
 	/* Update the fragment size as size in bytes */
 	SDL_CalculateAudioSpec(spec);
 
-	/* Set output frequency */
-#ifdef OLD_IRIX_AUDIO
-	audio_param[0] = AL_OUTPUT_RATE;
-	audio_param[1] = spec->freq;
-	if( ALsetparams(AL_DEFAULT_DEVICE, audio_param, 2) < 0 ) {
-#else
-	audio_param.param = AL_RATE;
-	audio_param.value.i = spec->freq;
-	if( alSetParams(AL_DEFAULT_OUTPUT, &audio_param, 1) < 0 ) {
-#endif
-		SDL_SetError("alSetParams failed");
-		return(-1);
-	}
-
-	/* Open the audio port with the requested frequency */
-	audio_port = NULL;
-	audio_config = alNewConfig();
-	if ( audio_config &&
-	     (alSetSampFmt(audio_config, AL_SAMPFMT_TWOSCOMP) >= 0) &&
-	     (alSetWidth(audio_config, width) >= 0) &&
-	     (alSetQueueSize(audio_config, spec->samples*2) >= 0) &&
-	     (alSetChannels(audio_config, spec->channels) >= 0) ) {
-		audio_port = alOpenPort("SDL audio", "w", audio_config);
-	}
-	alFreeConfig(audio_config);
-	if( audio_port == NULL ) {
-		SDL_SetError("Unable to open audio port");
-		return(-1);
-	}
-
 	/* Allocate mixing buffer */
-	mixbuf = (Uint8 *)SDL_AllocAudioMem(spec->size);
-	if ( mixbuf == NULL ) {
+	mixbuf = (Uint8 *) SDL_AllocAudioMem(spec->size);
+	if (mixbuf == NULL) {
 		SDL_OutOfMemory();
-		return(-1);
+		return (-1);
 	}
-	memset(mixbuf, spec->silence, spec->size);
+	SDL_memset(mixbuf, spec->silence, spec->size);
 
 	/* We're ready to rock and roll. :-) */
-	return(0);
+	return (0);
 }
+

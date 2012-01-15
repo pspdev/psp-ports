@@ -35,7 +35,7 @@ static char rcsid =
 #define _SDL_pspvideo_h
 
 #include "SDL_mouse.h"
-#include "SDL_sysvideo.h"
+#include "../SDL_sysvideo.h"
 #include "SDL_mutex.h"
 
 #include <psptypes.h>

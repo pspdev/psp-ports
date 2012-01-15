@@ -13,18 +13,25 @@
 
 static char volatile time_for_threads_to_die[NUMTHREADS];
 
-int SubThreadFunc(void *data) {
+/* Call this instead of exit(), so we can clean up SDL: atexit() is evil. */
+static void quit(int rc)
+{
+	SDL_Quit();
+	exit(rc);
+}
+
+int SDLCALL SubThreadFunc(void *data) {
 	while(! *(int volatile *)data) {
-		; /*SDL_Delay(10); /* do nothing */
+		; /*SDL_Delay(10);*/  /* do nothing */
 	}
 	return 0;
 }
 
-int ThreadFunc(void *data) {
+int SDLCALL ThreadFunc(void *data) {
 	SDL_Thread *sub_threads[NUMTHREADS];
 	int flags[NUMTHREADS];
 	int i;
-	int tid = (int ) data;
+	int tid = (int)(uintptr_t)data;
 
 	fprintf(stderr, "Creating Thread %d\n", tid);
 
@@ -57,20 +64,18 @@ int main(int argc, char *argv[])
 	/* Load the SDL library */
 	if ( SDL_Init(0) < 0 ) {
 		fprintf(stderr, "Couldn't initialize SDL: %s\n",SDL_GetError());
-		exit(1);
+		return(1);
 	}
-	atexit(SDL_Quit);
-
 
 	signal(SIGSEGV, SIG_DFL);
 	for(i = 0; i < NUMTHREADS; i++) {
 		time_for_threads_to_die[i] = 0;
-		threads[i] = SDL_CreateThread(ThreadFunc, (void *) i);
+		threads[i] = SDL_CreateThread(ThreadFunc, (void *)(uintptr_t)i);
 	
 		if ( threads[i] == NULL ) {
 			fprintf(stderr,
 			"Couldn't create thread: %s\n", SDL_GetError());
-			exit(1);
+			quit(1);
 		}
 	}
 
@@ -78,8 +83,9 @@ int main(int argc, char *argv[])
 		time_for_threads_to_die[i] = 1;
 	}
 
-	for(i = NUMTHREADS-1; i >= 0; --i) {
+	for(i = 0; i < NUMTHREADS; i++) {
 		SDL_WaitThread(threads[i], NULL);
 	}
-	return(0);	/* Never reached */
+	SDL_Quit();
+	return(0);
 }

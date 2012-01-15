@@ -1,39 +1,32 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_main.c,v 1.5 2004/01/04 16:49:18 slouken Exp $";
-#endif
-
 /* This file takes care of command line argument parsing, and stdio redirection
-   in the MacOS environment.
+   in the MacOS environment. (stdio/stderr is *not* directed for Mach-O builds)
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>	
-#if TARGET_API_MAC_CARBON
+#if defined(__APPLE__) && defined(__MACH__)
+#include <Carbon/Carbon.h>
+#elif TARGET_API_MAC_CARBON && (UNIVERSAL_INTERFACES_VERSION > 0x0335)
 #include <Carbon.h>
 #else
 #include <Dialogs.h>
@@ -50,9 +43,11 @@ static char rcsid =
 #undef main
 #endif
 
+#if !(defined(__APPLE__) && defined(__MACH__))
 /* The standard output files */
 #define STDOUT_FILE	"stdout.txt"
 #define STDERR_FILE	"stderr.txt"
+#endif
 
 #if !defined(__MWERKS__) && !TARGET_API_MAC_CARBON
 	/* In MPW, the qd global has been removed from the libraries */
@@ -79,6 +74,8 @@ static Boolean CommandKeyIsDown(void)
 	return(false);
 }
 
+#if !(defined(__APPLE__) && defined(__MACH__))
+
 /* Parse a command line buffer into arguments */
 static int ParseCommandLine(char *cmdline, char **argv)
 {
@@ -88,7 +85,7 @@ static int ParseCommandLine(char *cmdline, char **argv)
 	argc = 0;
 	for ( bufp = cmdline; *bufp; ) {
 		/* Skip leading whitespace */
-		while ( isspace(*bufp) ) {
+		while ( SDL_isspace(*bufp) ) {
 			++bufp;
 		}
 		/* Skip over argument */
@@ -112,7 +109,7 @@ static int ParseCommandLine(char *cmdline, char **argv)
 				++argc;
 			}
 			/* Skip over word */
-			while ( *bufp && ! isspace(*bufp) ) {
+			while ( *bufp && ! SDL_isspace(*bufp) ) {
 				++bufp;
 			}
 		}
@@ -158,6 +155,8 @@ static void cleanup_output(void)
 	}
 }
 
+#endif //!(defined(__APPLE__) && defined(__MACH__))
+
 static int getCurrentAppName (StrFileName name) {
 	
     ProcessSerialNumber process;
@@ -173,7 +172,7 @@ static int getCurrentAppName (StrFileName name) {
     if ( noErr != GetProcessInformation (&process, &process_info) )
        return 0;
     
-    memcpy (name, process_fsp.name, process_fsp.name[0] + 1);
+    SDL_memcpy(name, process_fsp.name, process_fsp.name[0] + 1);
     return 1;
 }
 
@@ -202,26 +201,26 @@ static int getPrefsFile (FSSpec *prefs_fsp, int create) {
     if (app_name[0] > MAX_NAME )
         app_name[0] = MAX_NAME;
         
-    memcpy (prefs_name + 1, app_name + 1, app_name[0]);    
-    memcpy (prefs_name + app_name[0] + 1, SUFFIX, strlen (SUFFIX));
+    SDL_memcpy(prefs_name + 1, app_name + 1, app_name[0]);    
+    SDL_memcpy(prefs_name + app_name[0] + 1, SUFFIX, strlen (SUFFIX));
     prefs_name[0] = app_name[0] + strlen (SUFFIX);
    
     /* Make the file spec for prefs file */
-    if ( noErr != FSMakeFSSpec (volume_ref_number, directory_id, prefs_name, prefs_fsp) )
+    if ( noErr != FSMakeFSSpec (volume_ref_number, directory_id, prefs_name, prefs_fsp) ) {
         if ( !create )
             return 0;
         else {
             /* Create the prefs file */
-            memcpy (prefs_fsp->name, prefs_name, prefs_name[0] + 1);
+            SDL_memcpy(prefs_fsp->name, prefs_name, prefs_name[0] + 1);
             prefs_fsp->parID   = directory_id;
             prefs_fsp->vRefNum = volume_ref_number;
                 
-            FSpCreateResFile (prefs_fsp, '????', 'pref', 0);
+            FSpCreateResFile (prefs_fsp, 0x3f3f3f3f, 'pref', 0); // '????' parsed as trigraph
             
             if ( noErr != ResError () )
                 return 0;
         }
-      
+     }
     return 1;
 }
 
@@ -233,16 +232,16 @@ static int readPrefsResource (PrefsRecord *prefs) {
 
 	if (prefs_handle != NULL) {
 		int offset = 0;
-		int j      = 0;
+//		int j      = 0;
 		
 		HLock(prefs_handle);
 		
 		/* Get command line string */	
-		memcpy (prefs->command_line, *prefs_handle, (*prefs_handle)[0]+1);
+		SDL_memcpy(prefs->command_line, *prefs_handle, (*prefs_handle)[0]+1);
 
 		/* Get video driver name */
 		offset += (*prefs_handle)[0] + 1;	
-		memcpy (prefs->video_driver_name, *prefs_handle + offset, (*prefs_handle)[offset] + 1);		
+		SDL_memcpy(prefs->video_driver_name, *prefs_handle + offset, (*prefs_handle)[offset] + 1);		
 		
 		/* Get save-to-file option (1 or 0) */
 		offset += (*prefs_handle)[offset] + 1;
@@ -275,11 +274,11 @@ static int writePrefsResource (PrefsRecord *prefs, short resource_file) {
         
         /* Command line text */
         offset = 0;
-        memcpy (*prefs_handle, prefs->command_line, prefs->command_line[0] + 1);
+        SDL_memcpy(*prefs_handle, prefs->command_line, prefs->command_line[0] + 1);
         
         /* Video driver name */
         offset += prefs->command_line[0] + 1;
-        memcpy (*prefs_handle + offset, prefs->video_driver_name, prefs->video_driver_name[0] + 1);
+        SDL_memcpy(*prefs_handle + offset, prefs->video_driver_name, prefs->video_driver_name[0] + 1);
         
         /* Output-to-file option */
         offset += prefs->video_driver_name[0] + 1;
@@ -349,7 +348,9 @@ static int writePreferences (PrefsRecord *prefs) {
 int main(int argc, char *argv[])
 {
 
+#if !(defined(__APPLE__) && defined(__MACH__))
 #pragma unused(argc, argv)
+#endif
 	
 #define DEFAULT_ARGS "\p"                /* pascal string for default args */
 #define DEFAULT_VIDEO_DRIVER "\ptoolbox" /* pascal string for default video driver name */	
@@ -360,11 +361,13 @@ int main(int argc, char *argv[])
 
     PrefsRecord prefs = { DEFAULT_ARGS, DEFAULT_VIDEO_DRIVER, DEFAULT_OUTPUT_TO_FILE }; 
 	
+#if !(defined(__APPLE__) && defined(__MACH__))
 	int     nargs;
 	char   **args;
 	char   *commandLine;
 	
 	StrFileName  appNameText;
+#endif
 	int     videodriver     = VIDEO_ID_TOOLBOX;
     int     settingsChanged = 0;
     
@@ -399,12 +402,18 @@ int main(int argc, char *argv[])
 	    short     itemHit;
 	
 		errorDialog = GetNewDialog (1001, nil, (WindowPtr)-1);
+		if (errorDialog == NULL)
+		    return -1;
 		DrawDialog (errorDialog);
 		
 		GetDialogItem (errorDialog, kErr_Text, &dummyType, &dummyHandle, &dummyRect);
 		SetDialogItemText (dummyHandle, "\pError Initializing SDL");
 		
+#if TARGET_API_MAC_CARBON
+		SetPort (GetDialogPort(errorDialog));
+#else
 		SetPort (errorDialog);
+#endif
 		do {
 			ModalDialog (nil, &itemHit);
 		} while (itemHit != kErr_OK);
@@ -423,9 +432,9 @@ int main(int argc, char *argv[])
 
 	 if ( readPreferences (&prefs) ) {
 		
-        if (memcmp (prefs.video_driver_name+1, "DSp", 3) == 0)
+        if (SDL_memcmp(prefs.video_driver_name+1, "DSp", 3) == 0)
             videodriver = 1;
-        else if (memcmp (prefs.video_driver_name+1, "toolbox", 7) == 0)
+        else if (SDL_memcmp(prefs.video_driver_name+1, "toolbox", 7) == 0)
             videodriver = 2;
 	 }
 	 	
@@ -442,23 +451,40 @@ int main(int argc, char *argv[])
         Rect	  dummyRect;
         Handle    dummyHandle;
         short     itemHit;
-
+   #if TARGET_API_MAC_CARBON
+        ControlRef control;
+   #endif
+        
         /* Assume that they will change settings, rather than do exhaustive check */
         settingsChanged = 1;
         
         /* Create dialog and display it */
-        commandDialog = GetNewDialog (1000, nil, (DialogPtr)-1);
+        commandDialog = GetNewDialog (1000, nil, (WindowPtr)-1);
+    #if TARGET_API_MAC_CARBON
+        SetPort ( GetDialogPort(commandDialog) );
+    #else
         SetPort (commandDialog);
-            
+     #endif
+           
         /* Setup controls */
+    #if TARGET_API_MAC_CARBON
+        GetDialogItemAsControl(commandDialog, kCL_File, &control);
+        SetControlValue (control, prefs.output_to_file);
+    #else
         GetDialogItem   (commandDialog, kCL_File, &dummyType, &dummyHandle, &dummyRect); /* MJS */
         SetControlValue ((ControlHandle)dummyHandle, prefs.output_to_file );
+    #endif
 
         GetDialogItem     (commandDialog, kCL_Text, &dummyType, &dummyHandle, &dummyRect);
         SetDialogItemText (dummyHandle, prefs.command_line);
 
+    #if TARGET_API_MAC_CARBON
+        GetDialogItemAsControl(commandDialog, kCL_Video, &control);
+        SetControlValue (control, videodriver);
+   #else
         GetDialogItem   (commandDialog, kCL_Video, &dummyType, &dummyHandle, &dummyRect);
         SetControlValue ((ControlRef)dummyHandle, videodriver);
+     #endif
 
         SetDialogDefaultItem (commandDialog, kCL_OK);
         SetDialogCancelItem  (commandDialog, kCL_Cancel);
@@ -469,8 +495,13 @@ int main(int argc, char *argv[])
             
             /* Toggle command-line output checkbox */	
         	if ( itemHit == kCL_File ) {
+        #if TARGET_API_MAC_CARBON
+        		GetDialogItemAsControl(commandDialog, kCL_File, &control);
+        		SetControlValue (control, !GetControlValue(control));
+        #else
         		GetDialogItem(commandDialog, kCL_File, &dummyType, &dummyHandle, &dummyRect); /* MJS */
         		SetControlValue((ControlHandle)dummyHandle, !GetControlValue((ControlHandle)dummyHandle) );
+        #endif
         	}
 
         } while (itemHit != kCL_OK && itemHit != kCL_Cancel);
@@ -479,11 +510,21 @@ int main(int argc, char *argv[])
         GetDialogItem     (commandDialog, kCL_Text, &dummyType, &dummyHandle, &dummyRect); /* MJS */
         GetDialogItemText (dummyHandle, prefs.command_line);
 
+    #if TARGET_API_MAC_CARBON
+        GetDialogItemAsControl(commandDialog, kCL_File, &control);
+        prefs.output_to_file = GetControlValue(control);
+	#else
         GetDialogItem (commandDialog, kCL_File, &dummyType, &dummyHandle, &dummyRect); /* MJS */
         prefs.output_to_file = GetControlValue ((ControlHandle)dummyHandle);
+ 	#endif
 
+    #if TARGET_API_MAC_CARBON
+        GetDialogItemAsControl(commandDialog, kCL_Video, &control);
+        videodriver = GetControlValue(control);
+    #else
         GetDialogItem (commandDialog, kCL_Video, &dummyType, &dummyHandle, &dummyRect);
         videodriver = GetControlValue ((ControlRef)dummyHandle);
+     #endif
 
         DisposeDialog (commandDialog);
 
@@ -495,15 +536,16 @@ int main(int argc, char *argv[])
     /* Set pseudo-environment variables for video driver, update prefs */
 	switch ( videodriver ) {
 	   case VIDEO_ID_DRAWSPROCKET: 
-	      putenv ("SDL_VIDEODRIVER=DSp");
-	      memcpy (prefs.video_driver_name, "\pDSp", 4);
+	      SDL_putenv("SDL_VIDEODRIVER=DSp");
+	      SDL_memcpy(prefs.video_driver_name, "\pDSp", 4);
 	      break;
 	   case VIDEO_ID_TOOLBOX:
-	      putenv ("SDL_VIDEODRIVER=toolbox");
-	      memcpy (prefs.video_driver_name, "\ptoolbox", 8);
+	      SDL_putenv("SDL_VIDEODRIVER=toolbox");
+	      SDL_memcpy(prefs.video_driver_name, "\ptoolbox", 8);
 	      break;
 	}
 
+#if !(defined(__APPLE__) && defined(__MACH__))
     /* Redirect standard I/O to files */
 	if ( prefs.output_to_file ) {
 		freopen (STDOUT_FILE, "w", stdout);
@@ -512,6 +554,7 @@ int main(int argc, char *argv[])
 		fclose (stdout);
 		fclose (stderr);
 	}
+#endif
    
     if (settingsChanged) {
         /* Save the prefs, even if they might not have changed (but probably did) */
@@ -519,6 +562,8 @@ int main(int argc, char *argv[])
             fprintf (stderr, "WARNING: Could not save preferences!\n");
     }
    
+#if !(defined(__APPLE__) && defined(__MACH__))
+    appNameText[0] = 0;
     getCurrentAppName (appNameText); /* check for error here ? */
 
     commandLine = (char*) malloc (appNameText[0] + prefs.command_line[0] + 2);
@@ -533,9 +578,9 @@ int main(int argc, char *argv[])
         if ( appNameText[i] == ' ' ) appNameText[i] = '_';
 
     /* Copy app name & full command text to command-line C-string */      
-    memcpy (commandLine, appNameText + 1, appNameText[0]);
+    SDL_memcpy(commandLine, appNameText + 1, appNameText[0]);
     commandLine[appNameText[0]] = ' ';
-    memcpy (commandLine + appNameText[0] + 1, prefs.command_line + 1, prefs.command_line[0]);
+    SDL_memcpy(commandLine + appNameText[0] + 1, prefs.command_line + 1, prefs.command_line[0]);
     commandLine[ appNameText[0] + 1 + prefs.command_line[0] ] = '\0';
 
     /* Parse C-string into argv and argc */
@@ -553,6 +598,9 @@ int main(int argc, char *argv[])
    
    	/* Remove useless stdout.txt and stderr.txt */
    	cleanup_output ();
+#else // defined(__APPLE__) && defined(__MACH__)
+	SDL_main(argc, argv);
+#endif
    	
 	/* Exit cleanly, calling atexit() functions */
 	exit (0);    

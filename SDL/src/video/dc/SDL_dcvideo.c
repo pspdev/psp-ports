@@ -1,61 +1,31 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-    BERO
-    bero@geocities.co.jp
-
-    based on SDL_nullvideo.c by
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_dcvideo.c,v 1.2 2004/01/04 16:49:24 slouken Exp $";
-#endif
-
-/* Dummy SDL video driver implementation; this is just enough to make an
- *  SDL-based application THINK it's got a working video driver, for
- *  applications that call SDL_Init(SDL_INIT_VIDEO) when they don't need it,
- *  and also for use as a collection of stubs when porting SDL to a new
- *  platform for which you haven't yet written a valid video driver.
- *
- * This is also a great way to determine bottlenecks: if you think that SDL
- *  is a performance problem for a given platform, enable this driver, and
- *  then see if your application runs faster without video overhead.
- *
- * Initial work by Ryan C. Gordon (icculus@linuxgames.com). A good portion
- *  of this was cut-and-pasted from Stephane Peter's work in the AAlib
- *  SDL video driver.  Renamed to "DC" by Sam Lantinga.
- */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "SDL.h"
-#include "SDL_error.h"
 #include "SDL_video.h"
 #include "SDL_mouse.h"
-#include "SDL_sysvideo.h"
-#include "SDL_pixels_c.h"
-#include "SDL_events_c.h"
+#include "../SDL_sysvideo.h"
+#include "../SDL_pixels_c.h"
+#include "../../events/SDL_events_c.h"
 
 #include "SDL_dcvideo.h"
 #include "SDL_dcevents_c.h"
@@ -63,10 +33,6 @@ static char rcsid =
 
 #include <dc/video.h>
 #include <dc/pvr.h>
-
-#ifdef HAVE_OPENGL
-#include <GL/gl.h>
-#endif
 
 
 /* Initialization/Query functions */
@@ -87,10 +53,12 @@ static int DC_FlipHWSurface(_THIS, SDL_Surface *surface);
 static void DC_UpdateRects(_THIS, int numrects, SDL_Rect *rects);
 
 /* OpenGL */
+#if SDL_VIDEO_OPENGL
 static void *DC_GL_GetProcAddress(_THIS, const char *proc);
 static int DC_GL_LoadLibrary(_THIS, const char *path);
 static int DC_GL_GetAttribute(_THIS, SDL_GLattr attrib, int* value);
 static void DC_GL_SwapBuffers(_THIS);
+#endif
 
 /* DC driver bootstrap functions */
 
@@ -101,8 +69,8 @@ static int DC_Available(void)
 
 static void DC_DeleteDevice(SDL_VideoDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	SDL_free(device->hidden);
+	SDL_free(device);
 }
 
 static SDL_VideoDevice *DC_CreateDevice(int devindex)
@@ -110,20 +78,20 @@ static SDL_VideoDevice *DC_CreateDevice(int devindex)
 	SDL_VideoDevice *device;
 
 	/* Initialize all variables that we clean on shutdown */
-	device = (SDL_VideoDevice *)malloc(sizeof(SDL_VideoDevice));
+	device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
 	if ( device ) {
-		memset(device, 0, (sizeof *device));
+		SDL_memset(device, 0, (sizeof *device));
 		device->hidden = (struct SDL_PrivateVideoData *)
-				malloc((sizeof *device->hidden));
+				SDL_malloc((sizeof *device->hidden));
 	}
 	if ( (device == NULL) || (device->hidden == NULL) ) {
 		SDL_OutOfMemory();
 		if ( device ) {
-			free(device);
+			SDL_free(device);
 		}
 		return(0);
 	}
-	memset(device->hidden, 0, (sizeof *device->hidden));
+	SDL_memset(device->hidden, 0, (sizeof *device->hidden));
 
 	/* Set the function pointers */
 	device->VideoInit = DC_VideoInit;
@@ -142,7 +110,7 @@ static SDL_VideoDevice *DC_CreateDevice(int devindex)
 	device->UnlockHWSurface = DC_UnlockHWSurface;
 	device->FlipHWSurface = DC_FlipHWSurface;
 	device->FreeHWSurface = DC_FreeHWSurface;
-#ifdef	HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	device->GL_LoadLibrary = DC_GL_LoadLibrary;
 	device->GL_GetProcAddress = DC_GL_GetProcAddress;
 	device->GL_GetAttribute = DC_GL_GetAttribute;
@@ -170,7 +138,7 @@ VideoBootStrap DC_bootstrap = {
 
 int DC_VideoInit(_THIS, SDL_PixelFormat *vformat)
 {
-	/* Determine the screen depth (use default 8-bit depth) */
+	/* Determine the screen depth (use default 16-bit depth) */
 	/* we change this during the SDL_SetVideoMode implementation... */
 	vformat->BitsPerPixel = 16;
 	vformat->Rmask = 0x0000f800;
@@ -215,7 +183,7 @@ pvr_init_params_t params = {
         512*1024
 };
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 static int pvr_inited;
 #endif
 
@@ -251,7 +219,7 @@ SDL_Surface *DC_SetVideoMode(_THIS, SDL_Surface *current,
 		Rmask = 0x00ff0000;
 		Gmask = 0x0000ff00;
 		Bmask = 0x000000ff;
-#ifdef	HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 		if (!(flags & SDL_OPENGL))
 #endif
 		break;
@@ -272,7 +240,7 @@ SDL_Surface *DC_SetVideoMode(_THIS, SDL_Surface *current,
 	current->h = height;
 	current->pitch = pitch;
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	if (pvr_inited) {
 		pvr_inited = 0;
 		pvr_shutdown();
@@ -283,7 +251,7 @@ SDL_Surface *DC_SetVideoMode(_THIS, SDL_Surface *current,
 
 	current->pixels = vram_s;
 
-#ifdef	HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	if (flags & SDL_OPENGL) {
 		this->gl_config.driver_loaded = 1;
 		current->flags = SDL_FULLSCREEN | SDL_OPENGL;
@@ -349,7 +317,7 @@ static int DC_SetColors(_THIS, int firstcolor, int ncolors, SDL_Color *colors)
 */
 static void DC_VideoQuit(_THIS)
 {
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	if (pvr_inited) {
 		pvr_inited = 0;
 		pvr_shutdown();
@@ -357,7 +325,7 @@ static void DC_VideoQuit(_THIS)
 #endif
 }
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 
 void dmyfunc(void) {}
 
@@ -411,7 +379,7 @@ static void *DC_GL_GetProcAddress(_THIS, const char *proc)
 	if (ret) return ret;
 
 	for(i=0;i<sizeof(glfuncs)/sizeof(glfuncs[0]);i++) {
-		if (strcmp(proc,glfuncs[i].name)==0) return glfuncs[i].addr;
+		if (SDL_strcmp(proc,glfuncs[i].name)==0) return glfuncs[i].addr;
 	}
 
 	return NULL;

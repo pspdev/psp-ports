@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
     Copyright (C) 2001  Hsieh-Fu Tsai
 
     This library is free software; you can redistribute it and/or
@@ -23,12 +23,10 @@
     Hsieh-Fu Tsai
     clare@setabox.com
 */
-
-#include <stdlib.h>
+#include "SDL_config.h"
 
 #include "SDL_syswm.h"
-#include "SDL_error.h"
-#include "SDL_events_c.h"
+#include "../../events/SDL_events_c.h"
 
 #include "SDL_nxwm_c.h"
 

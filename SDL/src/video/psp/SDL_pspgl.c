@@ -39,7 +39,7 @@ static const struct {
 	void *func;
 } glfuncs[] = {
 #define SDL_PROC(ret,func,params) {#func,&func},
-#include "SDL_glfuncs.h"
+#include "../SDL_glfuncs.h"
 #undef SDL_PROC
 };
 #define GLFUNCS_COUNT (sizeof(glfuncs) / sizeof(glfuncs[0]))

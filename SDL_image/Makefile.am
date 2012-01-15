@@ -18,23 +18,45 @@ libSDL_image_la_SOURCES =		\
 	IMG_tga.c		\
 	IMG_tif.c		\
 	IMG_xcf.c		\
-	IMG_xpm.c
+	IMG_xpm.c		\
+	IMG_xv.c		\
+	IMG_ImageIO.c
 
 EXTRA_DIST =			\
 	CHANGES			\
+	version.rc		\
 	VisualC.zip		\
-	PBProjects.tar.gz	\
+	VisualCE.zip		\
+	Xcode.tar.gz		\
+	Xcode_iPhone.tar.gz	\
 	MPWmake.sea.bin		\
+	Watcom-OS2.zip		\
 	IMG_xxx.c		\
+	IMG_UIImage.m		\
 	SDL_image.spec		\
-	SDL_image.spec.in	\
+	gcc-fat.sh		\
 	autogen.sh
 
+if USE_VERSION_RC
+libSDL_image_la_LDFLAGS = 	\
+	-no-undefined		\
+	-release $(LT_RELEASE)	\
+	-version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -Wl,version.o
+libSDL_image_la_LIBADD = $(IMG_LIBS)
+libSDL_image_la_DEPENDENCIES = version.o
+else
 libSDL_image_la_LDFLAGS = 	\
 	-no-undefined		\
 	-release $(LT_RELEASE)	\
 	-version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
-libSDL_image_la_LIBADD = @IMG_LIBS@
+libSDL_image_la_LIBADD = $(IMG_LIBS)
+endif
+
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = SDL_image.pc
+
+%.o : %.rc
+	$(WINDRES) $< $@
 
 noinst_PROGRAMS = showimage
 
@@ -45,5 +67,5 @@ $(PACKAGE)-$(VERSION).tar.gz: distcheck
 
 # Rule to build RPM distribution package
 rpm: $(PACKAGE)-$(VERSION).tar.gz
-	rpm -ta $(PACKAGE)-$(VERSION).tar.gz
+	rpmbuild -ta $(PACKAGE)-$(VERSION).tar.gz
 

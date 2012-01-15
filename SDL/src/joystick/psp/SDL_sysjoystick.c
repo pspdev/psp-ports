@@ -37,11 +37,12 @@ static char rcsid =
 
 #include "SDL_error.h"
 #include "SDL_joystick.h"
-#include "SDL_sysjoystick.h"
-#include "SDL_joystick_c.h"
+#include "../SDL_sysjoystick.h"
+#include "../SDL_joystick_c.h"
 #include "SDL_thread.h"
 #include "SDL_mutex.h"
 #include "SDL_timer.h"
+#include "SDL_events.h"
 
 /* Current pad state */
 static SceCtrlData pad = { .Lx = 0, .Ly = 0, .Buttons = 0 };

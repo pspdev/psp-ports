@@ -32,7 +32,7 @@
 #include "instrum.h"
 #include "playmidi.h"
 #include "output.h"
-#include "controls.h"
+#include "ctrlmode.h"
 #include "resample.h"
 #include "tables.h"
 #include "filter.h"
@@ -110,16 +110,23 @@ static void free_bank(int dr, int b)
   int i;
   ToneBank *bank=((dr) ? drumset[b] : tonebank[b]);
   for (i=0; i<MAXPROG; i++)
+  {
     if (bank->tone[i].layer)
-      {
-	/* Not that this could ever happen, of course */
-	if (bank->tone[i].layer != MAGIC_LOAD_INSTRUMENT)
+    {
+	  /* Not that this could ever happen, of course */
+	  if (bank->tone[i].layer != MAGIC_LOAD_INSTRUMENT)
 	  {
 	    free_layer(bank->tone[i].layer);
-	    bank->tone[i].layer=0;
+	    bank->tone[i].layer=NULL;
 	    bank->tone[i].last_used=-1;
 	  }
-      }
+    }
+    if (bank->tone[i].name)
+    {
+      free(bank->tone[i].name);
+      bank->tone[i].name = NULL;
+    }
+  }
 }
 
 
@@ -137,7 +144,7 @@ static void free_old_bank(int dr, int b, int how_old)
 		(dr)? "drum" : "inst", bank->tone[i].name,
 		i, b, bank->tone[i].last_used);
 	    free_layer(bank->tone[i].layer);
-	    bank->tone[i].layer=0;
+	    bank->tone[i].layer=NULL;
 	    bank->tone[i].last_used=-1;
 	  }
       }
@@ -243,12 +250,12 @@ static void reverse_data(int16 *sp, int32 ls, int32 le)
    undefined.
 
    TODO: do reverse loops right */
-static InstrumentLayer *load_instrument(char *name, int font_type, int percussion,
+static InstrumentLayer *load_instrument(const char *name, int font_type, int percussion,
 				   int panning, int amp, int cfg_tuning, int note_to_use,
 				   int strip_loop, int strip_envelope,
 				   int strip_tail, int bank, int gm_num, int sf_ix)
 {
-  InstrumentLayer *lp, *lastlp, *headlp;
+  InstrumentLayer *lp, *lastlp, *headlp = 0;
   Instrument *ip;
   FILE *fp;
   uint8 tmp[1024];
@@ -259,7 +266,7 @@ static InstrumentLayer *load_instrument(char *name, int font_type, int percussio
   int sf2flag = 0;
   int right_samples = 0;
   int stereo_channels = 1, stereo_layer;
-  int vlayer_list[19][4], vlayer, vlayer_count;
+  int vlayer_list[19][4], vlayer, vlayer_count = 0;
 
   if (!name) return 0;
   
@@ -271,9 +278,9 @@ static InstrumentLayer *load_instrument(char *name, int font_type, int percussio
       /* Try with various extensions */
       for (i=0; patch_ext[i]; i++)
 	{
-	  if (strlen(name)+strlen(patch_ext[i])<1024)
+	  if (strlen(name)+strlen(patch_ext[i])<PATH_MAX)
 	    {
-              char path[1024];
+              char path[PATH_MAX];
 	      strcpy(path, name);
 	      strcat(path, patch_ext[i]);
 	      if ((fp=open_file(path, 1, OF_NORMAL)) != NULL)
@@ -420,7 +427,7 @@ static InstrumentLayer *load_instrument(char *name, int font_type, int percussio
 
  for (stereo_layer = 0; stereo_layer < stereo_channels; stereo_layer++)
  {
-  int sample_count;
+  int sample_count = 0;
 
   if (stereo_layer == 0) sample_count = ip->left_samples;
   else if (stereo_layer == 1) sample_count = ip->right_samples;
@@ -430,10 +437,10 @@ static InstrumentLayer *load_instrument(char *name, int font_type, int percussio
       uint8 fractions;
       int32 tmplong;
       uint16 tmpshort;
-      uint16 sample_volume;
+      uint16 sample_volume = 0;
       uint8 tmpchar;
-      Sample *sp;
-      uint8 sf2delay;
+      Sample *sp = 0;
+      uint8 sf2delay = 0;
 
 #define READ_CHAR(thing) \
       if (1 != fread(&tmpchar, 1, 1, fp)) goto fail; \
@@ -700,7 +707,7 @@ static InstrumentLayer *load_instrument(char *name, int font_type, int percussio
 	  sp->loop_start *= 2;
 	  sp->loop_end *= 2;
 	}
-#ifndef LITTLE_ENDIAN
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
       else
 	/* convert to machine byte order */
 	{
@@ -1005,7 +1012,7 @@ void free_instruments(void)
     }
 }
 
-int set_default_instrument(char *name)
+int set_default_instrument(const char *name)
 {
   InstrumentLayer *lp;
 /*  if (!(lp=load_instrument(name, 0, -1, -1, -1, 0, 0, 0))) */

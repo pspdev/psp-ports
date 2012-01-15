@@ -1,45 +1,38 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_bejoystick.cc,v 1.5 2004/01/04 16:49:17 slouken Exp $";
-#endif
+#ifdef SDL_JOYSTICK_BEOS
 
 /* This is the system specific header for the SDL joystick API */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include <be/support/String.h>
 #include <be/device/Joystick.h>
 
 extern "C" {
 
-#include "SDL_error.h"
 #include "SDL_joystick.h"
-#include "SDL_sysjoystick.h"
-#include "SDL_joystick_c.h"
+#include "../SDL_sysjoystick.h"
+#include "../SDL_joystick_c.h"
 
 
 /* The maximum number of joysticks we'll detect */
@@ -72,8 +65,8 @@ int SDL_SYS_JoystickInit(void)
 	/* Search for attached joysticks */
 	nports = joystick.CountDevices();
 	numjoysticks = 0;
-	memset(SDL_joyport, 0, (sizeof SDL_joyport));
-	memset(SDL_joyname, 0, (sizeof SDL_joyname));
+	SDL_memset(SDL_joyport, 0, (sizeof SDL_joyport));
+	SDL_memset(SDL_joyname, 0, (sizeof SDL_joyname));
 	for ( i=0; (SDL_numjoysticks < MAX_JOYSTICKS) && (i < nports); ++i ) {
 		if ( joystick.GetDeviceName(i, name) == B_OK ) {
 			if ( joystick.Open(name) != B_ERROR ) {
@@ -107,12 +100,12 @@ int SDL_SYS_JoystickOpen(SDL_Joystick *joystick)
 
 	/* Create the joystick data structure */
 	joystick->hwdata = (struct joystick_hwdata *)
-	                   malloc(sizeof(*joystick->hwdata));
+	                   SDL_malloc(sizeof(*joystick->hwdata));
 	if ( joystick->hwdata == NULL ) {
 		SDL_OutOfMemory();
 		return(-1);
 	}
-	memset(joystick->hwdata, 0, sizeof(*joystick->hwdata));
+	SDL_memset(joystick->hwdata, 0, sizeof(*joystick->hwdata));
 	stick = new BJoystick;
 	joystick->hwdata->stick = stick;
 
@@ -132,9 +125,9 @@ int SDL_SYS_JoystickOpen(SDL_Joystick *joystick)
 	joystick->nhats = stick->CountHats();
 
 	joystick->hwdata->new_axes = (int16 *)
-	                  malloc(joystick->naxes*sizeof(int16));
+	                  SDL_malloc(joystick->naxes*sizeof(int16));
 	joystick->hwdata->new_hats = (uint8 *)
-	                  malloc(joystick->nhats*sizeof(uint8));
+	                  SDL_malloc(joystick->nhats*sizeof(uint8));
 	if ( ! joystick->hwdata->new_hats || ! joystick->hwdata->new_axes ) {
 		SDL_OutOfMemory();
 		SDL_SYS_JoystickClose(joystick);
@@ -213,12 +206,12 @@ void SDL_SYS_JoystickClose(SDL_Joystick *joystick)
 		joystick->hwdata->stick->Close();
 		delete joystick->hwdata->stick;
 		if ( joystick->hwdata->new_hats ) {
-			free(joystick->hwdata->new_hats);
+			SDL_free(joystick->hwdata->new_hats);
 		}
 		if ( joystick->hwdata->new_axes ) {
-			free(joystick->hwdata->new_axes);
+			SDL_free(joystick->hwdata->new_axes);
 		}
-		free(joystick->hwdata);
+		SDL_free(joystick->hwdata);
 		joystick->hwdata = NULL;
 	}
 }
@@ -229,14 +222,16 @@ void SDL_SYS_JoystickQuit(void)
 	int i;
 
 	for ( i=0; SDL_joyport[i]; ++i ) {
-		free(SDL_joyport[i]);
+		SDL_free(SDL_joyport[i]);
 	}
 	SDL_joyport[0] = NULL;
 
 	for ( i=0; SDL_joyname[i]; ++i ) {
-		free(SDL_joyname[i]);
+		SDL_free(SDL_joyname[i]);
 	}
 	SDL_joyname[0] = NULL;
 }
 
 }; // extern "C"
+
+#endif /* SDL_JOYSTICK_BEOS */

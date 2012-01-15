@@ -1,31 +1,29 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_romaudio.c,v 1.9 2004/01/04 16:49:14 slouken Exp $";
-#endif
-
-#if TARGET_API_MAC_CARBON
+#if defined(__APPLE__) && defined(__MACH__)
+#  include <Carbon/Carbon.h>
+#elif TARGET_API_MAC_CARBON && (UNIVERSAL_INTERFACES_VERSION > 0x0335)
 #  include <Carbon.h>
 #else
 #  include <Sound.h> /* SoundManager interface */
@@ -33,14 +31,18 @@ static char rcsid =
 #  include <DriverServices.h>
 #endif
 
-#include <stdlib.h>
-#include <stdio.h>
+#if !defined(NewSndCallBackUPP) && (UNIVERSAL_INTERFACES_VERSION < 0x0335)
+#if !defined(NewSndCallBackProc) /* avoid circular redefinition... */
+#define NewSndCallBackUPP NewSndCallBackProc
+#endif
+#if !defined(NewSndCallBackUPP)
+#define NewSndCallBackUPP NewSndCallBackProc
+#endif
+#endif
 
-#include "SDL_endian.h"
 #include "SDL_audio.h"
-#include "SDL_audio_c.h"
-#include "SDL_audiomem.h"
-#include "SDL_sysaudio.h"
+#include "../SDL_audio_c.h"
+#include "../SDL_sysaudio.h"
 #include "SDL_romaudio.h"
 
 /* Audio driver functions */
@@ -60,8 +62,8 @@ static int Audio_Available(void)
 
 static void Audio_DeleteDevice(SDL_AudioDevice *device)
 {
-    free(device->hidden);
-    free(device);
+    SDL_free(device->hidden);
+    SDL_free(device);
 }
 
 static SDL_AudioDevice *Audio_CreateDevice(int devindex)
@@ -69,20 +71,20 @@ static SDL_AudioDevice *Audio_CreateDevice(int devindex)
     SDL_AudioDevice *this;
 
     /* Initialize all variables that we clean on shutdown */
-    this = (SDL_AudioDevice *)malloc(sizeof(SDL_AudioDevice));
+    this = (SDL_AudioDevice *)SDL_malloc(sizeof(SDL_AudioDevice));
     if ( this ) {
-        memset(this, 0, (sizeof *this));
+        SDL_memset(this, 0, (sizeof *this));
         this->hidden = (struct SDL_PrivateAudioData *)
-                malloc((sizeof *this->hidden));
+                SDL_malloc((sizeof *this->hidden));
     }
     if ( (this == NULL) || (this->hidden == NULL) ) {
         SDL_OutOfMemory();
         if ( this ) {
-            free(this);
+            SDL_free(this);
         }
         return(0);
     }
-    memset(this->hidden, 0, (sizeof *this->hidden));
+    SDL_memset(this->hidden, 0, (sizeof *this->hidden));
 
     /* Set the function pointers */
     this->OpenAudio   = Mac_OpenAudio;
@@ -91,7 +93,7 @@ static SDL_AudioDevice *Audio_CreateDevice(int devindex)
     this->UnlockAudio = Mac_UnlockAudio;
     this->free        = Audio_DeleteDevice;
 
-#ifdef MACOSX	/* MacOS X uses threaded audio, so normal thread code is okay */
+#ifdef __MACOSX__	/* Mac OS X uses threaded audio, so normal thread code is okay */
     this->LockAudio   = NULL;
     this->UnlockAudio = NULL;
 #endif
@@ -104,7 +106,7 @@ AudioBootStrap SNDMGR_bootstrap = {
 };
 
 #if defined(TARGET_API_MAC_CARBON) || defined(USE_RYANS_SOUNDCODE)
-/* This works correctly on MacOS X */
+/* This works correctly on Mac OS X */
 
 #pragma options align=power
 
@@ -119,7 +121,7 @@ static volatile Uint32 fill_me = 0;
 static void mix_buffer(SDL_AudioDevice *audio, UInt8 *buffer)
 {
    if ( ! audio->paused ) {
-#ifdef MACOSX
+#ifdef __MACOSX__
         SDL_mutexP(audio->mixer_lock);
 #endif
         if ( audio->convert.needed ) {
@@ -129,11 +131,11 @@ static void mix_buffer(SDL_AudioDevice *audio, UInt8 *buffer)
             if ( audio->convert.len_cvt != audio->spec.size ) {
                 /* Uh oh... probably crashes here */;
             }
-            memcpy(buffer, audio->convert.buf, audio->convert.len_cvt);
+            SDL_memcpy(buffer, audio->convert.buf, audio->convert.len_cvt);
         } else {
             audio->spec.callback(audio->spec.userdata, buffer, audio->spec.size);
         }
-#ifdef MACOSX
+#ifdef __MACOSX__
         SDL_mutexV(audio->mixer_lock);
 #endif
     }
@@ -229,7 +231,7 @@ static int Mac_OpenAudio(_THIS, SDL_AudioSpec *spec) {
     
     /* initialize bufferCmd header */
     memset (&header, 0, sizeof(header));
-    callback = NewSndCallBackUPP (callBackProc);
+    callback = (SndCallBackUPP) NewSndCallBackUPP (callBackProc);
     sample_bits = spec->size / spec->samples / spec->channels * 8;
 
 #ifdef DEBUG_AUDIO
@@ -261,7 +263,7 @@ static int Mac_OpenAudio(_THIS, SDL_AudioSpec *spec) {
    }
    
    /* Create the sound manager channel */
-    channel = (SndChannelPtr)malloc(sizeof(*channel));
+    channel = (SndChannelPtr)SDL_malloc(sizeof(*channel));
     if ( channel == NULL ) {
         SDL_OutOfMemory();
         return(-1);
@@ -275,7 +277,7 @@ static int Mac_OpenAudio(_THIS, SDL_AudioSpec *spec) {
     channel->qLength = 128;
     if ( SndNewChannel(&channel, sampledSynth, initOptions, callback) != noErr ) {
         SDL_SetError("Unable to create audio channel");
-        free(channel);
+        SDL_free(channel);
         channel = NULL;
         return(-1);
     }
@@ -305,7 +307,7 @@ static void Mac_CloseAudio(_THIS) {
    
     for ( i=0; i<2; ++i ) {
         if ( buffer[i] ) {
-            free(buffer[i]);
+            SDL_free(buffer[i]);
             buffer[i] = NULL;
         }
     }
@@ -349,7 +351,7 @@ void sndDoubleBackProc (SndChannelPtr chan, SndDoubleBufferPtr newbuf)
                 /* Uh oh... probably crashes here */;
             }
 #endif
-            memcpy(newbuf->dbSoundData, audio->convert.buf,
+            SDL_memcpy(newbuf->dbSoundData, audio->convert.buf,
                             audio->convert.len_cvt);
         } else {
             audio->spec.callback(audio->spec.userdata,
@@ -394,7 +396,7 @@ static void Mac_CloseAudio(_THIS)
     }
     for ( i=0; i<2; ++i ) {
         if ( audio_buf[i] ) {
-            free(audio_buf[i]);
+            SDL_free(audio_buf[i]);
             audio_buf[i] = NULL;
         }
     }
@@ -429,7 +431,7 @@ static int Mac_OpenAudio(_THIS, SDL_AudioSpec *spec)
     SDL_CalculateAudioSpec(spec);
 
     /* initialize the double-back header */
-    memset(&audio_dbh, 0, sizeof(audio_dbh));
+    SDL_memset(&audio_dbh, 0, sizeof(audio_dbh));
     doubleBackProc = NewSndDoubleBackProc (sndDoubleBackProc);
     sample_bits = spec->size / spec->samples / spec->channels * 8;
     
@@ -449,7 +451,7 @@ static int Mac_OpenAudio(_THIS, SDL_AudioSpec *spec)
 
     /* allocate the 2 double-back buffers */
     for ( i=0; i<2; ++i ) {
-        audio_buf[i] = calloc(1, sizeof(SndDoubleBuffer)+spec->size);
+        audio_buf[i] = SDL_calloc(1, sizeof(SndDoubleBuffer)+spec->size);
         if ( audio_buf[i] == NULL ) {
             SDL_OutOfMemory();
             return(-1);
@@ -461,7 +463,7 @@ static int Mac_OpenAudio(_THIS, SDL_AudioSpec *spec)
     }
 
     /* Create the sound manager channel */
-    channel = (SndChannelPtr)malloc(sizeof(*channel));
+    channel = (SndChannelPtr)SDL_malloc(sizeof(*channel));
     if ( channel == NULL ) {
         SDL_OutOfMemory();
         return(-1);
@@ -475,7 +477,7 @@ static int Mac_OpenAudio(_THIS, SDL_AudioSpec *spec)
     channel->qLength = 128;
     if ( SndNewChannel(&channel, sampledSynth, initOptions, 0L) != noErr ) {
         SDL_SetError("Unable to create audio channel");
-        free(channel);
+        SDL_free(channel);
         channel = NULL;
         return(-1);
     }

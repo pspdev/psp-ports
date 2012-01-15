@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: virtch.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: virtch.c,v 1.2 2004/02/13 13:31:54 raph Exp $
 
   Sample mixing routines, using a 32 bits mixing buffer.
 
@@ -571,6 +571,37 @@ static void MixReverb_Stereo(SLONG* srce,NATIVE count)
 }
 
 /* Mixing macros */
+#define EXTRACT_SAMPLE_FP(var,size) var=(*srce++>>(BITSHIFT-size)) * ((1.0f / 32768.0f) / (1 << size))
+#define CHECK_SAMPLE_FP(var,bound) var=(var>bound)?bound:(var<-bound)?-bound:var
+#define PUT_SAMPLE_FP(var) *dste++=var
+
+static void Mix32ToFP(float* dste,SLONG* srce,NATIVE count)
+{
+	float x1,x2,x3,x4;
+	int	remain;
+
+	#define FP_SHIFT	4
+	
+	remain=count&3;
+	for(count>>=2;count;count--) {
+		EXTRACT_SAMPLE_FP(x1,FP_SHIFT); EXTRACT_SAMPLE_FP(x2,FP_SHIFT);
+		EXTRACT_SAMPLE_FP(x3,FP_SHIFT); EXTRACT_SAMPLE_FP(x4,FP_SHIFT);
+
+		CHECK_SAMPLE_FP(x1,1.0f); CHECK_SAMPLE_FP(x2,1.0f);
+		CHECK_SAMPLE_FP(x3,1.0f); CHECK_SAMPLE_FP(x4,1.0f);
+
+		PUT_SAMPLE_FP(x1); PUT_SAMPLE_FP(x2);
+		PUT_SAMPLE_FP(x3); PUT_SAMPLE_FP(x4);
+	}
+	while(remain--) {
+		EXTRACT_SAMPLE_FP(x1,FP_SHIFT);
+		CHECK_SAMPLE_FP(x1,1.0f);
+		PUT_SAMPLE_FP(x1);
+	}
+}
+
+
+/* Mixing macros */
 #define EXTRACT_SAMPLE(var,size) var=*srce++>>(BITSHIFT+16-size)
 #define CHECK_SAMPLE(var,bound) var=(var>=bound)?bound-1:(var<-bound)?-bound:var
 #define PUT_SAMPLE(var) *dste++=var
@@ -823,7 +854,9 @@ void VC1_WriteSamples(SBYTE* buf,ULONG todo)
 				MixReverb(vc_tickbuf, portion);
 			}
 
-			if(vc_mode & DMODE_16BITS)
+			if(vc_mode & DMODE_FLOAT)
+				Mix32ToFP((float*) buffer, vc_tickbuf, count);
+			else if(vc_mode & DMODE_16BITS)
 				Mix32To16((SWORD*) buffer, vc_tickbuf, count);
 			else
 				Mix32To8((SBYTE*) buffer, vc_tickbuf, count);

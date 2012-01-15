@@ -1,49 +1,42 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997, 1998, 1999  Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_syswm.c,v 1.7 2002/08/17 18:03:06 slouken Exp $"
-#endif
-
-#include <stdio.h>
-#include <malloc.h>
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 #include "SDL_version.h"
-#include "SDL_error.h"
 #include "SDL_video.h"
+#include "SDL_loadso.h"
 #include "SDL_syswm.h"
+#include "../SDL_pixels_c.h"
+#include "../SDL_cursor_c.h"
 #include "SDL_syswm_c.h"
 #include "SDL_wingl_c.h"
-#include "SDL_pixels_c.h"
+
 
 #ifdef _WIN32_WCE
 #define DISABLE_ICON_SUPPORT
 #endif
-
-/*	RJR: March 28, 2000
-	we need "SDL_cursor_c.h" for mods to WIN_GrabInput */
-#include "SDL_cursor_c.h"
 
 /* The screen icon -- needs to be freed on SDL_VideoQuit() */
 HICON   screen_icn = NULL;
@@ -103,11 +96,11 @@ void WIN_SetWMIcon(_THIS, SDL_Surface *icon, Uint8 *mask)
 	icon_plen = icon->h*icon_pitch;
 	icon_mlen = icon->h*mask_pitch;
 	icon_len = sizeof(*icon_win32)+icon_plen+icon_mlen;
-	icon_win32 = (struct Win32Icon *)alloca(icon_len);
+	icon_win32 = (struct Win32Icon *)SDL_stack_alloc(Uint8, icon_len);
 	if ( icon_win32 == NULL ) {
 		return;
 	}
-	memset(icon_win32, 0, icon_len);
+	SDL_memset(icon_win32, 0, icon_len);
 
 	/* Set the basic BMP parameters */
 	icon_win32->biSize = sizeof(*icon_win32)-sizeof(icon_win32->biColors);
@@ -121,13 +114,14 @@ void WIN_SetWMIcon(_THIS, SDL_Surface *icon, Uint8 *mask)
 	icon_256 = SDL_CreateRGBSurface(SDL_SWSURFACE, icon->w, icon->h,
 					 icon_win32->biBitCount, 0, 0, 0, 0);
 	if ( icon_256 == NULL ) {
+		SDL_stack_free(icon_win32);
 		return;
 	}
 	pal_256 = icon_256->format->palette;
 	if (icon->format->palette && 
 		(icon->format->BitsPerPixel == icon_256->format->BitsPerPixel)){
 		Uint8 black;
-		memcpy(pal_256->colors, icon->format->palette->colors,
+		SDL_memcpy(pal_256->colors, icon->format->palette->colors,
 					pal_256->ncolors*sizeof(SDL_Color));
 		/* Make sure that 0 is black! */
 		black = SDL_FindColor(pal_256, 0x00, 0x00, 0x00);
@@ -151,17 +145,19 @@ void WIN_SetWMIcon(_THIS, SDL_Surface *icon, Uint8 *mask)
 	   be necessary, as Windows supports a variety of BMP formats, but
 	   it greatly simplifies our code.
 	*/ 
-        bounds.x = 0;
-        bounds.y = 0;
-        bounds.w = icon->w;
-        bounds.h = icon->h;
-        if ( SDL_LowerBlit(icon, &bounds, icon_256, &bounds) < 0 ) {
+    bounds.x = 0;
+    bounds.y = 0;
+    bounds.w = icon->w;
+    bounds.h = icon->h;
+    if ( SDL_LowerBlit(icon, &bounds, icon_256, &bounds) < 0 ) {
+	    SDL_stack_free(icon_win32);
 		SDL_FreeSurface(icon_256);
-                return;
+        return;
 	}
 
 	/* Copy pixels upside-down to icon BMP, masked with the icon mask */
 	if ( SDL_MUSTLOCK(icon_256) || (icon_256->pitch != icon_pitch) ) {
+		SDL_stack_free(icon_win32);
 		SDL_FreeSurface(icon_256);
 		SDL_SetError("Warning: Unexpected icon_256 characteristics");
 		return;
@@ -205,21 +201,29 @@ void WIN_SetWMIcon(_THIS, SDL_Surface *icon, Uint8 *mask)
 	if ( screen_icn == NULL ) {
 		SDL_SetError("Couldn't create Win32 icon handle");
 	} else {
-		SetClassLong(SDL_Window, GCL_HICON, (LONG)screen_icn);
+		SetClassLongPtr(SDL_Window, GCLP_HICON, (LONG_PTR)screen_icn);
 	}
+	SDL_stack_free(icon_win32);
 #endif /* DISABLE_ICON_SUPPORT */
 }
+
+typedef BOOL (WINAPI *PtrSetWindowTextW)(HWND hWnd, LPCWSTR lpString);
 
 void WIN_SetWMCaption(_THIS, const char *title, const char *icon)
 {
 #ifdef _WIN32_WCE
 	/* WinCE uses the UNICODE version */
-	int nLen = strlen(title)+1;
-	LPWSTR lpszW = alloca(nLen*2);
-	MultiByteToWideChar(CP_ACP, 0, title, -1, lpszW, nLen);
+	LPWSTR lpszW = SDL_iconv_utf8_ucs2((char *)title);
 	SetWindowText(SDL_Window, lpszW);
+	SDL_free(lpszW);
 #else
-	SetWindowText(SDL_Window, title);
+	Uint16 *lpsz = SDL_iconv_utf8_ucs2(title);
+	size_t len = WideCharToMultiByte(CP_ACP, 0, lpsz, -1, NULL, 0, NULL, NULL);
+	char *cvt = SDL_stack_alloc(char, len + 1);
+	WideCharToMultiByte(CP_ACP, 0, lpsz, -1, cvt, len, NULL, NULL);
+	SetWindowText(SDL_Window, cvt);
+	SDL_stack_free(cvt);
+	SDL_free(lpsz);
 #endif
 }
 
@@ -245,6 +249,9 @@ SDL_GrabMode WIN_GrabInput(_THIS, SDL_GrabMode mode)
 			ClientToScreen(SDL_Window, &pt);
 			SetCursorPos(pt.x,pt.y);
 		}
+#ifdef _WIN32_WCE
+		AllKeys(0);
+#endif
 	} else {
 		ClipCursor(&SDL_bounds);
 		if ( !(SDL_cursorstate & CURSOR_VISIBLE) ) {
@@ -257,6 +264,9 @@ SDL_GrabMode WIN_GrabInput(_THIS, SDL_GrabMode mode)
 			ClientToScreen(SDL_Window, &pt);
 			SetCursorPos(pt.x, pt.y);
 		}
+#ifdef _WIN32_WCE
+		AllKeys(1);
+#endif
 	}
 	return(mode);
 }
@@ -272,7 +282,7 @@ int WIN_GetWMInfo(_THIS, SDL_SysWMinfo *info)
 		                    info->version.minor,
 		                    info->version.patch) >=
 		     SDL_VERSIONNUM(1, 2, 5) ) {
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 			info->hglrc = GL_hrc;
 #else
 			info->hglrc = NULL;

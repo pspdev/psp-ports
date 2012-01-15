@@ -939,7 +939,7 @@ uint8 _l2u_[] =
 uint8 *_l2u = _l2u_ + 4096;
 
 
-/*	$Id: tables.c,v 1.3 2004/08/21 12:24:06 slouken Exp $   Greg Lee */
+/*	$Id: tables.c 1404 2004-08-21 12:27:02Z slouken $   Greg Lee */
 int xmap[XMAPMAX][5] = {
 { SFXBANK, 0, 0, 120, 0 },
 { SFXBANK, 0, 1, 120, 1 },

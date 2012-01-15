@@ -1,6 +1,6 @@
 /*
     SDL_mixer:  An audio mixer library based on the SDL library
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -20,13 +20,13 @@
     slouken@libsdl.org
 */
 
-/* $Id: music_ogg.h,v 1.6 2004/08/22 07:55:14 slouken Exp $ */
+/* $Id: music_ogg.h 4211 2008-12-08 00:27:32Z slouken $ */
 
 #ifdef OGG_MUSIC
 
 /* This file supports Ogg Vorbis music streams */
 
-#ifdef USE_TREMOR
+#ifdef OGG_USE_TREMOR
 #include <tremor/ivorbisfile.h>
 #else
 #include <vorbis/vorbisfile.h>
@@ -63,7 +63,7 @@ extern void OGG_play(OGG_music *music);
 extern int OGG_playing(OGG_music *music);
 
 /* Play some of a stream previously started with OGG_play() */
-extern void OGG_playAudio(OGG_music *music, Uint8 *stream, int len);
+extern int OGG_playAudio(OGG_music *music, Uint8 *stream, int len);
 
 /* Stop playback of a stream previously started with OGG_play() */
 extern void OGG_stop(OGG_music *music);
