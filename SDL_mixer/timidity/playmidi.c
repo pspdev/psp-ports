@@ -25,6 +25,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <SDL_rwops.h>
+
 #include "config.h"
 #include "common.h"
 #include "instrum.h"
@@ -32,24 +34,15 @@
 #include "readmidi.h"
 #include "output.h"
 #include "mix.h"
-#include "controls.h"
+#include "ctrlmode.h"
 #include "timidity.h"
 
 #include "tables.h"
 
 
-static int dont_cspline=0;
-static int opt_dry = 1;
 static int opt_expression_curve = 2;
 static int opt_volume_curve = 2;
 static int opt_stereo_surround = 0;
-static int dont_filter_melodic=1;
-static int dont_filter_drums=1;
-static int dont_chorus=0;
-static int dont_reverb=0;
-static int current_interpolation=1;
-static int dont_keep_looping=0;
-static int voice_reserve=0;
 
 
 Channel channel[MAXCHAN];
@@ -81,6 +74,7 @@ static int32 lost_notes, cut_notes;
 static int32 *buffer_pointer;
 static int32 buffered_count;
 extern int32 *common_buffer;
+extern resample_t *resample_buffer; /* to free it on Timidity_Close */
 
 static MidiEvent *event_list, *current_event;
 static int32 sample_count, current_sample;
@@ -341,7 +335,6 @@ static void recompute_amp(int v)
   int vol = channel[chan].volume;
   int expr = channel[chan].expression;
   int vel = vcurve[voice[v].velocity];
-  int drumpan = NO_PANNING;
   FLOAT_T curved_expression, curved_volume;
 
   if (channel[chan].kit)
@@ -1698,23 +1691,45 @@ void Timidity_SetVolume(int volume)
   ctl->master_volume(amplification);
 }
 
-MidiSong *Timidity_LoadSong(char *midifile)
+MidiSong *Timidity_LoadSong(const char *midifile)
 {
   MidiSong *song;
   int32 events;
-  FILE *fp;
+  SDL_RWops *rw;
 
   /* Allocate memory for the song */
   song = (MidiSong *)safe_malloc(sizeof(*song));
   memset(song, 0, sizeof(*song));
 
   /* Open the file */
-  fp = open_file(midifile, 1, OF_VERBOSE);
   strcpy(midi_name, midifile);
-  if ( fp != NULL ) {
-    song->events=read_midi_file(fp, &events, &song->samples);
-    close_file(fp);
+
+  rw = SDL_RWFromFile(midifile, "rb");
+  if ( rw != NULL ) {
+    song->events=read_midi_file(rw, &events, &song->samples);
+    SDL_RWclose(rw);
   }
+
+  /* Make sure everything is okay */
+  if (!song->events) {
+    free(song);
+    song = NULL;
+  }
+  return(song);
+}
+
+MidiSong *Timidity_LoadSong_RW(SDL_RWops *rw)
+{
+  MidiSong *song;
+  int32 events;
+
+  /* Allocate memory for the song */
+  song = (MidiSong *)safe_malloc(sizeof(*song));
+  memset(song, 0, sizeof(*song));
+
+  strcpy(midi_name, "SDLrwops source");
+
+  song->events=read_midi_file(rw, &events, &song->samples);
 
   /* Make sure everything is okay */
   if (!song->events) {
@@ -1749,9 +1764,23 @@ void Timidity_Stop(void)
 void Timidity_FreeSong(MidiSong *song)
 {
   if (free_instruments_afterwards)
-      free_instruments();
+    free_instruments();
   
   free(song->events);
   free(song);
+}
+
+void Timidity_Close(void)
+{
+  if (resample_buffer) {
+    free(resample_buffer);
+    resample_buffer=NULL;
+  }
+  if (common_buffer) {
+    free(common_buffer);
+    common_buffer=NULL;
+  }
+  free_instruments();
+  free_pathlist();
 }
 

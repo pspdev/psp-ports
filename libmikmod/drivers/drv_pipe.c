@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_pipe.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: drv_pipe.c,v 1.3 2004/01/31 22:39:40 raph Exp $
 
   Driver for output via a pipe to another command
 
@@ -183,7 +183,7 @@ MIKMODAPI MDRIVER drv_pipe={
 	"Piped Output driver v0.2",
 	0,255,
 	"pipe",
-
+	"pipe:t::Pipe command\n",
 	pipe_CommandLine,
 	pipe_IsThere,
 	VC_SampleLoad,

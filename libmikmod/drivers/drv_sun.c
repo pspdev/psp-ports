@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_sun.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: drv_sun.c,v 1.3 2004/02/10 14:02:24 raph Exp $
 
   Driver for output on the Sun audio device (/dev/audio).
   Also works under NetBSD and OpenBSD
@@ -83,6 +83,12 @@ extern int fputs(const char *, FILE *);
 #define SOUNDDEVICE "/dev/sound"
 #else /* Solaris, *BSD */
 #define SOUNDDEVICE "/dev/audio"
+#endif
+
+/* Solaris doesn't have these */
+#ifdef SOLARIS
+#define AUDIO_ENCODING_SLINEAR AUDIO_ENCODING_LINEAR
+#define AUDIO_ENCODING_ULINEAR AUDIO_ENCODING_LINEAR8
 #endif
 
 /* Compatibility defines, for old *BSD or SunOS systems */
@@ -466,6 +472,12 @@ MIKMODAPI MDRIVER drv_sun = {
 #endif
 	0, 255,
 	"audio",
+        "buffer:r:7,17,12:Audio buffer log2 size\n"
+#if defined(SUNOS) || defined(SOLARIS)
+        "headphone:b:0:Use headphone\n"
+        "speaker:b:0:Use speaker\n"
+#endif
+	,
 
 	Sun_CommandLine,
 	Sun_IsThere,

@@ -1,6 +1,6 @@
 /*
     SDL_mixer:  An audio mixer library based on the SDL library
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -16,12 +16,12 @@
     License along with this library; if not, write to the Free
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-    This file by Ryan C. Gordon (icculus@linuxgames.com)
+    This file by Ryan C. Gordon (icculus@icculus.org)
 
     These are some helper functions for the internal mixer special effects.
 */
 
-/* $Id: effects_internal.c,v 1.6 2004/01/04 17:37:04 slouken Exp $ */
+/* $Id: effects_internal.c 4211 2008-12-08 00:27:32Z slouken $ */
 
 
      /* ------ These are used internally only. Don't touch. ------ */
@@ -32,6 +32,9 @@
 #include <stdlib.h>
 #include "SDL_mixer.h"
 
+#define __MIX_INTERNAL_EFFECT__
+#include "effects_internal.h"
+
 /* Should we favor speed over memory usage and/or quality of output? */
 int _Mix_effects_max_speed = 0;
 
@@ -39,6 +42,11 @@ int _Mix_effects_max_speed = 0;
 void _Mix_InitEffects(void)
 {
     _Mix_effects_max_speed = (getenv(MIX_EFFECTSMAXSPEED) != NULL);
+}
+
+void _Mix_DeinitEffects(void)
+{
+    _Eff_PositionDeinit();
 }
 
 

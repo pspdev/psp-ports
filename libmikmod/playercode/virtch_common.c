@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: virtch_common.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: virtch_common.c,v 1.2 2004/02/13 13:31:54 raph Exp $
 
   Common source parts between the two software mixers.
   This file is probably the ugliest part of libmikmod...
@@ -225,14 +225,16 @@ void VC_SetupPointers(void)
 
 static ULONG samples2bytes(ULONG samples)
 {
-	if(vc_mode & DMODE_16BITS) samples <<= 1;
+	if(vc_mode & DMODE_FLOAT) samples <<= 2;
+	else if(vc_mode & DMODE_16BITS) samples <<= 1;
 	if(vc_mode & DMODE_STEREO) samples <<= 1;
 	return samples;
 }
 
 static ULONG bytes2samples(ULONG bytes)
 {
-	if(vc_mode & DMODE_16BITS) bytes >>= 1;
+	if(vc_mode & DMODE_FLOAT) bytes >>= 2;
+	else if(vc_mode & DMODE_16BITS) bytes >>= 1;
 	if(vc_mode & DMODE_STEREO) bytes >>= 1;
 	return bytes;
 }
@@ -244,7 +246,9 @@ ULONG VC1_SilenceBytes(SBYTE* buf,ULONG todo)
 	todo=samples2bytes(bytes2samples(todo));
 
 	/* clear the buffer to zero (16 bits signed) or 0x80 (8 bits unsigned) */
-	if(vc_mode & DMODE_16BITS)
+	if(vc_mode & DMODE_FLOAT)
+		memset(buf,0,todo);
+	else if(vc_mode & DMODE_16BITS)
 		memset(buf,0,todo);
 	else
 		memset(buf,0x80,todo);

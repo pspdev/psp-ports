@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_esd.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: drv_esd.c,v 1.3 2004/01/31 22:39:40 raph Exp $
 
   Driver for the Enlightened sound daemon (EsounD)
 
@@ -319,7 +319,7 @@ MIKMODAPI MDRIVER drv_esd={
 	"Enlightened sound daemon (EsounD) driver v0.2.23",
 	0,255,
 	"esd",
-
+	"machine:t::Audio server machine (hostname:port)\n",
 	ESD_CommandLine,
 	ESD_IsThere,
 	VC_SampleLoad,

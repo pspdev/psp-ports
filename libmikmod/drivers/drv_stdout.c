@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_stdout.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: drv_stdout.c,v 1.3 2004/01/31 22:39:40 raph Exp $
 
   Output data to stdout
 
@@ -90,7 +90,7 @@ MIKMODAPI MDRIVER drv_stdout={
 	"Standard output driver v1.1",
 	0,255,
 	"stdout",
-
+	NULL,
 	NULL,
 	stdout_IsThere,
 	VC_SampleLoad,

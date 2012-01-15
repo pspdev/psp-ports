@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_raw.c,v 1.2 2004/01/21 17:29:32 raph Exp $
+  $Id: drv_raw.c,v 1.4 2004/01/31 22:39:40 raph Exp $
 
   Driver for output to a file called MUSIC.RAW
 
@@ -143,7 +143,7 @@ MIKMODAPI MDRIVER drv_raw={
 	"Raw disk writer (music.raw) v1.1",
 	0,255,
 	"raw",
-
+	"file:t:music.raw:Output file name\n",
 	RAW_CommandLine,
 	RAW_IsThere,
 	VC_SampleLoad,

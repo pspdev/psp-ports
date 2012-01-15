@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: mmio.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: mmio.c,v 1.2 2004/02/06 19:29:05 raph Exp $
 
   Portable file I/O routines
 
@@ -266,7 +266,7 @@ void _mm_write_I_SLONG(SLONG data,MWRITER* writer)
 	_mm_write_I_ULONG((ULONG)data,writer);
 }
 
-#if defined __STDC__ || defined _MSC_VER
+#if defined __STDC__ || defined _MSC_VER || defined MPW_C
 #define DEFINE_MULTIPLE_WRITE_FUNCTION(type_name,type)						\
 void _mm_write_##type_name##S (type *buffer,int number,MWRITER* writer)		\
 {																			\
@@ -347,7 +347,7 @@ SLONG _mm_read_I_SLONG(MREADER* reader)
 	return((SLONG)_mm_read_I_ULONG(reader));
 }
 
-#if defined __STDC__ || defined _MSC_VER
+#if defined __STDC__ || defined _MSC_VER || defined MPW_C
 #define DEFINE_MULTIPLE_READ_FUNCTION(type_name,type)						\
 int _mm_read_##type_name##S (type *buffer,int number,MREADER* reader)		\
 {																			\

@@ -19,9 +19,10 @@
 
 /* This is for use with the SDL library */
 #define SDL
-#if (defined(WIN32) || defined(_WIN32)) && !defined(__WIN32__)
-#define __WIN32__
-#endif
+#include "SDL_config.h"
+#include "SDL_endian.h"
+
+#define TIMIDITY_ERROR_SIZE 1024
 
 /* When a patch file can't be opened, one of these extensions is
    appended to the filename and the open is tried again.
@@ -138,66 +139,8 @@ typedef double FLOAT_T;
 /* This is enforced by some computations that must fit in an int */
 #define MAX_CONTROL_RATIO 255
 
-#if MACOSX
-#undef LITTLE_ENDIAN
-#undef BIG_ENDIAN
-#define BIG_ENDIAN 1
-#endif
-
-/* Byte order, defined in <machine/endian.h> for FreeBSD and DEC OSF/1 */
-#ifdef DEC
-#include <machine/endian.h>
-#endif
-
-#ifdef linux
-/*
- * Byte order is defined in <bytesex.h> as __BYTE_ORDER, that need to
- * be checked against __LITTLE_ENDIAN and __BIG_ENDIAN defined in <endian.h>
- * <endian.h> includes automagically <bytesex.h>
- * for Linux.
- */
-#include <endian.h>
-
-/*
- * We undef the two things to start with a clean situation
- * (oddly enough, <endian.h> defines under certain conditions
- * the two things below, as __LITTLE_ENDIAN and __BIG_ENDIAN, that
- * are useless for our plans)
- */
-#undef LITTLE_ENDIAN
-#undef BIG_ENDIAN
-
-# if __BYTE_ORDER == __LITTLE_ENDIAN
-#  define LITTLE_ENDIAN
-# elif __BYTE_ORDER == __BIG_ENDIAN
-#  define BIG_ENDIAN
-# else
-# error No byte sex defined
-# endif
-#endif /* linux */
-
-/* Win32 on Intel machines */
-#ifdef __WIN32__
-#  define LITTLE_ENDIAN
-#endif
-
-#ifdef i386
-#define LITTLE_ENDIAN
-#endif
-
-/* The person compiling DukeNukem 3D for the PSP pointed out another */
-/* problem - SDL_mixer/timidity/config.h needs added to it for the   */
-/* PSP or it won't play MIDI files correctly.                        */
-#define LITTLE_ENDIAN
-
-/* DEC MMS has 64 bit long words */
-#ifdef DEC
 typedef unsigned int uint32;
 typedef int int32; 
-#else
-typedef unsigned long uint32;
-typedef long int32; 
-#endif
 typedef unsigned short uint16;
 typedef short int16;
 typedef unsigned char uint8;
@@ -212,7 +155,7 @@ typedef char int8;
 		      (((x)&0xFF0000)>>8) | \
 		      (((x)>>24)&0xFF))
 
-#ifdef LITTLE_ENDIAN
+#if SDL_BYTEORDER == SDL_LIL_ENDIAN
 #define LE_SHORT(x) x
 #define LE_LONG(x) x
 #define BE_SHORT(x) XCHG_SHORT(x)
@@ -229,10 +172,14 @@ typedef char int8;
 /* You could specify a complete path, e.g. "/etc/timidity.cfg", and
    then specify the library directory in the configuration file. */
 #define CONFIG_FILE	"timidity.cfg"
-#ifdef __WIN32__
-#define DEFAULT_PATH	"\\TIMIDITY"
+#define CONFIG_FILE_ETC "/etc/timidity.cfg"
+
+#if defined(__WIN32__) || defined(__OS2__)
+#define DEFAULT_PATH	"C:\\TIMIDITY"
 #else
-#define DEFAULT_PATH	"/usr/local/lib/timidity"
+#define DEFAULT_PATH	"/etc/timidity"
+#define DEFAULT_PATH1	"/usr/share/timidity"
+#define DEFAULT_PATH2	"/usr/local/lib/timidity"
 #endif
 
 /* These affect general volume */
@@ -279,7 +226,7 @@ typedef int16 resample_t;
 #endif
 
 /* The path separator (D.M.) */
-#ifdef __WIN32__
+#if defined(__WIN32__) || defined(__OS2__)
 #  define PATH_SEP '\\'
 #  define PATH_STRING "\\"
 #else

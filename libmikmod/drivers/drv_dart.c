@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_dart.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: drv_dart.c,v 1.2 2004/01/31 22:39:40 raph Exp $
 
   Driver for output on OS/2 MMPM/2 using direct audio (DART)
 
@@ -279,7 +279,9 @@ MIKMODAPI MDRIVER drv_dart = {
 	"OS/2 DART driver v1.2",
 	0, 255,
 	"dart",
-
+	"device:r:0,8,0:Waveaudio device index to use (0 - default)\n"
+        "buffer:r:12,16:Audio buffer log2 size\n"
+        "count:r:2,8,2:Number of audio buffers\n",
 	Dart_CommandLine,
 	Dart_IsPresent,
 	VC_SampleLoad,

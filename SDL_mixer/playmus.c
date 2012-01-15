@@ -1,6 +1,6 @@
 /*
     PLAYMUS:  A test application for the SDL mixer library.
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -20,7 +20,7 @@
     slouken@libsdl.org
 */
 
-/* $Id: playmus.c,v 1.18 2004/08/21 12:24:02 slouken Exp $ */
+/* $Id: playmus.c 4211 2008-12-08 00:27:32Z slouken $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -38,7 +38,7 @@ static int audio_open = 0;
 static Mix_Music *music = NULL;
 static int next_track = 0;
 
-void CleanUp(void)
+void CleanUp(int exitcode)
 {
 	if( Mix_PlayingMusic() ) {
 		Mix_FadeOutMusic(1500);
@@ -53,18 +53,19 @@ void CleanUp(void)
 		audio_open = 0;
 	}
 	SDL_Quit();
+	exit(exitcode);
 }
 
 void Usage(char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-i] [-l] [-8] [-r rate] [-c channels] [-b buffers] [-v N] <musicfile>\n", argv0);
+	fprintf(stderr, "Usage: %s [-i] [-l] [-8] [-r rate] [-c channels] [-b buffers] [-v N] [-rwops] <musicfile>\n", argv0);
 }
 
 void Menu(void)
 {
 	char buf[10];
 
-	printf("Available commands: (p)ause (r)esume (h)alt > ");
+	printf("Available commands: (p)ause (r)esume (h)alt volume(v#) > ");
 	fflush(stdin);
 	scanf("%s",buf);
 	switch(buf[0]){
@@ -76,6 +77,9 @@ void Menu(void)
 		break;
 	case 'h': case 'H':
 		Mix_HaltMusic();
+		break;
+	case 'v': case 'V':
+		Mix_VolumeMusic(atoi(buf+1));
 		break;
 	}
 	printf("Music playing: %s Paused: %s\n", Mix_PlayingMusic() ? "yes" : "no", 
@@ -93,6 +97,7 @@ void IntHandler(int sig)
 
 int main(int argc, char *argv[])
 {
+	SDL_RWops *rwfp;
 	int audio_rate;
 	Uint16 audio_format;
 	int audio_channels;
@@ -100,6 +105,7 @@ int main(int argc, char *argv[])
 	int audio_volume = MIX_MAX_VOLUME;
 	int looping = 0;
 	int interactive = 0;
+	int rwops = 0;
 	int i;
 
 	/* Initialize variables */
@@ -137,6 +143,9 @@ int main(int argc, char *argv[])
 		} else
 		if ( strcmp(argv[i], "-8") == 0 ) {
 			audio_format = AUDIO_U8;
+		} else
+		if ( strcmp(argv[i], "-rwops") == 0 ) {
+			rwops = 1;
 		} else {
 			Usage(argv[0]);
 			return(1);
@@ -153,9 +162,8 @@ int main(int argc, char *argv[])
 		return(255);
 	}
 
-	atexit(CleanUp);
 	signal(SIGINT, IntHandler);
-	signal(SIGTERM, exit);
+	signal(SIGTERM, CleanUp);
 
 	/* Open the audio device */
 	if (Mix_OpenAudio(audio_rate, audio_format, audio_channels, audio_buffers) < 0) {
@@ -163,9 +171,10 @@ int main(int argc, char *argv[])
 		return(2);
 	} else {
 		Mix_QuerySpec(&audio_rate, &audio_format, &audio_channels);
-		printf("Opened audio at %d Hz %d bit %s, %d bytes audio buffer\n", audio_rate,
+		printf("Opened audio at %d Hz %d bit %s (%s), %d bytes audio buffer\n", audio_rate,
 			(audio_format&0xFF),
 			(audio_channels > 2) ? "surround" : (audio_channels > 1) ? "stereo" : "mono", 
+			(audio_format&0x1000) ? "BE" : "LE",
 			audio_buffers );
 	}
 	audio_open = 1;
@@ -180,11 +189,16 @@ int main(int argc, char *argv[])
 		next_track = 0;
 		
 		/* Load the requested music file */
-		music = Mix_LoadMUS(argv[i]);
+		if ( rwops ) {
+			rwfp = SDL_RWFromFile(argv[i], "rb");
+			music = Mix_LoadMUS_RW(rwfp);
+		} else {
+			music = Mix_LoadMUS(argv[i]);
+		}
 		if ( music == NULL ) {
 			fprintf(stderr, "Couldn't load %s: %s\n",
 				argv[i], SDL_GetError());
-			return(2);
+			CleanUp(2);
 		}
 		
 		/* Play and then exit */
@@ -197,6 +211,9 @@ int main(int argc, char *argv[])
 				SDL_Delay(100);
 		}
 		Mix_FreeMusic(music);
+		if ( rwops ) {
+			SDL_FreeRW(rwfp);
+		}
 		music = NULL;
 
 		/* If the user presses Ctrl-C more than once, exit. */
@@ -205,5 +222,8 @@ int main(int argc, char *argv[])
 		
 		i++;
 	}
-	return(0);
+	CleanUp(0);
+
+	/* Not reached, but fixes compiler warnings */
+	return 0;
 }

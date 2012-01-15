@@ -1,6 +1,6 @@
 /*
     SDL_mixer:  An audio mixer library based on the SDL library
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,12 +19,11 @@
     Sam Lantinga
     slouken@libsdl.org
 */
-
-/* $Id: music_cmd.c,v 1.6 2004/01/04 17:37:04 slouken Exp $ */
+#include "SDL_config.h"
 
 /* This file supports an external command for playing music */
 
-#ifdef unix		/* This is a UNIX-specific hack */
+#ifdef CMD_MUSIC
 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -144,7 +143,11 @@ static char **parse_args(char *command, char *last_arg)
 /* Start playback of a given music stream */
 void MusicCMD_Start(MusicCMD *music)
 {
+#ifdef HAVE_FORK
 	music->pid = fork();
+#else
+	music->pid = vfork();
+#endif
 	switch(music->pid) {
 	    /* Failed fork() system call */
 	    case -1:
@@ -155,6 +158,13 @@ void MusicCMD_Start(MusicCMD *music)
 	    case 0: {
 		    char command[PATH_MAX];
 		    char **argv;
+
+		    /* Unblock signals in case we're called from a thread */
+		    {
+			sigset_t mask;
+			sigemptyset(&mask);
+			sigprocmask(SIG_SETMASK, &mask, NULL);
+		    }
 
 		    /* Execute the command */
 		    strcpy(command, music->cmd);
@@ -229,4 +239,4 @@ int MusicCMD_Active(MusicCMD *music)
 	return(active);
 }
 
-#endif /* unix */
+#endif /* CMD_MUSIC */
