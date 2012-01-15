@@ -15,7 +15,7 @@ LIB_O=	src/lauxlib.o src/lbaselib.o src/lbitlib.o src/lcorolib.o src/ldblib.o\
 BASE_O= $(CORE_O) $(LIB_O)
 
 OBJS = $(BASE_O)
-TARGET_LIB = src/liblua.a
+TARGET_LIB = liblua.a
 
 include $(PSPSDK)/lib/build.mak
 
