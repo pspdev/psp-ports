@@ -230,6 +230,14 @@ struct pspgl_context {
 		unsigned	queuewait;	/* time spent waiting for queues */
 		unsigned	buffer_issues;	/* number of command buffers issued */
 	} stats;
+// @@@ added by Edorul for Display Lists
+	struct displaylists {
+		GLuint is_in_glNewList; // equal 1 if we are in glNewList / glEndList
+		GLuint nblists; // number of lists
+		GLuint calllists_base; // display-list base for glCallLists
+		GLuint index; //current display list
+	} displaylists;
+// @@@ end addition
 };
 
 
@@ -427,6 +435,53 @@ extern const struct pspgl_pixconfig __pspgl_pixconfigs[];
 
 #define EGLCFG_PIXIDX(cfg)	((cfg) & 0xf)
 #define EGLCFG_HASDEPTH(cfg)	(((cfg) & 0x10) >> 4)
+
+// @@@ added by Edorul for Display Lists
+#include <stdlib.h>
+
+extern void __pspgl_enable_state (GLenum cap, GLboolean enable); // from glEnable
+extern void __pspgl_update_color(unsigned long c); // glColor
+
+//extern int __pspgl_is_in_glNewList; // equal 1 if we are in glNewList / glEndList
+//extern int __pspgl_nblists; // number of lists
+//extern GLuint __pspgl_calllists_base; // display-list base for glCallLists 
+extern struct stDisplayLists *__pspgl_displaylists; // where Display lists will be stored
+extern struct stDisplayLists *__pspgl_actuallist;	// display list opened with glNewList
+
+struct stDisplayElement
+{
+	unsigned int command_num;
+	unsigned long parami1;
+	unsigned long parami2;
+	float paramf1;
+	float paramf2;
+	float paramf3;
+	float paramf4;
+	
+	struct stDisplayElement *next;
+};
+
+struct stDisplayLists
+{
+//	int index;
+	GLboolean is_used;
+	struct stDisplayElement *first;
+	struct stDisplayElement *last;
+	
+//	struct stDisplayLists *next;
+};
+
+// index to get the right function in functions' array
+enum eCommands {GLBEGIN=0, GLEND, GLTEXCOORD, GLVERTEX, GLCOLOR, GLENABLE, GLTRANSLATE};
+
+// functions' prototypes
+extern void __pspglBegin(struct stDisplayElement *de);
+extern void __pspglEnd(struct stDisplayElement *de);
+extern void __pspglTexCoord(struct stDisplayElement *de);
+extern void __pspglVertex(struct stDisplayElement *de);
+extern void __pspglColor(struct stDisplayElement *de);
+extern void __pspglEnable(struct stDisplayElement *de);
+extern void __pspglTranslate(struct stDisplayElement *de);
 
 #endif
 

@@ -77,6 +77,13 @@ EGLContext eglCreateContext (EGLDisplay dpy, EGLConfig config, EGLContext share_
 
 	ctx->pack.alignment = 4;
 	ctx->unpack.alignment = 4;
+	
+// @@@ added by edorul for display lists
+	ctx->displaylists.nblists = 0;
+	ctx->displaylists.is_in_glNewList = 0;
+	ctx->displaylists.calllists_base = 0;
+	ctx->displaylists.index = 0;
+// @@@ end of addition
 
 	return (EGLContext) ctx;
 

@@ -21,14 +21,8 @@ void *__pspgl_uncached(void *p, size_t size)
 
 void __pspgl_log (const char *fmt, ...)
 {
-	va_list ap;
-
-#if 1
-	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
-	va_end(ap);
-#else
 	char buf [1024];
+	va_list ap;
 	int len;
 	int log_fd;
 
@@ -41,7 +35,6 @@ void __pspgl_log (const char *fmt, ...)
 		sceIoWrite(log_fd, buf, len);
 		sceIoClose(log_fd);
 	}
-#endif
 }
 
 
@@ -167,34 +160,4 @@ void __pspgl_assert_fail(const char *expr, const void *retaddr,
 {
 	__pspgl_log("ASSERTION FAILURE: %s:%d (%s, called from %p): %s\n",
 		    file, line, func, retaddr, expr);
-}
-
-
-#undef calloc
-#undef malloc
-#undef realloc
-#undef free
-#include <stdlib.h>
-
-void* __pspgl_calloc (size_t count, size_t size, const char *function, unsigned int line)
-{
-	void *ptr = calloc(count, size);
-	__pspgl_log("%s(count %d, size %d, called from %s: %u): %p\n", __FUNCTION__, count, size, function, line, ptr);
-	return ptr;
-}
-
-
-void* __pspgl_realloc (void *ptr, size_t size, const char *function, unsigned int line)
-{
-	void *new_ptr = realloc(ptr, size);
-	__pspgl_log("%s(ptr %p, size %d, called from %s: %u): %p\n", __FUNCTION__, ptr, size, function, line, new_ptr);
-	return new_ptr;
-}
-
-
-void __pspgl_free (void *ptr, const char *function, unsigned int line)
-{
-	__pspgl_log("%s(ptr %p, called from %s: %u)\n", __FUNCTION__, ptr, function, line);
-	free(ptr);
-}
-
+} 

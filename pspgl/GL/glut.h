@@ -741,6 +741,16 @@ GLUTAPI void GLUTAPIENTRY glutLeaveGameMode(void);
 GLUTAPI int GLUTAPIENTRY glutGameModeGet(GLenum mode);
 #endif
 
+// @@@ added by edorul for key repeating handling
+#define GLUT_KEYREPEAT_DEFAULT		12	// repeat for special and mouse keys
+#define GLUT_KEYREPEAT_ASCII		2
+#define GLUT_KEYREPEAT_SPECIAL		4
+#define GLUT_KEYREPEAT_MOUSE		8
+#define GLUT_KEYREPEAT_OFF			0
+#define GLUT_KEYREPEAT_ALL			14
+extern void glutKeyRepeat(unsigned int val);
+// @@@ end of addition
+
 #ifdef __cplusplus
 }
 #endif

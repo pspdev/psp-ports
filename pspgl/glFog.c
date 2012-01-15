@@ -24,6 +24,14 @@ void glFogf (GLenum pname, GLfloat param)
 
 	case GL_FOG_END:
 		pspgl_curctx->fog.far = param;
+		// @@@ added by Edorul by this way we can declare GL_FOG_START before GL_FOG_END
+		// @@@ else we have a strange result (the fog is "inversed")
+		distance = pspgl_curctx->fog.far - pspgl_curctx->fog.near;
+		if (unlikely(distance == 0))
+			goto out_error;
+		distance = 1.0f / distance;
+		sendCommandf(CMD_FOG_NEAR, distance);
+		// @@@ end modif by Edorul
 		sendCommandf(CMD_FOG_FAR, pspgl_curctx->fog.far);
 		break;
 	/**

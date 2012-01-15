@@ -1,0 +1,135 @@
+************************
+* v0.1 & v0.2 changes: *
+************************
+
+-------------------------
+key repeating :
+-------------------------
+
+glut.c :
+- In pspgl there is no key repitition, you need to release and push again a key if you want your program to detect it again. With this modified version you can push arrows or triggers (but not start, select, cross, triangle, square and circle) and 'til they remain pushed they are detected and can be used by your program. If you want, you can select which key will be repeated with "glutKeyRepeat". By default, only ascii and mouse keys are repeated.
+- added "glutKeyRepeat" function (but it is not compatible with real glut):
+glutKeyRepeat(GLUT_KEYREPEAT_ASCII); // repeat 'select', 'start', 'triangle', 'circle', 'square', 'cross', 'Hold', 'MusicNote'
+glutKeyRepeat(GLUT_KEYREPEAT_SPECIAL); // repeat 'up', 'down', 'right', 'left'
+glutKeyRepeat(GLUT_KEYREPEAT_MOUSE); // repeat 'left trigger', 'right trigger'
+glutKeyRepeat(GLUT_KEYREPEAT_MOUSE|GLUT_KEYREPEAT_ASCII); // repeat ASCII and MOUSE keys
+glutKeyRepeat(GLUT_KEYREPEAT_ALL); // repeat all keys
+glutKeyRepeat(GLUT_KEYREPEAT_OFF); // repeat no key
+
+glut.h :
+- added define for key repeating (but it is not compatible with real glut):
+#define GLUT_KEYREPEAT_DEFAULT (=special & mouse repeat)
+#define GLUT_KEYREPEAT_ASCII
+#define GLUT_KEYREPEAT_SPECIAL
+#define GLUT_KEYREPEAT_MOUSE
+#define GLUT_KEYREPEAT_OFF
+#define GLUT_KEYREPEAT_ALL
+
+-------------------------
+Bugs solving :
+-------------------------
+
+glFog.c :
+- Modification of "glFogf" to fix a bug when GL_FOG_END is declared after GL_FOG_START, we have an inversed fog result.
+
+------------------------------------------
+Display Lists handling and new functions:
+(it's only a "display lists flavour", it's not 
+as efficient as the real one, but at least 
+it's compatible with source codes using it)
+------------------------------------------
+
+pspgl_internal.h :
+Added some stuff for display lists (especialy functions' prototypes used in "glDisplayList.c")
+
+glDisplayList.c :
+This file was added to handle, create and use Display Lists.
+glTexCoord4f IS THE PERFECT SAMPLE FOR DISPLAY LISTS MODIFICATION but don't forget to add function's prototype and an enum element in "pspgl_internal.h", add function function's definition and function's name in __pspglFunctionToCall array in "glDisplayList.c" 
+
+eglCreateContext.c :
+Added variables initialisation for Display Lists
+
+glBegin.c :
+- modif of glBegin in order to be used with display lists.
+
+glColor.c :
+- add a function "glColor3fv"
+- modif of update_color in order to be used with display lists.
+
+glEnable.c :
+- modif of __pspgl_enable_state in order to be used with display lists.
+
+glEnd.c :
+- modif of glEnd in order to be used with display lists.
+
+glGetIntegerv.c :
+- modif of "glGetIntegerv" function to add display lists stuff.
+
+glPushAttrib.c :
+- modif of "pspgl_saved_attrib" struct to use display lists
+- in "glPushAttrib" add code to use "GL_LIST_BIT" mask.
+- in "glPopAttrib" add code to use "GL_LIST_BIT" mask.
+
+glTexCoord.c :
+- add functions glTexCoord1f, glTexCoord3f, glTexCoord4f, glTexCoord1fv, glTexCoord3fv, glTexCoord1d, glTexCoord1dv, glTexCoord2d, glTexCoord2dv, glTexCoord3d, glTexCoord3dv, glTexCoord4d, glTexCoord4dv 
+- modif of glTexCoord2f, glTexCoord2fv, glTexCoord4fv in order to be used with display lists.
+- glTexCoord4f IS THE PERFECT SAMPLE FOR DISPLAY LISTS MODIFICATION but don't forget to add function's prototype and an enum in "pspgl_internal.h", add function function definition and function's name in __pspglFunctionToCall array in "glDisplayList.c" 
+
+glTranslatef.c :
+- added "glTranslated" function.
+- modif of "glTranslatef" function to use display lists
+
+glVertex.c :
+- modif of glVertex3f in order to be used with display lists.
+
+glVertexd.c :
+- modif of glVertex2d and glVertex2dv in order to be used with display lists.
+
+
+functions that can be used in a display list:
+---------------------------------------------
+
+glBegin
+glEnd
+
+glEnable
+glDisable
+
+glColor3f
+glColor3fv
+glColor4f
+glColor4fv
+glColor3ub
+glColor4ub
+glColor4ubv
+
+glTexCoord1d
+glTexCoord1dv
+glTexCoord1f
+glTexCoord1fv
+glTexCoord2d
+glTexCoord2dv
+glTexCoord2f
+glTexCoord2fv
+glTexCoord3d
+glTexCoord3dv
+glTexCoord3f
+glTexCoord3fv
+glTexCoord4d
+glTexCoord4dv
+glTexCoord4f
+glTexCoord4fv
+
+glTranslated
+glTranslatef
+
+glVertex2f
+glVertex3f
+glVertex3fv
+glVertex4fv
+glVertex2d
+glVertex2dv
+glVertex3d
+glVertex3dv
+glVertex2i
+glVertex3i
