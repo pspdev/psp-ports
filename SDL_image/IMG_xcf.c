@@ -1,26 +1,24 @@
 /*
     SDL_image:  An example image loading library for use with SDL
-    Copyright (C) 1999-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-/* $Id: IMG_xcf.c,v 1.8 2004/01/04 22:04:38 slouken Exp $ */
 
 /* This is a XCF image file loading framework */
 
@@ -209,18 +207,23 @@ typedef unsigned char * (* load_tile_type) (SDL_RWops *, Uint32, int, int, int);
 
 
 /* See if an image is contained in a data source */
-int IMG_isXCF(SDL_RWops *src) {
-  int is_XCF;
-  char magic[14];
+int IMG_isXCF(SDL_RWops *src)
+{
+	int start;
+	int is_XCF;
+	char magic[14];
 
-  is_XCF = 0;
-  if ( SDL_RWread(src, magic, 14, 1) ) {
-    if (strncmp(magic, "gimp xcf ", 9) == 0) {
-      is_XCF = 1;
-    }
-  }
-
-  return(is_XCF);
+	if ( !src )
+		return 0;
+	start = SDL_RWtell(src);
+	is_XCF = 0;
+	if ( SDL_RWread(src, magic, sizeof(magic), 1) ) {
+		if (strncmp(magic, "gimp xcf ", 9) == 0) {
+			is_XCF = 1;
+		}
+	}
+	SDL_RWseek(src, start, RW_SEEK_SET);
+	return(is_XCF);
 }
 
 static char * read_string (SDL_RWops * src) {
@@ -248,7 +251,7 @@ static Uint32 Swap32 (Uint32 v) {
     |  ((v & 0xFF000000));
 }
 
-void xcf_read_property (SDL_RWops * src, xcf_prop * prop) {
+static void xcf_read_property (SDL_RWops * src, xcf_prop * prop) {
   prop->id = SDL_ReadBE32 (src);
   prop->length = SDL_ReadBE32 (src);
 
@@ -279,18 +282,18 @@ void xcf_read_property (SDL_RWops * src, xcf_prop * prop) {
     break;
   default:
     //    SDL_RWread (src, &prop->data, prop->length, 1);
-    SDL_RWseek (src, prop->length, SEEK_CUR);
+    SDL_RWseek (src, prop->length, RW_SEEK_CUR);
   }
 }
 
-void free_xcf_header (xcf_header * h) {
+static void free_xcf_header (xcf_header * h) {
   if (h->cm_num)
     free (h->cm_map);
 
   free (h);
 }
 
-xcf_header * read_xcf_header (SDL_RWops * src) {
+static xcf_header * read_xcf_header (SDL_RWops * src) {
   xcf_header * h;
   xcf_prop prop;
 
@@ -314,7 +317,7 @@ xcf_header * read_xcf_header (SDL_RWops * src) {
       // unused var: int i;
 
       h->cm_num = prop.data.colormap.num;
-      h->cm_map = (char *) malloc (sizeof (char) * 3 * h->cm_num);
+      h->cm_map = (unsigned char *) malloc (sizeof (unsigned char) * 3 * h->cm_num);
       memcpy (h->cm_map, prop.data.colormap.cmap, 3*sizeof (char)*h->cm_num);
       free (prop.data.colormap.cmap);
     }
@@ -323,12 +326,12 @@ xcf_header * read_xcf_header (SDL_RWops * src) {
   return h;
 }
 
-void free_xcf_layer (xcf_layer * l) {
+static void free_xcf_layer (xcf_layer * l) {
   free (l->name);
   free (l);
 }
 
-xcf_layer * read_xcf_layer (SDL_RWops * src) {
+static xcf_layer * read_xcf_layer (SDL_RWops * src) {
   xcf_layer * l;
   xcf_prop    prop;
 
@@ -355,12 +358,12 @@ xcf_layer * read_xcf_layer (SDL_RWops * src) {
   return l;
 }
 
-void free_xcf_channel (xcf_channel * c) {
+static void free_xcf_channel (xcf_channel * c) {
   free (c->name);
   free (c);
 }
 
-xcf_channel * read_xcf_channel (SDL_RWops * src) {
+static xcf_channel * read_xcf_channel (SDL_RWops * src) {
   xcf_channel * l;
   xcf_prop    prop;
 
@@ -398,12 +401,12 @@ xcf_channel * read_xcf_channel (SDL_RWops * src) {
   return l;
 }
 
-void free_xcf_hierarchy (xcf_hierarchy * h) {
+static void free_xcf_hierarchy (xcf_hierarchy * h) {
   free (h->level_file_offsets);
   free (h);
 }
 
-xcf_hierarchy * read_xcf_hierarchy (SDL_RWops * src) {
+static xcf_hierarchy * read_xcf_hierarchy (SDL_RWops * src) {
   xcf_hierarchy * h;
   int i;
 
@@ -422,12 +425,12 @@ xcf_hierarchy * read_xcf_hierarchy (SDL_RWops * src) {
   return h;
 }
 
-void free_xcf_level (xcf_level * l) {
+static void free_xcf_level (xcf_level * l) {
   free (l->tile_file_offsets);
   free (l);
 }
 
-xcf_level * read_xcf_level (SDL_RWops * src) {
+static xcf_level * read_xcf_level (SDL_RWops * src) {
   xcf_level * l;
   int i;
 
@@ -445,29 +448,29 @@ xcf_level * read_xcf_level (SDL_RWops * src) {
   return l;
 }
 
-void free_xcf_tile (unsigned char * t) {
+static void free_xcf_tile (unsigned char * t) {
   free (t);
 }
 
-unsigned char * load_xcf_tile_none (SDL_RWops * src, Uint32 len, int bpp, int x, int y) {
+static unsigned char * load_xcf_tile_none (SDL_RWops * src, Uint32 len, int bpp, int x, int y) {
   unsigned char * load;
 
-  load = (char *) malloc (len); // expect this is okay
+  load = (unsigned char *) malloc (len); // expect this is okay
   SDL_RWread (src, load, len, 1);
 
   return load;
 }
 
-unsigned char * load_xcf_tile_rle (SDL_RWops * src, Uint32 len, int bpp, int x, int y) {
+static unsigned char * load_xcf_tile_rle (SDL_RWops * src, Uint32 len, int bpp, int x, int y) {
   unsigned char * load, * t, * data, * d;
   Uint32 reallen;
   int i, size, count, j, length;
   unsigned char val;
 
-  t = load = (char *) malloc (len);
+  t = load = (unsigned char *) malloc (len);
   reallen = SDL_RWread (src, t, 1, len);
 
-  data = (char *) malloc (x*y*bpp);
+  data = (unsigned char *) malloc (x*y*bpp);
   for (i = 0; i < bpp; i++) {
     d    = data + i;
     size = x*y;
@@ -525,7 +528,7 @@ static Uint32 rgb2grey (Uint32 a) {
   return (l << 16) | (l << 8) | l;
 }
 
-void create_channel_surface (SDL_Surface * surf, xcf_image_type itype, Uint32 color, Uint32 opacity) {
+static void create_channel_surface (SDL_Surface * surf, xcf_image_type itype, Uint32 color, Uint32 opacity) {
   Uint32 c = 0;
 
   switch (itype) {
@@ -540,7 +543,7 @@ void create_channel_surface (SDL_Surface * surf, xcf_image_type itype, Uint32 co
   SDL_FillRect (surf, NULL, c);
 }
 
-int do_layer_surface (SDL_Surface * surface, SDL_RWops * src, xcf_header * head, xcf_layer * layer, load_tile_type load_tile) {
+static int do_layer_surface (SDL_Surface * surface, SDL_RWops * src, xcf_header * head, xcf_layer * layer, load_tile_type load_tile) {
   xcf_hierarchy * hierarchy;
   xcf_level     * level;
   unsigned char * tile;
@@ -550,17 +553,17 @@ int do_layer_surface (SDL_Surface * surface, SDL_RWops * src, xcf_header * head,
   int x, y, tx, ty, ox, oy, i, j;
   Uint32 *row;
 
-  SDL_RWseek (src, layer->hierarchy_file_offset, SEEK_SET);
+  SDL_RWseek (src, layer->hierarchy_file_offset, RW_SEEK_SET);
   hierarchy = read_xcf_hierarchy (src);
 
   level = NULL;
   for (i = 0; hierarchy->level_file_offsets [i]; i++) {
-    SDL_RWseek (src, hierarchy->level_file_offsets [i], SEEK_SET);
+    SDL_RWseek (src, hierarchy->level_file_offsets [i], RW_SEEK_SET);
     level = read_xcf_level (src);
 
     ty = tx = 0;
     for (j = 0; level->tile_file_offsets [j]; j++) {
-      SDL_RWseek (src, level->tile_file_offsets [j], SEEK_SET);
+      SDL_RWseek (src, level->tile_file_offsets [j], RW_SEEK_SET);
       ox = tx+64 > level->width ? level->width % 64 : 64;
       oy = ty+64 > level->height ? level->height % 64 : 64;
 
@@ -639,7 +642,8 @@ int do_layer_surface (SDL_Surface * surface, SDL_RWops * src, xcf_header * head,
 	      *row++ = 0xFF000000
 		| (((Uint32) (*p8)) << 16)
 		| (((Uint32) (*p8)) << 8)
-		| (((Uint32) (*p8++)) << 0);
+		| (((Uint32) (*p8)) << 0);
+			++p8;
 	    }
 	    break;	    
 	  default:
@@ -668,12 +672,15 @@ int do_layer_surface (SDL_Surface * surface, SDL_RWops * src, xcf_header * head,
   return 0;
 }
 
-SDL_Surface *IMG_LoadXCF_RW(SDL_RWops *src) {
+SDL_Surface *IMG_LoadXCF_RW(SDL_RWops *src)
+{
+  int start;
+  const char *error = NULL;
   SDL_Surface *surface, *lays;
   xcf_header * head;
   xcf_layer  * layer;
   xcf_channel ** channel;
-  int read_error, chnls, i, offsets;
+  int chnls, i, offsets;
   Uint32 offset, fp;
 
   unsigned char * (* load_tile) (SDL_RWops *, Uint32, int, int, int);
@@ -682,10 +689,10 @@ SDL_Surface *IMG_LoadXCF_RW(SDL_RWops *src) {
     /* The error message has been set in SDL_RWFromFile */
     return NULL;
   }
+  start = SDL_RWtell(src);
 
   /* Initialize the data we will clean up when we're done */
   surface = NULL;
-  read_error = 0;
 
   head = read_xcf_header (src);
 
@@ -707,7 +714,7 @@ SDL_Surface *IMG_LoadXCF_RW(SDL_RWops *src) {
 			     0x00FF0000,0x0000FF00,0x000000FF,0xFF000000);
 
   if ( surface == NULL ) {
-    IMG_SetError("Out of memory");
+    error = "Out of memory";
     goto done;
   }
 
@@ -725,14 +732,14 @@ SDL_Surface *IMG_LoadXCF_RW(SDL_RWops *src) {
 			  0x00FF0000,0x0000FF00,0x000000FF,0xFF000000);
 
   if ( lays == NULL ) {
-    IMG_SetError("Out of memory");
+    error = "Out of memory";
     goto done;
   }
 
   // Blit layers backwards, because Gimp saves them highest first
   for (i = offsets; i > 0; i--) {
     SDL_Rect rs, rd;
-    SDL_RWseek (src, head->layer_file_offsets [i-1], SEEK_SET);
+    SDL_RWseek (src, head->layer_file_offsets [i-1], RW_SEEK_SET);
 
     layer = read_xcf_layer (src);
     do_layer_surface (lays, src, head, layer, load_tile);
@@ -752,7 +759,7 @@ SDL_Surface *IMG_LoadXCF_RW(SDL_RWops *src) {
 
   SDL_FreeSurface (lays);
 
-  SDL_RWseek (src, fp, SEEK_SET);
+  SDL_RWseek (src, fp, RW_SEEK_SET);
 
   // read channels
   channel = NULL;
@@ -760,9 +767,9 @@ SDL_Surface *IMG_LoadXCF_RW(SDL_RWops *src) {
   while ((offset = SDL_ReadBE32 (src))) {
     channel = (xcf_channel **) realloc (channel, sizeof (xcf_channel *) * (chnls+1));
     fp = SDL_RWtell (src);
-    SDL_RWseek (src, offset, SEEK_SET);
+    SDL_RWseek (src, offset, RW_SEEK_SET);
     channel [chnls++] = (read_xcf_channel (src));
-    SDL_RWseek (src, fp, SEEK_SET);    
+    SDL_RWseek (src, fp, RW_SEEK_SET);    
   }
 
   if (chnls) {
@@ -772,7 +779,7 @@ SDL_Surface *IMG_LoadXCF_RW(SDL_RWops *src) {
 			   0x00FF0000,0x0000FF00,0x000000FF,0xFF000000);
 
     if (chs == NULL) {
-      IMG_SetError("Out of memory");
+      error = "Out of memory";
       goto done;
     }
     for (i = 0; i < chnls; i++) {
@@ -787,12 +794,15 @@ SDL_Surface *IMG_LoadXCF_RW(SDL_RWops *src) {
     SDL_FreeSurface (chs);
   }
 
- done:
+done:
   free_xcf_header (head);
-  if ( read_error ) {
-    SDL_FreeSurface(surface);
-    IMG_SetError("Error reading XCF data");
-    surface = NULL;
+  if ( error ) {
+    SDL_RWseek(src, start, RW_SEEK_SET);
+    if ( surface ) {
+      SDL_FreeSurface(surface);
+      surface = NULL;
+    }
+    IMG_SetError(error);
   }
 
   return(surface);

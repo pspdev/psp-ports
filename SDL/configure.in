@@ -2304,7 +2304,7 @@ CheckPSPSDK()
     EXTRA_CFLAGS="$EXTRA_CFLAGS -G0 -I\"${pspsdk_path}/include\""
     EXTRA_LDFLAGS="$EXTRA_LDFLAGS -L${pspsdk_path}/lib -L${psp_prefix} -lpspdebug -lpspgu -lpspctrl"
     EXTRA_LDFLAGS="$EXTRA_LDFLAGS -lpspge -lpspdisplay -lpsphprm -lpspsdk -lpsprtc"
-    EXTRA_LDFLAGS="$EXTRA_LDFLAGS -lpspaudio -lpsputility -lpspkernel -lpspnet_inet"
+    EXTRA_LDFLAGS="$EXTRA_LDFLAGS -lpspaudio -lpsputility -lpspnet_inet"
 
     AC_ARG_ENABLE(pspirkeyb,
           [  --enable-pspirkeyb      use external keyboard via libpspirkeyb [default=no]],
