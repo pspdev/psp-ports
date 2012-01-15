@@ -1,5 +1,5 @@
 /*	MikMod sound library
-	(c) 1998, 1999, 2000 Miodrag Vallat and others - see file AUTHORS for
+	(c) 1998, 1999 Miodrag Vallat and others - see file AUTHORS for
 	complete list.
 
 	This library is free software; you can redistribute it and/or modify
@@ -20,9 +20,10 @@
 
 /*==============================================================================
 
-  $Id: drv_ultra.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: drv_ultra.c,v 1.4 2004/02/05 17:34:49 raph Exp $
 
-  Driver for the Linux Ultrasound driver
+  Driver for Gravis Ultrasound cards using libGUS.
+  A subset of libGUS is provided for DOS/DJGPP and OS/2
 
 ==============================================================================*/
 
@@ -32,6 +33,12 @@
 
 	Updated to work with later versions of both the ultrasound driver and
 	libmikmod by C. Ray C. <crayc@pyro.net>
+
+	Major fixes by Andrew Zabolotny <bit@eltech.ru>
+	+ Ported to OS/2 and DOS.
+	+ Eight-bit samples are not converted to 16-bit anymore.
+	+ Samples are no longer kept in normal memory.
+	+ Removed sample 'unclick' logic... libGUS does unclick internally.
 
 */
 
@@ -46,78 +53,62 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#ifdef HAVE_MEMORY_H
+#include <memory.h>
+#endif
+
 #ifdef MIKMOD_DYNAMIC
 #include <dlfcn.h>
 #endif
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 #include <libgus.h>
 
-/* just in case */
-#ifndef LIBGUS_VERSION_MAJOR
-#define LIBGUS_VERSION_MAJOR 0x0003
+/* DOS/DJGPP and OS/2 libGUS'es have gus_get_voice_status() */
+#if defined (__EMX__) || defined (__DJGPP__)
+#define HAVE_VOICE_STATUS
+#else
+#include <time.h>
 #endif
+
 
 #ifdef MIKMOD_DYNAMIC
 /* runtime link with libgus */
-static int(*libgus_cards)(void);
-
-#if LIBGUS_VERSION_MAJOR < 0x0004
-static int(*libgus_close)(int);
-static int(*libgus_do_flush)(void);
-static void(*libgus_do_tempo)(unsigned int);
-static void(*libgus_do_voice_frequency)(unsigned char,unsigned int);
-static void(*libgus_do_voice_pan)(unsigned char,unsigned short);
-static void(*libgus_do_voice_start)(unsigned char,unsigned int,unsigned int,unsigned short,unsigned short);
-static void(*libgus_do_voice_start_position)(unsigned char,unsigned int,unsigned int,unsigned short,unsigned short,unsigned int);
-static void(*libgus_do_voice_volume)(unsigned char,unsigned short);
-static void(*libgus_do_wait)(unsigned int);
-static int(*libgus_get_handle)(void);
-static int(*libgus_info)(gus_info_t*,int);
-static int(*libgus_memory_alloc)(gus_instrument_t*);
-static int(*libgus_memory_free)(gus_instrument_t*);
-static int(*libgus_memory_free_size)(void);
-static int(*libgus_memory_pack)(void);
-static int(*libgus_open)(int,size_t,int);
-static int(*libgus_queue_flush)(void);
-static int(*libgus_queue_read_set_size)(int);
-static int(*libgus_queue_write_set_size)(int);
-static int(*libgus_reset)(int,unsigned int);
-static int(*libgus_select)(int);
-static int(*libgus_timer_start)(void);
-static int(*libgus_timer_stop)(void);
-static int(*libgus_timer_tempo)(int);
-#else
-static int(*libgus_close)(void*);
-static int(*libgus_do_flush)(void*);
-static void(*libgus_do_tempo)(void*,unsigned int);
-static void(*libgus_do_voice_frequency)(void*,unsigned char,unsigned int);
-static void(*libgus_do_voice_pan)(void*,unsigned char,unsigned short);
-static void(*libgus_do_voice_start)(void*,unsigned char,unsigned int,unsigned int,unsigned short,unsigned short);
-static void(*libgus_do_voice_start_position)(void*,unsigned char,unsigned int,unsigned int,unsigned short,unsigned short,unsigned int);
-static void(*libgus_do_voice_volume)(void*,unsigned char,unsigned short);
-static void(*libgus_do_wait)(void*,unsigned int);
-static int(*libgus_get_file_descriptor)(void*);
-static int(*libgus_info)(void*,gus_info_t*,int);
-static int(*libgus_memory_alloc)(void*,gus_instrument_t*);
-static int(*libgus_memory_free)(void*,gus_instrument_t*);
-static int(*libgus_memory_free_size)(void*);
-static int(*libgus_memory_pack)(void*);
-static int(*libgus_open)(void *,int,int,size_t,int);
-static int(*libgus_queue_flush)(void*);
-static int(*libgus_queue_read_set_size)(void*,int);
-static int(*libgus_queue_write_set_size)(void*,int);
-static int(*libgus_reset)(void*,int,unsigned int);
-static int(*libgus_timer_start)(void*);
-static int(*libgus_timer_stop)(void*);
-static int(*libgus_timer_tempo)(void*,int);
-#endif
-static void* libgus=NULL;
+static int (*libgus_cards) (void);
+static int (*libgus_close) (int);
+static int (*libgus_do_flush) (void);
+static void (*libgus_do_tempo) (unsigned int);
+static void (*libgus_do_voice_frequency) (unsigned char, unsigned int);
+static void (*libgus_do_voice_pan) (unsigned char, unsigned short);
+static void (*libgus_do_voice_start) (unsigned char, unsigned int,
+									  unsigned int, unsigned short,
+									  unsigned short);
+static void (*libgus_do_voice_start_position) (unsigned char, unsigned int,
+											   unsigned int, unsigned short,
+											   unsigned short, unsigned int);
+static void (*libgus_do_voice_stop) (unsigned char, unsigned char);
+static void (*libgus_do_voice_volume) (unsigned char, unsigned short);
+static void (*libgus_do_wait) (unsigned int);
+static int (*libgus_get_handle) (void);
+static int (*libgus_info) (gus_info_t *, int);
+static int (*libgus_memory_alloc) (gus_instrument_t *);
+static int (*libgus_memory_free) (gus_instrument_t *);
+static int (*libgus_memory_free_size) (void);
+static int (*libgus_memory_pack) (void);
+static int (*libgus_open) (int, size_t, int);
+static int (*libgus_queue_flush) (void);
+static int (*libgus_queue_read_set_size) (int);
+static int (*libgus_queue_write_set_size) (int);
+static int (*libgus_reset) (int, unsigned int);
+static int (*libgus_select) (int);
+static int (*libgus_timer_start) (void);
+static int (*libgus_timer_stop) (void);
+static int (*libgus_timer_tempo) (int);
+static void *libgus = NULL;
 #ifndef HAVE_RTLD_GLOBAL
-#define RTLD_GLOBAL (0)
+#define RTLD_GLOBAL 0
 #endif
 #else
 /* compile-time link with libgus */
@@ -129,10 +120,10 @@ static void* libgus=NULL;
 #define libgus_do_voice_pan				gus_do_voice_pan
 #define libgus_do_voice_start			gus_do_voice_start
 #define libgus_do_voice_start_position	gus_do_voice_start_position
+#define libgus_do_voice_stop            gus_do_voice_stop
 #define libgus_do_voice_volume			gus_do_voice_volume
 #define libgus_do_wait					gus_do_wait
 #define libgus_get_handle				gus_get_handle
-#define libgus_get_file_descriptor		gus_get_file_descriptor
 #define libgus_info						gus_info
 #define libgus_memory_alloc				gus_memory_alloc
 #define libgus_memory_free				gus_memory_free
@@ -149,25 +140,14 @@ static void* libgus=NULL;
 #define libgus_timer_tempo				gus_timer_tempo
 #endif
 
-#define MAX_INSTRUMENTS		128	/* Max. instruments loadable   */
+#define GUS_SAMPLES			256 /* Max. GUS samples loadable */
 #define GUS_CHANNELS		32	/* Max. GUS channels available */
-#define SIZE_OF_SEQBUF		(8 * 1024) /* Size of the sequence buffer */
-#define ULTRA_PAN_MIDDLE	(16384 >> 1)
+#define SIZE_OF_SEQBUF		(8 * 1024)	/* Size of the sequence buffer */
+#define ULTRA_PAN_MIDDLE	(16383 >> 1)	/* Middle balance position */
 
 #define	CH_FREQ 1
 #define CH_VOL  2
 #define	CH_PAN  4
-
-/*	This structure holds the information regarding a loaded sample, which
-	is also kept in normal memory. */
-typedef struct GUS_SAMPLE {
-	SWORD *sample;
-	ULONG length;
-	ULONG loopstart;
-	ULONG loopend;
-	UWORD flags;
-	UWORD active;
-} GUS_SAMPLE;
 
 /*	This structure holds the current state of a GUS voice channel. */
 typedef struct GUS_VOICE {
@@ -181,112 +161,124 @@ typedef struct GUS_VOICE {
 	ULONG repend;
 	ULONG frq;
 	int vol;
+	int decvol;
 	int pan;
 
 	int changes;
+#ifndef HAVE_VOICE_STATUS
 	time_t started;
+#endif
 } GUS_VOICE;
 
 /* Global declarations follow */
 
-static	GUS_SAMPLE instrs[MAX_INSTRUMENTS];
-static	GUS_VOICE voices[GUS_CHANNELS];
+static SAMPLE *samples[GUS_SAMPLES];	/* sample handles */
+static GUS_VOICE voices[GUS_CHANNELS];	/* channel status */
 
-static int ultra_dev=0;
-#if LIBGUS_VERSION_MAJOR < 0x0004
-static int gf1flag=-1;
-#else
-static void* ultra_h=NULL;
-#endif
-static int nr_instrs=0;
-static int ultra_fd=-1;
-static UWORD ultra_bpm;
+static int ultra_dev = 0;	/* GUS index, if more than one card */
+static int ultra_handle = -1;	/* GUS handle */
+static int ultra_fd = -1;	/* GUS file descriptor */
 
 #ifdef MIKMOD_DYNAMIC
 static BOOL Ultra_Link(void)
 {
-	if(libgus) return 0;
+	if (libgus)
+		return 0;
 
 	/* load libgus.so */
-	libgus=dlopen("libgus.so",RTLD_LAZY|RTLD_GLOBAL);
-	if(!libgus) return 1;
+	libgus = dlopen("libgus.so", RTLD_LAZY | RTLD_GLOBAL);
+	if (!libgus)
+		return 1;
 
 	/* resolve function references */
-	if(!(libgus_cards                  =dlsym(libgus,"gus_cards"))) return 1;
-	if(!(libgus_close                  =dlsym(libgus,"gus_close"))) return 1;
-	if(!(libgus_do_flush               =dlsym(libgus,"gus_do_flush"))) return 1;
-	if(!(libgus_do_tempo               =dlsym(libgus,"gus_do_tempo"))) return 1;
-	if(!(libgus_do_voice_frequency     =dlsym(libgus,"gus_do_voice_frequency"))) return 1;
-	if(!(libgus_do_voice_pan           =dlsym(libgus,"gus_do_voice_pan"))) return 1;
-	if(!(libgus_do_voice_start         =dlsym(libgus,"gus_do_voice_start"))) return 1;
-	if(!(libgus_do_voice_start_position=dlsym(libgus,"gus_do_voice_start_position"))) return 1;
-	if(!(libgus_do_voice_volume        =dlsym(libgus,"gus_do_voice_volume"))) return 1;
-	if(!(libgus_do_wait                =dlsym(libgus,"gus_do_wait"))) return 1;
-#if LIBGUS_VERSION_MAJOR < 0x0004
-	if(!(libgus_get_handle             =dlsym(libgus,"gus_get_handle"))) return 1;
-#else
-	if(!(libgus_get_file_descriptor    =dlsym(libgus,"gus_get_file_descriptor"))) return 1;
-#endif
-	if(!(libgus_info                   =dlsym(libgus,"gus_info"))) return 1;
-	if(!(libgus_memory_alloc           =dlsym(libgus,"gus_memory_alloc"))) return 1;
-	if(!(libgus_memory_free            =dlsym(libgus,"gus_memory_free"))) return 1;
-	if(!(libgus_memory_free_size       =dlsym(libgus,"gus_memory_free_size"))) return 1;
-	if(!(libgus_memory_pack            =dlsym(libgus,"gus_memory_pack"))) return 1;
-	if(!(libgus_open                   =dlsym(libgus,"gus_open"))) return 1;
-	if(!(libgus_queue_flush            =dlsym(libgus,"gus_queue_flush"))) return 1;
-	if(!(libgus_queue_read_set_size    =dlsym(libgus,"gus_queue_read_set_size"))) return 1;
-	if(!(libgus_queue_write_set_size   =dlsym(libgus,"gus_queue_write_set_size"))) return 1;
-	if(!(libgus_reset                  =dlsym(libgus,"gus_reset"))) return 1;
-#if LIBGUS_VERSION_MAJOR < 0x0004
-	if(!(libgus_select                 =dlsym(libgus,"gus_select"))) return 1;
-#endif
-	if(!(libgus_timer_start            =dlsym(libgus,"gus_timer_start"))) return 1;
-	if(!(libgus_timer_stop             =dlsym(libgus,"gus_timer_stop"))) return 1;
-	if(!(libgus_timer_tempo            =dlsym(libgus,"gus_timer_tempo"))) return 1;
+#define IMPORT_SYMBOL(x) \
+	if (!(lib##x = dlsym(libgus, #x))) return 1
+
+	IMPORT_SYMBOL(gus_cards);
+	IMPORT_SYMBOL(gus_close);
+	IMPORT_SYMBOL(gus_do_flush);
+	IMPORT_SYMBOL(gus_do_tempo);
+	IMPORT_SYMBOL(gus_do_voice_frequency);
+	IMPORT_SYMBOL(gus_do_voice_pan);
+	IMPORT_SYMBOL(gus_do_voice_start);
+	IMPORT_SYMBOL(gus_do_voice_start_position);
+	IMPORT_SYMBOL(gus_do_voice_stop);
+	IMPORT_SYMBOL(gus_do_voice_volume);
+	IMPORT_SYMBOL(gus_do_wait);
+	IMPORT_SYMBOL(gus_get_handle);
+	IMPORT_SYMBOL(gus_info);
+	IMPORT_SYMBOL(gus_memory_alloc);
+	IMPORT_SYMBOL(gus_memory_free);
+	IMPORT_SYMBOL(gus_memory_free_size);
+	IMPORT_SYMBOL(gus_memory_pack);
+	IMPORT_SYMBOL(gus_open);
+	IMPORT_SYMBOL(gus_queue_flush);
+	IMPORT_SYMBOL(gus_queue_read_set_size);
+	IMPORT_SYMBOL(gus_queue_write_set_size);
+	IMPORT_SYMBOL(gus_reset);
+	IMPORT_SYMBOL(gus_select);
+	IMPORT_SYMBOL(gus_timer_start);
+	IMPORT_SYMBOL(gus_timer_stop);
+	IMPORT_SYMBOL(gus_timer_tempo);
+#undef IMPORT_SYMBOL
 
 	return 0;
 }
 
 static void Ultra_Unlink(void)
 {
-	libgus_cards                  =NULL;
-	libgus_close                  =NULL;
-	libgus_do_flush               =NULL;
-	libgus_do_tempo               =NULL;
-	libgus_do_voice_frequency     =NULL;
-	libgus_do_voice_pan           =NULL;
-	libgus_do_voice_start         =NULL;
-	libgus_do_voice_start_position=NULL;
-	libgus_do_voice_volume        =NULL;
-	libgus_do_wait                =NULL;
-#if LIBGUS_VERSION_MAJOR < 0x0004
-	libgus_get_handle             =NULL;
-#else
-	libgus_get_file_descriptor    =NULL;
-#endif
-	libgus_info                   =NULL;
-	libgus_memory_alloc           =NULL;
-	libgus_memory_free            =NULL;
-	libgus_memory_free_size       =NULL;
-	libgus_memory_pack            =NULL;
-	libgus_open                   =NULL;
-	libgus_queue_flush            =NULL;
-	libgus_queue_read_set_size    =NULL;
-	libgus_queue_write_set_size   =NULL;
-	libgus_reset                  =NULL;
-#if LIBGUS_VERSION_MAJOR < 0x0004
-	libgus_select                 =NULL;
-#endif
-	libgus_timer_start            =NULL;
-	libgus_timer_stop             =NULL;
-	libgus_timer_tempo            =NULL;
+	libgus_cards = NULL;
+	libgus_close = NULL;
+	libgus_do_flush = NULL;
+	libgus_do_tempo = NULL;
+	libgus_do_voice_frequency = NULL;
+	libgus_do_voice_pan = NULL;
+	libgus_do_voice_start = NULL;
+	libgus_do_voice_start_position = NULL;
+	libgus_do_voice_stop = NULL;
+	libgus_do_voice_volume = NULL;
+	libgus_do_wait = NULL;
+	libgus_get_handle = NULL;
+	libgus_info = NULL;
+	libgus_memory_alloc = NULL;
+	libgus_memory_free = NULL;
+	libgus_memory_free_size = NULL;
+	libgus_memory_pack = NULL;
+	libgus_open = NULL;
+	libgus_queue_flush = NULL;
+	libgus_queue_read_set_size = NULL;
+	libgus_queue_write_set_size = NULL;
+	libgus_reset = NULL;
+	libgus_select = NULL;
+	libgus_timer_start = NULL;
+	libgus_timer_stop = NULL;
+	libgus_timer_tempo = NULL;
 
-	if(libgus) {
+	if (libgus) {
 		dlclose(libgus);
-		libgus=NULL;
+		libgus = NULL;
 	}
 }
 #endif
+
+static void Ultra_CommandLine(CHAR *cmdline)
+{
+	CHAR *ptr = MD_GetAtom("card", cmdline, 0);
+	
+	if (ptr) {
+		int buf = atoi(ptr);
+		
+		if (buf >= 0 && buf <= 8)
+			ultra_dev = buf;
+		free(ptr);
+	}
+#ifdef __DJGPP__
+	if ((ptr = MD_GetAtom("dma", cmdline, 0))) {
+		gus_dma_usage (atoi(ptr));
+		free(ptr);
+	}
+#endif
+}
 
 /* Checks for the presence of GUS cards */
 static BOOL Ultra_IsThere(void)
@@ -294,221 +286,191 @@ static BOOL Ultra_IsThere(void)
 	int retval;
 
 #ifdef MIKMOD_DYNAMIC
-	if (Ultra_Link()) return 0;
+	if (Ultra_Link())
+		return 0;
 #endif
-	retval=libgus_cards()?1:0;
+	retval = libgus_cards()? 1 : 0;
 #ifdef MIKMOD_DYNAMIC
 	Ultra_Unlink();
 #endif
 	return retval;
 }
 
-/* Loads all the samples into the GUS memory */
-static BOOL loadsamples(void) {
-	int i;
-	GUS_SAMPLE *smp;
-
-	for (i=0,smp=instrs;i<MAX_INSTRUMENTS;i++,smp++)
-		if(smp->active) {
-			ULONG length,loopstart,loopend;
-			gus_instrument_t instrument;
-			gus_layer_t layer;
-			gus_wave_t wave;
-			unsigned int type;
-
-			/* convert position/length data from samples to bytes */
-			length   =smp->length;
-			loopstart=smp->loopstart;
-			loopend  =smp->loopend;
-			if (smp->flags & SF_16BITS) {
-				length   <<=1;
-				loopstart<<=1;
-				loopend  <<=1;
-			}
-
-			memset(&instrument,0,sizeof(instrument));
-			memset(&layer,0,sizeof(layer));
-			memset(&wave,0,sizeof(wave));
-
-			instrument.mode=layer.mode=wave.mode=GUS_INSTR_SIMPLE;
-			instrument.number.instrument=i;
-			instrument.info.layer=&layer;
-			layer.wave=&wave;
-			type=((smp->flags & SF_16BITS)?GUS_WAVE_16BIT:0)|
-			     ((smp->flags & SF_DELTA) ?GUS_WAVE_DELTA:0)|
-			     ((smp->flags & SF_LOOP)  ?GUS_WAVE_LOOP :0)|
-			     ((smp->flags & SF_BIDI)  ?GUS_WAVE_BIDIR:0);
-
-			wave.format    =(unsigned char)type;
-			wave.begin.ptr =(char*)smp->sample;
-			wave.loop_start=loopstart<<4;
-			wave.loop_end  =loopend<<4;
-			wave.size      =length;
-
-			if (smp->flags&SF_LOOP) {
-				smp->sample[loopend]=smp->sample[loopstart];
-				if ((smp->flags&SF_16BITS) && loopstart && loopend)
-					smp->sample[loopend-1]=smp->sample[loopstart-1];
-			}
-
-			/* Download the sample to GUS RAM */
-#if LIBGUS_VERSION_MAJOR < 0x0004
-			if(libgus_memory_alloc(&instrument))
-#else
-			if(libgus_memory_alloc(ultra_h,&instrument))
-#endif
-			{
-				_mm_errno=MMERR_SAMPLE_TOO_BIG;
-				return 1;
-			}
-		}
-	return 0;
-}
-
-/* Load a new sample into memory, but not in the GUS */
-static SWORD Ultra_SampleLoad(struct SAMPLOAD *sload,int type)
+/* Load a new sample directly into GUS DRAM and return a handle */
+static SWORD Ultra_SampleLoad(struct SAMPLOAD *sload)
 {
-	SAMPLE *s=sload->sample;
 	int handle;
-	ULONG length,loopstart,loopend;
-	GUS_SAMPLE *smp;
-
-	if(type==MD_SOFTWARE) return -1;
+	SAMPLE *s = sload->sample;
+	gus_instrument_t instrument;
+	gus_layer_t layer;
+	gus_wave_t wave;
+	unsigned char *buffer;
+	unsigned int length, loopstart, loopend;
 
 	/* Find empty slot to put sample in */
-	for(handle=0;handle<MAX_INSTRUMENTS;handle++)
-		if(!instrs[handle].active) break;
+	for (handle = 0; handle < GUS_SAMPLES; handle++)
+		if (!samples[handle])
+			break;
 
-	if(handle==MAX_INSTRUMENTS) {
-		_mm_errno=MMERR_OUT_OF_HANDLES;
+	if (handle == GUS_SAMPLES) {
+		_mm_errno = MMERR_OUT_OF_HANDLES;
 		return -1;
 	}
 
-	length   =s->length;
-	loopstart=s->loopstart;
-	loopend  =s->loopend;
+	/* Fill an gus_instrument_t structure and feed it to libgus. We can
+	   download 8 and 16 bit, both signed and unsigned samples into GUS, so
+	   don't bother much about formats here. */
 
-	smp=&instrs[handle];
-	smp->length   =length;
-	smp->loopstart=loopstart;
-	smp->loopend  =loopend?loopend:length-1;
-	smp->flags    =s->flags; 
+	/* convert position/length data from samples to bytes */
+	length = s->length;
+	loopstart = s->loopstart;
+	loopend = s->loopend ? s->loopend : length;
+	/* sanity checks */
+	if (loopend > length)
+		loopend = length;
+	if (loopstart > loopend)
+		loopstart = loopend;
+	if (s->flags & SF_16BITS) {
+		length <<= 1;
+		loopstart <<= 1;
+		loopend <<= 1;
+	}
 
-	SL_SampleSigned(sload);
-
-	if(!(smp->sample=(SWORD*)_mm_malloc((length+20)<<1))) {
-		_mm_errno=MMERR_SAMPLE_TOO_BIG;
+	/* Load sample into normal memory */
+	if (!(buffer = _mm_malloc(length))) {
+		_mm_errno = MMERR_SAMPLE_TOO_BIG;
 		return -1;
 	}
 
-	if (SL_Load(smp->sample,sload,s->length))
+	if (SL_Load(buffer, sload, s->length)) {
+		free(buffer);
 		return -1;
+	}
 
-	smp->active = 1;	
-	nr_instrs++;
+	samples[handle] = s;
 
+	memset(&wave, 0, sizeof(wave));
+	memset(&layer, 0, sizeof(layer));
+	memset(&instrument, 0, sizeof(instrument));
+
+	wave.format =
+		((s->flags & SF_SIGNED) ? 0 : GUS_WAVE_INVERT) |
+		((s->flags & SF_16BITS) ? GUS_WAVE_16BIT : 0) |
+		((s->flags & SF_DELTA ) ? GUS_WAVE_DELTA : 0) |
+		((s->flags & SF_LOOP  ) ? GUS_WAVE_LOOP  : 0) |
+		((s->flags & SF_BIDI  ) ? GUS_WAVE_BIDIR : 0);
+	wave.begin.ptr = buffer;
+	wave.loop_start = loopstart << 4;
+	wave.loop_end = loopend << 4;
+	wave.size = length;
+
+	layer.wave = &wave;
+
+	instrument.mode = layer.mode = wave.mode = GUS_INSTR_SIMPLE;
+	instrument.number.instrument = handle;
+	instrument.info.layer = &layer;
+
+	/* Download the sample to GUS RAM */
+	if (libgus_memory_alloc(&instrument)) {
+		free(buffer);
+		_mm_errno = MMERR_SAMPLE_TOO_BIG;
+		return -1;
+	}
+
+	free(buffer);
 	return handle;
 }
 
-/* Discards a sample from the GUS memory, and from computer memory */
+/* Discards a sample from the GUS memory and mark handle as free */
 static void Ultra_SampleUnload(SWORD handle)
 {
-	GUS_SAMPLE *smp;
+	gus_instrument_t instrument;
 
-	if((handle>=MAX_INSTRUMENTS)||(handle<0)) return;
+	if (handle >= GUS_SAMPLES || handle < 0 || !samples[handle])
+		return;
 
-	smp = &instrs[handle];
-	if (smp->active) {
-		gus_instrument_t instrument;
-
-		memset(&instrument,0,sizeof(instrument));
-		instrument.mode=GUS_INSTR_SIMPLE;
-		instrument.number.instrument=handle;
-#if LIBGUS_VERSION_MAJOR < 0x0004
-		libgus_memory_free(&instrument);
-#else
-		libgus_memory_free(ultra_h,&instrument);
-#endif
-		free(smp->sample);
-		nr_instrs--;
-		smp->active=0;
-	}
+	memset(&instrument, 0, sizeof(instrument));
+	instrument.mode = GUS_INSTR_SIMPLE;
+	instrument.number.instrument = handle;
+	libgus_memory_free(&instrument);
+	samples[handle] = NULL;
 }
 
 /* Reports available sample space */
-static ULONG Ultra_SampleSpace(int type)
+static ULONG Ultra_SampleSpace(void)
 {
-	if(type==MD_SOFTWARE) return 0;
-
-#if LIBGUS_VERSION_MAJOR < 0x0004
 	libgus_memory_pack();
 	return (libgus_memory_free_size());
-#else
-	libgus_memory_pack(ultra_h);
-	return (libgus_memory_free_size(ultra_h));
-#endif
 }
 
 /* Reports the size of a sample */
-static ULONG Ultra_SampleLength(int type,SAMPLE *s)
+static ULONG Ultra_SampleLength(SAMPLE *s)
 {
-	if(!s) return 0;
+	if (!s)
+		return 0;
 
-	return (s->length*(s->flags&SF_16BITS?2:1))+16;
+	if (s->flags & SF_16BITS)
+		return ((s->length << 1) + 31) & ~31;
+	else
+		return ( s->length       + 15) & ~15;
 }
 
 /* Initializes the driver */
 static BOOL Ultra_Init_internal(void)
 {
-	gus_info_t info;	
-
-	/* Check that requested settings are compatible with the GUS requirements */
-	if((!(md_mode & DMODE_16BITS))||(!(md_mode & DMODE_STEREO))||
-	   (md_mixfreq!=44100)) {
-		_mm_errno=MMERR_GUS_SETTINGS;
-		return 1;
-	}
-
-	md_mode&=~(DMODE_SOFT_MUSIC|DMODE_SOFT_SNDFX);
+	gus_info_t info;
 
 	/* Open the GUS card */
-	ultra_dev=getenv("MM_ULTRA")?atoi(getenv("MM_ULTRA")):0;
-#if LIBGUS_VERSION_MAJOR < 0x0004
-	if ((gf1flag=libgus_open(ultra_dev,SIZE_OF_SEQBUF,0))<0)
-#else
-	if (libgus_open(&ultra_h,ultra_dev,0,SIZE_OF_SEQBUF,GUS_OPEN_FLAG_NONE)<0)
-#endif
-	{
-		_mm_errno=(errno==ENOMEM)?MMERR_OUT_OF_MEMORY:MMERR_INVALID_DEVICE;
+	if ((ultra_handle = libgus_open(ultra_dev, SIZE_OF_SEQBUF, 0)) < 0) {
+		_mm_errno =
+		  (errno == ENOMEM) ? MMERR_OUT_OF_MEMORY : MMERR_INVALID_DEVICE;
 		return 1;
 	}
-#if LIBGUS_VERSION_MAJOR < 0x0004
-	libgus_select(gf1flag);
-	ultra_fd=libgus_get_handle();
-#else
-	ultra_fd = libgus_get_file_descriptor(ultra_h);
-#endif
+	libgus_select(ultra_handle);
+	ultra_fd = libgus_get_handle();
 
 	/* Get card information */
-#if LIBGUS_VERSION_MAJOR < 0x0004
-	libgus_info(&info,0);
-#else
-	libgus_info(ultra_h,&info,0);
-#endif
+	libgus_info(&info, 0);
+
+	/* We support only 16-bit stereo with 44K mixing frequency. On UltraSound
+	   Classic mixing frequency depends on number of channels, on Interwave it
+	   is always 44KHz. */
+	md_mode |= DMODE_16BITS | DMODE_STEREO;
+	md_mixfreq = info.mixing_freq;
 
 #ifdef MIKMOD_DEBUG
-	switch(info.version) {
-		case  0x24:	fputs("GUS 2.4",stderr);break;
-		case  0x35:	fputs("GUS 3.7 (flipped)",stderr);break;
-		case  0x37:	fputs("GUS 3.7",stderr);break;
-		case  0x90:	fputs("GUS ACE",stderr);break;
-		case  0xa0:	fputs("GUS MAX 10",stderr);break;
-		case  0xa1:	fputs("GUS MAX 11",stderr);break;
-		case 0x100:	fputs("Interwave/GUS PnP",stderr);break;
-		default:	fprintf(stderr,"Unknown GUS type %x",info.version);break;
+	switch (info.version) {
+	  case 0x24:
+		fputs("GUS 2.4", stderr);
+		break;
+	  case 0x35:
+		fputs("GUS 3.7 (flipped)", stderr);
+		break;
+	  case 0x37:
+		fputs("GUS 3.7", stderr);
+		break;
+	  case 0x90:
+		fputs("GUS ACE", stderr);
+		break;
+	  case 0xa0:
+		fputs("GUS MAX 10", stderr);
+		break;
+	  case 0xa1:
+		fputs("GUS MAX 11", stderr);
+		break;
+	  case 0x100:
+		fputs("Interwave/GUS PnP", stderr);
+		break;
+	  default:
+		fprintf(stderr, "Unknown GUS type %x", info.version);
+		break;
 	}
-	fprintf(stderr," with %dKb RAM on board\n",info.memory_size>>10);
+	fprintf(stderr, " with %dKb RAM on board\n", info.memory_size >> 10);
 #endif
+
+	/* Zero the voice states and sample handles */
+	memset (&voices, 0, sizeof (voices));
+	memset (&samples, 0, sizeof (samples));
 
 	return 0;
 }
@@ -517,7 +479,7 @@ static BOOL Ultra_Init(void)
 {
 #ifdef MIKMOD_DYNAMIC
 	if (Ultra_Link()) {
-		_mm_errno=MMERR_DYNAMIC_LINKING;
+		_mm_errno = MMERR_DYNAMIC_LINKING;
 		return 1;
 	}
 #endif
@@ -527,18 +489,11 @@ static BOOL Ultra_Init(void)
 /* Closes the driver */
 static void Ultra_Exit_internal(void)
 {
-#if LIBGUS_VERSION_MAJOR < 0x0004
-	if(gf1flag>=0) {
-		gf1flag=-1;
+	if (ultra_handle >= 0) {
+		ultra_handle = -1;
 		libgus_close(ultra_dev);
 	}
-#else
-	if (ultra_h) {
-		libgus_close(ultra_h);
-		ultra_h = NULL;
-	}
-#endif
-	ultra_fd=-1;
+	ultra_fd = -1;
 }
 
 static void Ultra_Exit(void)
@@ -561,76 +516,156 @@ static BOOL Ultra_SetNumVoices(void)
 	return 0;
 }
 
-/* Start playback */
-static BOOL Ultra_PlayStart(void) {
-	int t;
+/* Module player tick function */
+static void UltraPlayer(void)
+{
+	int channel, panning;
+	struct GUS_VOICE *voice;
+	static BOOL ultra_pause = 1;	/* paused status */
 
-	for (t=0;t<md_hardchn;t++) {
-		voices[t].flags  =0;
-		voices[t].handle =0;
-		voices[t].size   =0;
-		voices[t].start  =0;
-		voices[t].reppos =0;
-		voices[t].repend =0;
-		voices[t].changes=0;
-		voices[t].kick   =0;
-		voices[t].frq    =10000;
-		voices[t].vol    =64;
-		voices[t].pan    =ULTRA_PAN_MIDDLE;
-		voices[t].active =0;
+	md_player();
+
+	if (ultra_pause != Player_Paused())
+		if ((ultra_pause = Player_Paused()))
+			for (channel = 0, voice = voices; channel < md_numchn;
+			     channel++, voice++) {
+				libgus_do_voice_volume (channel, 0);
+				voices->changes |= (CH_VOL | CH_FREQ | CH_PAN);
+			}
+
+	if (ultra_pause)
+		return;
+
+	for (channel = 0, voice = voices; channel < md_numchn; channel++, voice++) {
+		panning = (voice->pan == PAN_SURROUND) ?
+			       ULTRA_PAN_MIDDLE : (voice->pan << 6);
+
+		if (voice->kick) {
+			voice->kick = 0;
+			voice->decvol = voice->vol;
+			if (voice->start > 0)
+				libgus_do_voice_start_position(channel, voice->handle,
+				      voice->frq, voice->vol << 6, panning, voice->start << 4);
+			else
+				libgus_do_voice_start(channel, voice->handle, voice->frq,
+			                                 voice->vol << 6, voice->pan << 6);
+		} else {
+			if (voice->changes & CH_FREQ)
+				libgus_do_voice_frequency(channel, voice->frq);
+			if (voice->changes & CH_VOL)
+				libgus_do_voice_volume(channel, voice->vol << 6);
+			if (voice->changes & CH_PAN)
+				libgus_do_voice_pan(channel, panning);
+			if (voice->decvol)
+				voice->decvol -= 4;
+		}
+		voice->changes = 0;
+	}
+}
+
+/* Play sound */
+#if defined (__DJGPP__) || defined (__EMX__)
+
+static void Ultra_Callback(void)
+{
+	UltraPlayer();
+	libgus_do_flush();
+}
+
+static void Ultra_Update(void)
+{
+	static UWORD ultra_bpm = 0;		/* current GUS tempo */
+
+	/* All real work is done during GF1 timer 1 interrupt */
+	if (ultra_bpm != md_bpm) {
+		libgus_do_tempo((md_bpm * 50) / 125);
+		ultra_bpm = md_bpm;
+	}
+}
+
+#else
+
+static void Ultra_Update(void)
+{
+	fd_set write_fds;
+	int need_write;
+	static UWORD ultra_bpm = 0;		/* current GUS tempo */
+
+	if (ultra_bpm != md_bpm) {
+		libgus_do_tempo((md_bpm * 50) / 125);
+		ultra_bpm = md_bpm;
 	}
 
-#if LIBGUS_VERSION_MAJOR < 0x0004
-	libgus_select(gf1flag);
-	if (libgus_reset(md_hardchn,0)<0)
-#else
-	if (libgus_reset(ultra_h,md_hardchn,0)<0)
+	UltraPlayer();
+
+	do {
+		need_write = libgus_do_flush();
+
+		FD_ZERO(&write_fds);
+		do {
+			FD_SET(ultra_fd, &write_fds);
+
+			select(ultra_fd + 1, NULL, &write_fds, NULL, NULL);
+		} while (!FD_ISSET(ultra_fd, &write_fds));
+	} while(need_write > 0);
+
+	/* Wait so that all voice commands gets executed */
+	libgus_do_wait (1);
+}
+
 #endif
-	{
-		_mm_errno=MMERR_GUS_RESET;
+
+/* Start playback */
+static BOOL Ultra_PlayStart(void)
+{
+	int t;
+	gus_info_t info;
+
+	for (t = 0; t < md_numchn; t++) {
+		voices[t].flags = 0;
+		voices[t].handle = 0;
+		voices[t].size = 0;
+		voices[t].start = 0;
+		voices[t].reppos = 0;
+		voices[t].repend = 0;
+		voices[t].changes = 0;
+		voices[t].kick = 0;
+		voices[t].frq = 10000;
+		voices[t].vol = 0;
+		voices[t].pan = ULTRA_PAN_MIDDLE;
+		voices[t].active = 0;
+	}
+
+	libgus_select(ultra_handle);
+	if (libgus_reset(md_numchn, 0) < 0) {
+		_mm_errno = MMERR_GUS_RESET;
 		return 1;
 	}
-	if(loadsamples()) return 1;
 
-#if LIBGUS_VERSION_MAJOR < 0x0004
+	/* Query mixing frequency */
+	libgus_info(&info, 0);
+	md_mixfreq = info.mixing_freq;
+
 	libgus_queue_write_set_size(1024);
 	libgus_queue_read_set_size(128);
-#else
-	libgus_queue_write_set_size(ultra_h,1024);
-	libgus_queue_read_set_size(ultra_h,128);
-#endif
 
-#if LIBGUS_VERSION_MAJOR < 0x0004
-	if (libgus_timer_start()<0)
-#else
-	if (libgus_timer_start(ultra_h)<0)
-#endif
-	{
-		_mm_errno=MMERR_GUS_TIMER;
+	if (libgus_timer_start() < 0) {
+		_mm_errno = MMERR_GUS_TIMER;
 		return 1;
 	}
-#if LIBGUS_VERSION_MAJOR < 0x0004
-	libgus_timer_tempo(50);
-#else
-	libgus_timer_tempo(ultra_h,50);
-#endif
-	ultra_bpm=0;
 
-	for (t=0;t<md_hardchn;t++) {
-#if LIBGUS_VERSION_MAJOR < 0x0004
-		libgus_do_voice_pan(t,ULTRA_PAN_MIDDLE);
-		libgus_do_voice_volume(t,64<<8);
-#else
-		libgus_do_voice_pan(ultra_h,t,ULTRA_PAN_MIDDLE);
-		libgus_do_voice_volume(ultra_h,t,64<<8);
+#if defined (__DJGPP__) || defined (__EMX__)
+	gus_timer_callback(Ultra_Callback);
 #endif
+
+	libgus_timer_tempo(50);
+
+	for (t = 0; t < md_numchn; t++) {
+		libgus_do_voice_pan(t, ULTRA_PAN_MIDDLE);
+		libgus_do_voice_volume(t, 0 << 8);
 	}
 
-#if LIBGUS_VERSION_MAJOR < 0x0004
 	libgus_do_flush();
-#else
-	libgus_do_flush(ultra_h);
-#endif
 
 	return 0;
 }
@@ -638,213 +673,130 @@ static BOOL Ultra_PlayStart(void) {
 /* Stop playback */
 static void Ultra_PlayStop(void)
 {
-#if LIBGUS_VERSION_MAJOR < 0x0004
+	int voice;
+
 	libgus_queue_flush();
-
 	libgus_timer_stop();
-
 	libgus_queue_write_set_size(0);
 	libgus_queue_read_set_size(0);
-#else
-	libgus_queue_flush(ultra_h);
+	for(voice = 0; voice < md_numchn; voice++)
+		libgus_do_voice_stop(voice, 0);
 
-	libgus_timer_stop(ultra_h);
-
-	libgus_queue_write_set_size(ultra_h,0);
-	libgus_queue_read_set_size(ultra_h,0);
-#endif
-}
-
-/* Module player tick function */
-static void ultraplayer(void)
-{
-	int t;
-	struct GUS_VOICE *voice;
-
-	md_player();
-
-	for(t=0,voice=voices;t<md_numchn;t++,voice++) {
-		if (voice->changes & CH_FREQ)
-#if LIBGUS_VERSION_MAJOR < 0x0004
-			libgus_do_voice_frequency(t,voice->frq);
-#else
-			libgus_do_voice_frequency(ultra_h,t,voice->frq);
-#endif
-		if (voice->changes & CH_VOL);
-#if LIBGUS_VERSION_MAJOR < 0x0004
-			libgus_do_voice_volume(t,voice->vol<<8);
-#else
-			libgus_do_voice_volume(ultra_h,t,voice->vol<<8);
-#endif
-		if (voice->changes & CH_PAN) {
-			if (voice->pan==PAN_SURROUND)
-#if LIBGUS_VERSION_MAJOR < 0x0004
-				libgus_do_voice_pan(t,ULTRA_PAN_MIDDLE);
-#else
-				libgus_do_voice_pan(ultra_h,t,ULTRA_PAN_MIDDLE);
-#endif
-			else
-#if LIBGUS_VERSION_MAJOR < 0x0004
-				libgus_do_voice_pan(t,voice->pan<<6);
-#else
-				libgus_do_voice_pan(ultra_h,t,voice->pan<<6);
-#endif
-		}
-		voice->changes=0;
-		if (voice->kick) {
-			voice->kick=0;
-			if (voice->start>0)
-#if LIBGUS_VERSION_MAJOR < 0x0004
-				libgus_do_voice_start_position(t,voice->handle,voice->frq,
-				                            voice->vol<<8,voice->pan<<6,
-				                            voice->start<<4);
-#else
-				libgus_do_voice_start_position(ultra_h,t,voice->handle,voice->frq,
-				                            voice->vol<<8,voice->pan<<6,
-				                            voice->start<<4);
-#endif
-			else
-#if LIBGUS_VERSION_MAJOR < 0x0004
-				libgus_do_voice_start(t,voice->handle,voice->frq,
-				                   voice->vol<<8,voice->pan<<6);
-#else
-				libgus_do_voice_start(ultra_h,t,voice->handle,voice->frq,
-				                   voice->vol<<8,voice->pan<<6);
-#endif
-		}
-	}
-#if LIBGUS_VERSION_MAJOR < 0x0004
-	libgus_do_wait(1);
-#else
-	libgus_do_wait(ultra_h,1);
-#endif
-}
-
-/* Play sound */
-static void Ultra_Update(void)
-{
-	fd_set write_fds;
-	int need_write;
-
-	if (ultra_bpm!=md_bpm) {
-#if LIBGUS_VERSION_MAJOR < 0x0004
-		libgus_do_tempo((md_bpm*50)/125);
-#else
-		libgus_do_tempo(ultra_h,(md_bpm*50)/125);
-#endif
-		ultra_bpm=md_bpm;
-	}
-
-	ultraplayer();
-
-	do {
-#if LIBGUS_VERSION_MAJOR < 0x0004
-		need_write=libgus_do_flush();
-#else
-		need_write=libgus_do_flush(ultra_h);
+#if defined (__DJGPP__) || defined (__EMX__)
+	gus_timer_callback(NULL);
 #endif
 
-		FD_ZERO(&write_fds);
-		do {
-			FD_SET(ultra_fd,&write_fds);
-
-			select(ultra_fd+1,NULL,&write_fds,NULL,NULL);
-		} while (!FD_ISSET(ultra_fd,&write_fds));
-	} while (need_write>0);
+	libgus_do_flush();
 }
 
 /* Set the volume for the given voice */
-static void Ultra_VoiceSetVolume(UBYTE voice,UWORD vol)
+static void Ultra_VoiceSetVolume(UBYTE voice, UWORD vol)
 {
-	if(voice<md_numchn)
-		if (vol!=voices[voice].vol) {
-			voices[voice].vol=vol;
-			voices[voice].changes|=CH_VOL;
+	if (voice < md_numchn)
+		if (vol != voices[voice].vol) {
+			voices[voice].decvol =
+			voices[voice].vol = vol;
+			voices[voice].changes |= CH_VOL;
 		}
 }
 
 /* Returns the volume of the given voice */
 static UWORD Ultra_VoiceGetVolume(UBYTE voice)
 {
-	return (voice<md_numchn)?voices[voice].vol:0;
+	return (voice < md_numchn) ? voices[voice].vol : 0;
 }
 
 /* Set the pitch for the given voice */
-static void Ultra_VoiceSetFrequency(UBYTE voice,ULONG frq)
+static void Ultra_VoiceSetFrequency(UBYTE voice, ULONG frq)
 {
-	if(voice<md_numchn)
-		if (frq!=voices[voice].frq) {
-			voices[voice].frq=frq;
-			voices[voice].changes|=CH_FREQ;
+	if (voice < md_numchn)
+		if (frq != voices[voice].frq) {
+			voices[voice].frq = frq;
+			voices[voice].changes |= CH_FREQ;
 		}
 }
 
 /* Returns the frequency of the given voice */
 static ULONG Ultra_VoiceGetFrequency(UBYTE voice)
 {
-	return (voice<md_numchn)?voices[voice].frq:0;
+	return (voice < md_numchn) ? voices[voice].frq : 0;
 }
 
 /* Set the panning position for the given voice */
-static void Ultra_VoiceSetPanning(UBYTE voice,ULONG pan)
+static void Ultra_VoiceSetPanning(UBYTE voice, ULONG pan)
 {
-	if(voice<md_numchn)
-		if (pan!=voices[voice].pan) {
-			voices[voice].pan=pan;
-			voices[voice].changes|=CH_PAN;
+	if (voice < md_numchn)
+		if (pan != voices[voice].pan) {
+			voices[voice].pan = pan;
+			voices[voice].changes |= CH_PAN;
 		}
 }
 
 /* Returns the panning of the given voice */
 static ULONG Ultra_VoiceGetPanning(UBYTE voice)
 {
-	return (voice<md_numchn)?voices[voice].pan:0;
+	return (voice < md_numchn) ? voices[voice].pan : 0;
 }
 
 /* Start a new sample on a voice */
-static void Ultra_VoicePlay(UBYTE voice,SWORD handle,ULONG start,ULONG size,ULONG reppos,ULONG repend,UWORD flags)
+static void Ultra_VoicePlay(UBYTE voice, SWORD handle, ULONG start,
+							ULONG size, ULONG reppos, ULONG repend,
+							UWORD flags)
 {
-	if((voice>=md_numchn)||(start>=size)) return;
+	if ((voice >= md_numchn) || (start >= size))
+		return;
 
-	if (flags&SF_LOOP)
-		if (repend>size) repend=size;
+	if (flags & SF_LOOP)
+		if (repend > size)
+			repend = size;
 
-	voices[voice].flags  =flags;
-	voices[voice].handle =handle;
-	voices[voice].start  =start;
-	voices[voice].size   =size;
-	voices[voice].reppos =reppos;
-	voices[voice].repend =repend;
-	voices[voice].kick   =1;
-	voices[voice].active =1;
-	voices[voice].started=time(NULL);
+	voices[voice].flags = flags;
+	voices[voice].handle = handle;
+	voices[voice].start = start;
+	voices[voice].size = size;
+	voices[voice].reppos = reppos;
+	voices[voice].repend = repend;
+	voices[voice].kick = 1;
+	voices[voice].active = 1;
+#ifndef HAVE_VOICE_STATUS
+	voices[voice].started = time(NULL);
+#endif
 }
 
 /* Stops a voice */
 static void Ultra_VoiceStop(UBYTE voice)
 {
-	if(voice<md_numchn)
-		voices[voice].active=0;
+	if (voice < md_numchn)
+		voices[voice].active = 0;
 }
 
 /* Returns whether a voice is stopped */
 static BOOL Ultra_VoiceStopped(UBYTE voice)
 {
-	if(voice<md_numchn) return 1;
+	if (voice >= md_numchn)
+		return 1;
 
-	if(voices[voice].active) {
+#ifdef HAVE_VOICE_STATUS
+	if (voices[voice].active)
+		return gus_get_voice_status(voice) ? 0 : 1;
+	else
+		return 1;
+#else
+	if (voices[voice].active) {
 		/* is sample looping ? */
-		if(voices[voice].flags&(SF_LOOP|SF_BIDI))
+		if (voices[voice].flags & (SF_LOOP | SF_BIDI))
 			return 0;
 		else
-			if(time(NULL)-voices[voice].started>=
-			   ((voices[voice].size-voices[voice].start+44099)/44100)) {
-				voices[voice].active=0;
-				return 1;
-			}
+		  if (time(NULL) - voices[voice].started >=
+			  ((voices[voice].size - voices[voice].start + md_mixfreq -1)
+			  / md_mixfreq)) {
+			voices[voice].active = 0;
+			return 1;
+		}
 		return 0;
 	} else
 		return 1;
+#endif
 }
 
 /* Returns current voice position */
@@ -857,18 +809,27 @@ static SLONG Ultra_VoiceGetPosition(UBYTE voice)
 /* Returns voice real volume */
 static ULONG Ultra_VoiceRealVolume(UBYTE voice)
 {
-	/* NOTE This information can not be accurately determined. */
-	return 0;
+	int retval = 0;
+	if (!Ultra_VoiceStopped (voice)) {
+		/* NOTE This information can not be accurately determined. */
+		retval = (voices [voice].decvol) << 8;
+		if (retval > 0xffff) retval = 0xffff;
+	}
+	return retval;
 }
 
-MIKMODAPI MDRIVER drv_ultra={
+MDRIVER drv_ultra = {
 	NULL,
-	"Ultrasound driver",
-	"Linux Ultrasound driver v1.12",
-	GUS_CHANNELS,0,
+	"Gravis Ultrasound native mode",
+	"Gravis Ultrasound native mode driver v1.2",
+	0, (GUS_CHANNELS)-1,
 	"ultra",
+#ifdef __DJGPP__
+        "dma:b:1:Use DMA for transferring samples into GUS DRAM\n"
+#endif
+	"card:r:0,8,0:Soundcard number\n",
 
-	NULL,
+	Ultra_CommandLine,
 	Ultra_IsThere,
 	Ultra_SampleLoad,
 	Ultra_SampleUnload,
@@ -880,7 +841,7 @@ MIKMODAPI MDRIVER drv_ultra={
 	Ultra_SetNumVoices,
 	Ultra_PlayStart,
 	Ultra_PlayStop,
-	Ultra_Update, 
+	Ultra_Update,
 	NULL,
 	Ultra_VoiceSetVolume,
 	Ultra_VoiceGetVolume,
@@ -894,11 +855,10 @@ MIKMODAPI MDRIVER drv_ultra={
 	Ultra_VoiceGetPosition,
 	Ultra_VoiceRealVolume
 };
-
 #else
 
 MISSING(drv_ultra);
 
-#endif
+#endif // DRV_ULTRA
 
 /* ex:set ts=4: */

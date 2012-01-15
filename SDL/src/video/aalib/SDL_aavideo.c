@@ -1,46 +1,38 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_aavideo.c,v 1.5 2004/01/04 16:49:23 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* AAlib based SDL video driver implementation.
 */
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
 
-#include "SDL.h"
-#include "SDL_error.h"
 #include "SDL_video.h"
 #include "SDL_mouse.h"
-#include "SDL_sysvideo.h"
-#include "SDL_pixels_c.h"
-#include "SDL_events_c.h"
+#include "../SDL_sysvideo.h"
+#include "../SDL_pixels_c.h"
+#include "../../events/SDL_events_c.h"
 
 #include "SDL_aavideo.h"
 #include "SDL_aaevents_c.h"
@@ -74,8 +66,8 @@ static int AA_Available(void)
 
 static void AA_DeleteDevice(SDL_VideoDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	SDL_free(device->hidden);
+	SDL_free(device);
 }
 
 static SDL_VideoDevice *AA_CreateDevice(int devindex)
@@ -83,20 +75,20 @@ static SDL_VideoDevice *AA_CreateDevice(int devindex)
 	SDL_VideoDevice *device;
 
 	/* Initialize all variables that we clean on shutdown */
-	device = (SDL_VideoDevice *)malloc(sizeof(SDL_VideoDevice));
+	device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
 	if ( device ) {
-		memset(device, 0, (sizeof *device));
+		SDL_memset(device, 0, (sizeof *device));
 		device->hidden = (struct SDL_PrivateVideoData *)
-				malloc((sizeof *device->hidden));
+				SDL_malloc((sizeof *device->hidden));
 	}
 	if ( (device == NULL) || (device->hidden == NULL) ) {
 		SDL_OutOfMemory();
 		if ( device ) {
-			free(device);
+			SDL_free(device);
 		}
 		return(0);
 	}
-	memset(device->hidden, 0, (sizeof *device->hidden));
+	SDL_memset(device->hidden, 0, (sizeof *device->hidden));
 
 	/* Set the function pointers */
 	device->VideoInit = AA_VideoInit;
@@ -142,7 +134,7 @@ int AA_VideoInit(_THIS, SDL_PixelFormat *vformat)
 
 	/* Initialize all variables that we clean on shutdown */
 	for ( i=0; i<SDL_NUMMODES; ++i ) {
-		SDL_modelist[i] = malloc(sizeof(SDL_Rect));
+		SDL_modelist[i] = SDL_malloc(sizeof(SDL_Rect));
 		SDL_modelist[i]->x = SDL_modelist[i]->y = 0;
 	}
 	/* Modes sorted largest to smallest */
@@ -183,7 +175,7 @@ int AA_VideoInit(_THIS, SDL_PixelFormat *vformat)
 
 	fprintf(stderr,"Using AAlib driver: %s (%s)\n", AA_context->driver->name, AA_context->driver->shortname);
 
-	AA_in_x11 = (strcmp(AA_context->driver->shortname,"X11") == 0);
+	AA_in_x11 = (SDL_strcmp(AA_context->driver->shortname,"X11") == 0);
 	/* Determine the screen depth (use default 8-bit depth) */
 	vformat->BitsPerPixel = 8;
 	vformat->BytesPerPixel = 1;
@@ -256,10 +248,10 @@ SDL_Surface *AA_SetVideoMode(_THIS, SDL_Surface *current,
 	int mode;
 
 	if ( AA_buffer ) {
-		free( AA_buffer );
+		SDL_free( AA_buffer );
 	}
 
-	AA_buffer = malloc(width * height);
+	AA_buffer = SDL_malloc(width * height);
 	if ( ! AA_buffer ) {
 		SDL_SetError("Couldn't allocate buffer for requested mode");
 		return(NULL);
@@ -267,8 +259,8 @@ SDL_Surface *AA_SetVideoMode(_THIS, SDL_Surface *current,
 
 /* 	printf("Setting mode %dx%d\n", width, height); */
 
-	memset(aa_image(AA_context), 0, aa_imgwidth(AA_context) * aa_imgheight(AA_context));
-	memset(AA_buffer, 0, width * height);
+	SDL_memset(aa_image(AA_context), 0, aa_imgwidth(AA_context) * aa_imgheight(AA_context));
+	SDL_memset(AA_buffer, 0, width * height);
 
 	/* Allocate the new pixel format for the screen */
 	if ( ! SDL_ReallocFormat(current, 8, 0, 0, 0, 0) ) {
@@ -383,7 +375,7 @@ void AA_VideoQuit(_THIS)
 	/* Free video mode lists */
 	for ( i=0; i<SDL_NUMMODES; ++i ) {
 		if ( SDL_modelist[i] != NULL ) {
-			free(SDL_modelist[i]);
+			SDL_free(SDL_modelist[i]);
 			SDL_modelist[i] = NULL;
 		}
 	}

@@ -1,26 +1,24 @@
 /*
     SDL_image:  An example image loading library for use with SDL
-    Copyright (C) 1999-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-/* $Id: IMG_xxx.c,v 1.4 2004/01/04 22:04:38 slouken Exp $ */
 
 /* This is a generic "format not supported" image framework */
 
@@ -33,21 +31,44 @@
 /* See if an image is contained in a data source */
 int IMG_isXXX(SDL_RWops *src)
 {
+	int start;
 	int is_XXX;
 
+	if ( !src )
+		return 0;
+	start = SDL_RWtell(src);
 	is_XXX = 0;
 
+	/* Detect the image here */
+
+	SDL_RWseek(src, start, RW_SEEK_SET);
 	return(is_XXX);
 }
 
 /* Load a XXX type image from an SDL datasource */
 SDL_Surface *IMG_LoadXXX_RW(SDL_RWops *src)
 {
+	int start;
+	const char *error = NULL;
+	SDL_Surface *surface = NULL;
+
 	if ( !src ) {
 		/* The error message has been set in SDL_RWFromFile */
 		return NULL;
 	}
-	return(NULL);
+	start = SDL_RWtell(src);
+
+	/* Load the image here */
+
+	if ( error ) {
+		SDL_RWseek(src, start, RW_SEEK_SET);
+		if ( surface ) {
+			SDL_FreeSurface(surface);
+			surface = NULL;
+		}
+		IMG_SetError(error);
+	}
+	return surface;
 }
 
 #else

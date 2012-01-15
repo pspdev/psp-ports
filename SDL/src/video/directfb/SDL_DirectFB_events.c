@@ -1,36 +1,30 @@
 /*
-	SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    SDL - Simple DirectMedia Layer
+    Copyright (C) 1997-2009 Sam Lantinga
 
-	This library is free software; you can redistribute it and/or
-	modify it under the terms of the GNU Library General Public
-	License as published by the Free Software Foundation; either
-	version 2 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-	This library is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-	Library General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-	You should have received a copy of the GNU Library General Public
-	License along with this library; if not, write to the Free
-	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-	Sam Lantinga
-	slouken@libsdl.org
+    Sam Lantinga
+    slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_DirectFB_events.c,v 1.8 2004/01/04 16:49:24 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Handle the event stream, converting DirectFB input events into SDL events */
 
 #include <sys/types.h>
 #include <sys/time.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <termios.h>
@@ -38,9 +32,9 @@ static char rcsid =
 #include <directfb.h>
 
 #include "SDL.h"
-#include "SDL_sysevents.h"
-#include "SDL_sysvideo.h"
-#include "SDL_events_c.h"
+#include "../SDL_sysvideo.h"
+#include "../../events/SDL_sysevents.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_DirectFB_video.h"
 #include "SDL_DirectFB_events.h"
 
@@ -97,7 +91,7 @@ void DirectFB_InitOSKeymap (_THIS)
   int i;
 	
   /* Initialize the DirectFB key translation table */
-  for (i=0; i<SDL_TABLESIZE(keymap); ++i)
+  for (i=0; i<SDL_arraysize(keymap); ++i)
     keymap[i] = SDLK_UNKNOWN;
 
   keymap[DIKI_A - DIKI_UNKNOWN] = SDLK_a;
@@ -161,7 +155,7 @@ void DirectFB_InitOSKeymap (_THIS)
   keymap[DIKI_SHIFT_L - DIKI_UNKNOWN] = SDLK_LSHIFT;
   keymap[DIKI_SHIFT_R - DIKI_UNKNOWN] = SDLK_RSHIFT;
   keymap[DIKI_ALT_L - DIKI_UNKNOWN] = SDLK_LALT;
-  keymap[DIKI_ALTGR - DIKI_UNKNOWN] = SDLK_RALT;
+  keymap[DIKI_ALT_R - DIKI_UNKNOWN] = SDLK_RALT;
   keymap[DIKI_TAB - DIKI_UNKNOWN] = SDLK_TAB;
   keymap[DIKI_ENTER - DIKI_UNKNOWN] = SDLK_RETURN;
   keymap[DIKI_SPACE - DIKI_UNKNOWN] = SDLK_SPACE;

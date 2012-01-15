@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: virtch2.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: virtch2.c,v 1.2 2004/02/13 13:31:54 raph Exp $
 
   High-quality sample mixing routines, using a 32 bits mixing buffer,
   interpolation, and sample smoothing to improve sound quality and remove
@@ -383,6 +383,7 @@ static SLONGLONG MixStereoSurround(SWORD* srce,SLONG* dest,SLONGLONG index,SLONG
 	return index;
 }
 
+static	void(*Mix32toFP)(float* dste,SLONG* srce,NATIVE count);
 static	void(*Mix32to16)(SWORD* dste,SLONG* srce,NATIVE count);
 static	void(*Mix32to8)(SBYTE* dste,SLONG* srce,NATIVE count);
 static	void(*MixReverb)(SLONG* srce,NATIVE count);
@@ -459,6 +460,52 @@ static void MixReverb_Stereo(SLONG *srce,NATIVE count)
 		/* right channel */
 		*srce++ +=RVbufR1[loc1]-RVbufR2[loc2]+RVbufR3[loc3]-RVbufR4[loc4]+
 		          RVbufR5[loc5]-RVbufR6[loc6]+RVbufR7[loc7]-RVbufR8[loc8];
+	}
+}
+
+/* Mixing macros */
+#define EXTRACT_SAMPLE_FP(var,attenuation) var=*srce++*((1.0f / 32768.0f) / (MAXVOL_FACTOR*attenuation))
+#define CHECK_SAMPLE_FP(var,bound) var=(var>bound)?bound:(var<-bound)?-bound:var
+
+static void Mix32ToFP_Normal(float* dste,SLONG* srce,NATIVE count)
+{
+	float x1,x2,tmpx;
+	int i;
+
+	for(count/=SAMPLING_FACTOR;count;count--) {
+		tmpx=0.0f;
+
+		for(i=SAMPLING_FACTOR/2;i;i--) {
+			EXTRACT_SAMPLE_FP(x1,1.0f); EXTRACT_SAMPLE_FP(x2,1.0f);
+
+			CHECK_SAMPLE_FP(x1,1.0f); CHECK_SAMPLE_FP(x2,1.0f);
+
+			tmpx+=x1+x2;
+		}
+		*dste++ =tmpx*(1.0f/SAMPLING_FACTOR);
+	}
+}
+
+static void Mix32ToFP_Stereo(float* dste,SLONG* srce,NATIVE count)
+{
+	float x1,x2,x3,x4,tmpx,tmpy;
+	int i;
+
+	for(count/=SAMPLING_FACTOR;count;count--) {
+		tmpx=tmpy=0.0f;
+
+		for(i=SAMPLING_FACTOR/2;i;i--) {
+			EXTRACT_SAMPLE_FP(x1,1.0f); EXTRACT_SAMPLE_FP(x2,1.0f);
+			EXTRACT_SAMPLE_FP(x3,1.0f); EXTRACT_SAMPLE_FP(x4,1.0f);
+
+			CHECK_SAMPLE_FP(x1,1.0f); CHECK_SAMPLE_FP(x2,1.0f);
+			CHECK_SAMPLE_FP(x3,1.0f); CHECK_SAMPLE_FP(x4,1.0f);
+
+			tmpx+=x1+x3;
+			tmpy+=x2+x4;
+		}
+		*dste++ =tmpx*(1.0f/SAMPLING_FACTOR);
+		*dste++ =tmpy*(1.0f/SAMPLING_FACTOR);
 	}
 }
 
@@ -761,7 +808,9 @@ void VC2_WriteSamples(SBYTE* buf,ULONG todo)
 				MixReverb(vc_tickbuf,portion);
 			}
 
-			if(vc_mode & DMODE_16BITS)
+			if(vc_mode & DMODE_FLOAT)
+				Mix32toFP((float*)buffer,vc_tickbuf,portion);
+			else if(vc_mode & DMODE_16BITS)
 				Mix32to16((SWORD*)buffer,vc_tickbuf,portion);
 			else
 				Mix32to8((SBYTE*)buffer,vc_tickbuf,portion);
@@ -790,10 +839,12 @@ BOOL VC2_Init(void)
 		}
 
 	if(md_mode & DMODE_STEREO) {
+		Mix32toFP  = Mix32ToFP_Stereo;
 		Mix32to16  = Mix32To16_Stereo;
 		Mix32to8   = Mix32To8_Stereo;
 		MixReverb  = MixReverb_Stereo;
 	} else {
+		Mix32toFP  = Mix32ToFP_Normal;
 		Mix32to16  = Mix32To16_Normal;
 		Mix32to8   = Mix32To8_Normal;
 		MixReverb  = MixReverb_Normal;

@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: mdreg.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: mdreg.c,v 1.5 2004/02/20 22:08:35 raph Exp $
 
   Routine for registering all drivers in libmikmod for the current platform.
 
@@ -81,14 +81,26 @@ void _mm_registeralldrivers(void)
 #ifdef DRV_MAC
 	_mm_registerdriver(&drv_mac);
 #endif
-#ifdef DRV_PSP
-	_mm_registerdriver(&drv_psp);
+#ifdef DRV_OSX
+	_mm_registerdriver(&drv_osx);
 #endif
 
+	/* dos drivers */
+#ifdef DRV_WSS
+	/* wss first, since some cards emulate sb */
+	_mm_registerdriver(&drv_wss);
+#endif
+#ifdef DRV_SB
+	_mm_registerdriver(&drv_sb);
+#endif
+	
 	/* Register disk writers */
 	_mm_registerdriver(&drv_raw);
 	_mm_registerdriver(&drv_wav);
-
+#ifdef DRV_AIFF
+	_mm_registerdriver(&drv_aiff);
+#endif
+	
 	/* Register other drivers */
 #ifdef DRV_PIPE
 	_mm_registerdriver(&drv_pipe);

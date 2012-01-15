@@ -1,6 +1,6 @@
 /*
     SDL_mixer:  An audio mixer library based on the SDL library
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -16,13 +16,13 @@
     License along with this library; if not, write to the Free
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-    This file by Ryan C. Gordon (icculus@linuxgames.com)
+    This file by Ryan C. Gordon (icculus@icculus.org)
 
     These are some internally supported special effects that use SDL_mixer's
     effect callback API. They are meant for speed over quality.  :)
 */
 
-/* $Id: effect_stereoreverse.c,v 1.4 2004/01/04 17:37:04 slouken Exp $ */
+/* $Id: effect_stereoreverse.c 4211 2008-12-08 00:27:32Z slouken $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -74,7 +74,7 @@ static void _Eff_reversestereo8(int chan, void *stream, int len, void *udata)
     /* get the last two bytes if len is not divisible by four... */
     if (len % sizeof (Uint32) != 0) {
         Uint16 *p = (Uint16 *) (((Uint8 *) stream) + (len - 2));
-        *p = (((*p) & 0xFF00) >> 8) | (((*ptr) & 0x00FF) << 8);
+        *p = (Uint16)((((*p) & 0xFF00) >> 8) | (((*ptr) & 0x00FF) << 8));
         len -= 2;
     }
 

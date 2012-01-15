@@ -1,6 +1,6 @@
 /*
     SDL_mixer:  An audio mixer library based on the SDL library
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -21,13 +21,13 @@
     externally-callable function is Mix_LoadVOC_RW(), which is meant to
     act as identically to SDL_LoadWAV_RW() as possible.
 
-    This file by Ryan C. Gordon (icculus@linuxgames.com).
+    This file by Ryan C. Gordon (icculus@icculus.org).
 
     Heavily borrowed from sox v12.17.1's voc.c.
         (http://www.freshmeat.net/projects/sox/)
 */
 
-/* $Id: load_voc.c,v 1.8 2004/01/04 17:37:04 slouken Exp $ */
+/* $Id: load_voc.c 5214 2009-11-08 17:11:09Z slouken $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -92,7 +92,7 @@ static int voc_check_header(SDL_RWops *src)
     Uint8  signature[20];  /* "Creative Voice File\032" */
     Uint16 datablockofs;
 
-    SDL_RWseek(src, 0, SEEK_SET);
+    SDL_RWseek(src, 0, RW_SEEK_SET);
 
     if (SDL_RWread(src, signature, sizeof (signature), 1) != 1)
         return(0);
@@ -108,7 +108,7 @@ static int voc_check_header(SDL_RWops *src)
 
     datablockofs = SDL_SwapLE16(datablockofs);
 
-    if (SDL_RWseek(src, datablockofs, SEEK_SET) != datablockofs)
+    if (SDL_RWseek(src, datablockofs, RW_SEEK_SET) != datablockofs)
         return(0);
 
     return(1);  /* success! */
@@ -244,7 +244,7 @@ static int voc_get_block(SDL_RWops *src, vs_t *v, SDL_AudioSpec *spec)
                  * Adjust period.
                  */
                 if ((v->rate != -1) && (uc != v->rate))
-                    period = (period * (256 - uc))/(256 - v->rate);
+                    period = (Uint16)((period * (256 - uc))/(256 - v->rate));
                 else
                     v->rate = uc;
                 v->rest = period;
@@ -434,7 +434,7 @@ SDL_AudioSpec *Mix_LoadVOC_RW (SDL_RWops *src, int freesrc,
         fillptr = ((Uint8 *) ptr) + (*audio_len - v.rest);
     }
 
-    spec->samples = (*audio_len / v.size);
+    spec->samples = (Uint16)(*audio_len / v.size);
 
     was_error = 0;  /* success, baby! */
 
@@ -448,7 +448,7 @@ done:
         if (freesrc)
             SDL_RWclose(src);
         else
-            SDL_RWseek(src, 0, SEEK_SET);
+            SDL_RWseek(src, 0, RW_SEEK_SET);
     }
 
     if ( was_error )

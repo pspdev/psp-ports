@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_nos.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: drv_nos.c,v 1.3 2004/01/31 22:39:40 raph Exp $
 
   Driver for no output
 
@@ -75,7 +75,7 @@ MIKMODAPI MDRIVER drv_nos={
 	"Nosound Driver v3.0",
 	255,255,
 	"nosound",
-
+	NULL,
 	NULL,
 	NS_IsThere,
 	VC_SampleLoad,

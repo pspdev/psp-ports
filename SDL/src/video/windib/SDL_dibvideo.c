@@ -1,61 +1,74 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997, 1998, 1999  Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_dibvideo.c,v 1.24 2004/11/12 23:22:08 slouken Exp $";
-#endif
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <malloc.h>
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#if defined(WIN32_PLATFORM_PSPC)
-#include <aygshell.h>                      // Add Pocket PC includes
-#pragma comment( lib, "aygshell" )         // Link Pocket PC library
-#endif
 
 /* Not yet in the mingw32 cross-compile headers */
 #ifndef CDS_FULLSCREEN
 #define CDS_FULLSCREEN	4
 #endif
 
-#include "SDL.h"
-#include "SDL_mutex.h"
 #include "SDL_syswm.h"
-#include "SDL_sysvideo.h"
-#include "SDL_sysevents.h"
-#include "SDL_events_c.h"
-#include "SDL_pixels_c.h"
+#include "../SDL_sysvideo.h"
+#include "../SDL_pixels_c.h"
+#include "../../events/SDL_sysevents.h"
+#include "../../events/SDL_events_c.h"
+#include "SDL_gapidibvideo.h"
 #include "SDL_dibvideo.h"
-#include "SDL_syswm_c.h"
-#include "SDL_sysmouse_c.h"
+#include "../wincommon/SDL_syswm_c.h"
+#include "../wincommon/SDL_sysmouse_c.h"
 #include "SDL_dibevents_c.h"
-#include "SDL_wingl_c.h"
+#include "../wincommon/SDL_wingl_c.h"
 
 #ifdef _WIN32_WCE
+
+#ifndef DM_DISPLAYORIENTATION
+#define DM_DISPLAYORIENTATION 0x00800000L
+#endif
+#ifndef DM_DISPLAYQUERYORIENTATION 
+#define DM_DISPLAYQUERYORIENTATION 0x01000000L
+#endif
+#ifndef DMDO_0
+#define DMDO_0      0
+#endif
+#ifndef DMDO_90
+#define DMDO_90     1
+#endif
+#ifndef DMDO_180
+#define DMDO_180    2
+#endif
+#ifndef DMDO_270
+#define DMDO_270    4
+#endif
+
 #define NO_GETDIBITS
-#define NO_CHANGEDISPLAYSETTINGS
 #define NO_GAMMA_SUPPORT
+  #if _WIN32_WCE < 420
+    #define NO_CHANGEDISPLAYSETTINGS
+  #else
+    #define ChangeDisplaySettings(lpDevMode, dwFlags) ChangeDisplaySettingsEx(NULL, (lpDevMode), 0, (dwFlags), 0)
+  #endif
 #endif
 #ifndef WS_MAXIMIZE
 #define WS_MAXIMIZE	0
@@ -68,6 +81,11 @@ static char rcsid =
 #endif
 #ifndef PC_NOCOLLAPSE
 #define PC_NOCOLLAPSE	0
+#endif
+
+#ifdef _WIN32_WCE
+// defined and used in SDL_sysevents.c
+extern HINSTANCE aygshell;
 #endif
 
 /* Initialization/Query functions */
@@ -90,6 +108,9 @@ static void DIB_UnlockHWSurface(_THIS, SDL_Surface *surface);
 static void DIB_FreeHWSurface(_THIS, SDL_Surface *surface);
 
 /* Windows message handling functions */
+static void DIB_GrabStaticColors(HWND window);
+static void DIB_ReleaseStaticColors(HWND window);
+static void DIB_Activate(_THIS, BOOL active, BOOL minimized);
 static void DIB_RealizePalette(_THIS);
 static void DIB_PaletteChanged(_THIS, HWND window);
 static void DIB_WinPAINT(_THIS, HDC hdc);
@@ -108,12 +129,15 @@ static void DIB_DeleteDevice(SDL_VideoDevice *device)
 {
 	if ( device ) {
 		if ( device->hidden ) {
-			free(device->hidden);
+			if ( device->hidden->dibInfo ) {
+				SDL_free( device->hidden->dibInfo );
+			}
+			SDL_free(device->hidden);
 		}
 		if ( device->gl_data ) {
-			free(device->gl_data);
+			SDL_free(device->gl_data);
 		}
-		free(device);
+		SDL_free(device);
 	}
 }
 
@@ -122,13 +146,23 @@ static SDL_VideoDevice *DIB_CreateDevice(int devindex)
 	SDL_VideoDevice *device;
 
 	/* Initialize all variables that we clean on shutdown */
-	device = (SDL_VideoDevice *)malloc(sizeof(SDL_VideoDevice));
+	device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
 	if ( device ) {
-		memset(device, 0, (sizeof *device));
+		SDL_memset(device, 0, (sizeof *device));
 		device->hidden = (struct SDL_PrivateVideoData *)
-				malloc((sizeof *device->hidden));
+				SDL_malloc((sizeof *device->hidden));
+		if(device->hidden){
+			SDL_memset(device->hidden, 0, (sizeof *device->hidden));
+			device->hidden->dibInfo = (DibInfo *)SDL_malloc((sizeof(DibInfo)));
+			if(device->hidden->dibInfo == NULL)
+			{
+				SDL_free(device->hidden);
+				device->hidden = NULL;
+			}
+		}
+		
 		device->gl_data = (struct SDL_PrivateGLData *)
-				malloc((sizeof *device->gl_data));
+				SDL_malloc((sizeof *device->gl_data));
 	}
 	if ( (device == NULL) || (device->hidden == NULL) ||
 		                 (device->gl_data == NULL) ) {
@@ -136,8 +170,8 @@ static SDL_VideoDevice *DIB_CreateDevice(int devindex)
 		DIB_DeleteDevice(device);
 		return(NULL);
 	}
-	memset(device->hidden, 0, (sizeof *device->hidden));
-	memset(device->gl_data, 0, (sizeof *device->gl_data));
+	SDL_memset(device->hidden->dibInfo, 0, (sizeof *device->hidden->dibInfo));
+	SDL_memset(device->gl_data, 0, (sizeof *device->gl_data));
 
 	/* Set the function pointers */
 	device->VideoInit = DIB_VideoInit;
@@ -158,7 +192,7 @@ static SDL_VideoDevice *DIB_CreateDevice(int devindex)
 	device->FreeHWSurface = DIB_FreeHWSurface;
 	device->SetGammaRamp = DIB_SetGammaRamp;
 	device->GetGammaRamp = DIB_GetGammaRamp;
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	device->GL_LoadLibrary = WIN_GL_LoadLibrary;
 	device->GL_GetProcAddress = WIN_GL_GetProcAddress;
 	device->GL_GetAttribute = WIN_GL_GetAttribute;
@@ -179,6 +213,7 @@ static SDL_VideoDevice *DIB_CreateDevice(int devindex)
 	device->PumpEvents = DIB_PumpEvents;
 
 	/* Set up the windows message handling functions */
+	WIN_Activate = DIB_Activate;
 	WIN_RealizePalette = DIB_RealizePalette;
 	WIN_PaletteChanged = DIB_PaletteChanged;
 	WIN_WinPAINT = DIB_WinPAINT;
@@ -191,11 +226,9 @@ static SDL_VideoDevice *DIB_CreateDevice(int devindex)
 }
 
 VideoBootStrap WINDIB_bootstrap = {
-	"windib", "Win95/98/NT/2000 GDI",
+	"windib", "Win95/98/NT/2000/CE GDI",
 	DIB_Available, DIB_CreateDevice
 };
-
-#ifndef NO_CHANGEDISPLAYSETTINGS
 
 static int cmpmodes(const void *va, const void *vb)
 {
@@ -214,7 +247,7 @@ static int DIB_AddMode(_THIS, int bpp, int w, int h)
 	int next_mode;
 
 	/* Check to see if we already have this mode */
-	if ( bpp < 8 ) {  /* Not supported */
+	if ( bpp < 8 || bpp > 32 ) {  /* Not supported */
 		return(0);
 	}
 	index = ((bpp+7)/8)-1;
@@ -226,7 +259,7 @@ static int DIB_AddMode(_THIS, int bpp, int w, int h)
 	}
 
 	/* Set up the new video mode rectangle */
-	mode = (SDL_Rect *)malloc(sizeof *mode);
+	mode = (SDL_Rect *)SDL_malloc(sizeof *mode);
 	if ( mode == NULL ) {
 		SDL_OutOfMemory();
 		return(-1);
@@ -239,11 +272,11 @@ static int DIB_AddMode(_THIS, int bpp, int w, int h)
 	/* Allocate the new list of modes, and fill in the new mode */
 	next_mode = SDL_nummodes[index];
 	SDL_modelist[index] = (SDL_Rect **)
-	       realloc(SDL_modelist[index], (1+next_mode+1)*sizeof(SDL_Rect *));
+	       SDL_realloc(SDL_modelist[index], (1+next_mode+1)*sizeof(SDL_Rect *));
 	if ( SDL_modelist[index] == NULL ) {
 		SDL_OutOfMemory();
 		SDL_nummodes[index] = 0;
-		free(mode);
+		SDL_free(mode);
 		return(-1);
 	}
 	SDL_modelist[index][next_mode] = mode;
@@ -253,42 +286,30 @@ static int DIB_AddMode(_THIS, int bpp, int w, int h)
 	return(0);
 }
 
-#endif /* !NO_CHANGEDISPLAYSETTINGS */
-
-static HPALETTE DIB_CreatePalette(int bpp)
+static void DIB_CreatePalette(_THIS, int bpp)
 {
 /*	RJR: March 28, 2000
 	moved palette creation here from "DIB_VideoInit" */
 
-	HPALETTE handle = NULL;
-	
-	if ( bpp <= 8 )
-	{
-		LOGPALETTE *palette;
-		HDC hdc;
-		int ncolors;
-		int i;
+	LOGPALETTE *palette;
+	HDC hdc;
+	int ncolors;
 
-		ncolors = 1;
-		for ( i=0; i<bpp; ++i ) {
-			ncolors *= 2;
-		}
-		palette = (LOGPALETTE *)malloc(sizeof(*palette)+
-					ncolors*sizeof(PALETTEENTRY));
-		palette->palVersion = 0x300;
-		palette->palNumEntries = ncolors;
-		hdc = GetDC(SDL_Window);
-		GetSystemPaletteEntries(hdc, 0, ncolors, palette->palPalEntry);
-		ReleaseDC(SDL_Window, hdc);
-		handle = CreatePalette(palette);
-		free(palette);
-	}
-	
-	return handle;
+	ncolors = (1 << bpp);
+	palette = (LOGPALETTE *)SDL_malloc(sizeof(*palette)+
+				ncolors*sizeof(PALETTEENTRY));
+	palette->palVersion = 0x300;
+	palette->palNumEntries = ncolors;
+	hdc = GetDC(SDL_Window);
+	GetSystemPaletteEntries(hdc, 0, ncolors, palette->palPalEntry);
+	ReleaseDC(SDL_Window, hdc);
+	screen_pal = CreatePalette(palette);
+	screen_logpal = palette;
 }
 
 int DIB_VideoInit(_THIS, SDL_PixelFormat *vformat)
 {
+	const char *env = NULL;
 #ifndef NO_CHANGEDISPLAYSETTINGS
 	int i;
 	DEVMODE settings;
@@ -298,7 +319,8 @@ int DIB_VideoInit(_THIS, SDL_PixelFormat *vformat)
 	if ( DIB_CreateWindow(this) < 0 ) {
 		return(-1);
 	}
-#ifndef DISABLE_AUDIO
+
+#if !SDL_AUDIO_DISABLED
 	DX5_SoundFocus(SDL_Window);
 #endif
 
@@ -331,28 +353,74 @@ int DIB_VideoInit(_THIS, SDL_PixelFormat *vformat)
 	DIB_CheckGamma(this);
 
 #ifndef NO_CHANGEDISPLAYSETTINGS
+
+	settings.dmSize = sizeof(DEVMODE);
+	settings.dmDriverExtra = 0;
+#ifdef _WIN32_WCE
+	settings.dmFields = DM_DISPLAYQUERYORIENTATION;
+	this->hidden->supportRotation = ChangeDisplaySettingsEx(NULL, &settings, NULL, CDS_TEST, NULL) == DISP_CHANGE_SUCCESSFUL;
+#endif
+	/* Query for the desktop resolution */
+	SDL_desktop_mode.dmSize = sizeof(SDL_desktop_mode);
+	SDL_desktop_mode.dmDriverExtra = 0;
+	EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &SDL_desktop_mode);
+	this->info.current_w = SDL_desktop_mode.dmPelsWidth;
+	this->info.current_h = SDL_desktop_mode.dmPelsHeight;
+
 	/* Query for the list of available video modes */
 	for ( i=0; EnumDisplaySettings(NULL, i, &settings); ++i ) {
 		DIB_AddMode(this, settings.dmBitsPerPel,
 			settings.dmPelsWidth, settings.dmPelsHeight);
+#ifdef _WIN32_WCE		
+		if( this->hidden->supportRotation )
+			DIB_AddMode(this, settings.dmBitsPerPel,
+				settings.dmPelsHeight, settings.dmPelsWidth);
+#endif
 	}
 	/* Sort the mode lists */
 	for ( i=0; i<NUM_MODELISTS; ++i ) {
 		if ( SDL_nummodes[i] > 0 ) {
-			qsort(SDL_modelist[i], SDL_nummodes[i], sizeof *SDL_modelist[i], cmpmodes);
+			SDL_qsort(SDL_modelist[i], SDL_nummodes[i], sizeof *SDL_modelist[i], cmpmodes);
 		}
 	}
+#else
+	// WinCE and fullscreen mode:
+	// We use only vformat->BitsPerPixel that allow SDL to
+	// emulate other bpp (8, 32) and use triple buffer, 
+	// because SDL surface conversion is much faster than the WinCE one.
+	// Although it should be tested on devices with graphics accelerator.
+
+	DIB_AddMode(this, vformat->BitsPerPixel,
+			GetDeviceCaps(GetDC(NULL), HORZRES), 
+			GetDeviceCaps(GetDC(NULL), VERTRES));
+
 #endif /* !NO_CHANGEDISPLAYSETTINGS */
 
 	/* Grab an identity palette if we are in a palettized mode */
 	if ( vformat->BitsPerPixel <= 8 ) {
 	/*	RJR: March 28, 2000
 		moved palette creation to "DIB_CreatePalette" */
-		screen_pal = DIB_CreatePalette(vformat->BitsPerPixel);
+		DIB_CreatePalette(this, vformat->BitsPerPixel);
 	}
 
 	/* Fill in some window manager capabilities */
 	this->info.wm_available = 1;
+
+#ifdef _WIN32_WCE
+	this->hidden->origRotation = -1;
+#endif
+
+	/* Allow environment override of screensaver disable. */
+	env = SDL_getenv("SDL_VIDEO_ALLOW_SCREENSAVER");
+	if ( env ) {
+		allow_screensaver = SDL_atoi(env);
+	} else {
+#ifdef SDL_VIDEO_DISABLE_SCREENSAVER
+		allow_screensaver = 0;
+#else
+		allow_screensaver = 1;
+#endif
+	}
 
 	/* We're done! */
 	return(0);
@@ -361,15 +429,11 @@ int DIB_VideoInit(_THIS, SDL_PixelFormat *vformat)
 /* We support any format at any dimension */
 SDL_Rect **DIB_ListModes(_THIS, SDL_PixelFormat *format, Uint32 flags)
 {
-#ifdef NO_CHANGEDISPLAYSETTINGS
-	return((SDL_Rect **)-1);
-#else
 	if ( (flags & SDL_FULLSCREEN) == SDL_FULLSCREEN ) {
 		return(SDL_modelist[((format->BitsPerPixel+7)/8)-1]);
 	} else {
 		return((SDL_Rect **)-1);
 	}
-#endif
 }
 
 
@@ -389,14 +453,9 @@ static int DIB_SussScreenDepth()
 	hdc = GetDC(SDL_Window);
 	depth = GetDeviceCaps(hdc, PLANES) * GetDeviceCaps(hdc, BITSPIXEL);
 	ReleaseDC(SDL_Window, hdc);
-#ifndef _WIN32_WCE
-	// AFAIK 16 bit CE devices have indeed RGB 565
-	if ( depth == 16 ) {
-		depth = 15;	/* GDI defined as RGB 555 */
-	}
-#endif
 	return(depth);
 #else
+    int depth;
     int dib_size;
     LPBITMAPINFOHEADER dib_hdr;
     HDC hdc;
@@ -406,8 +465,8 @@ static int DIB_SussScreenDepth()
      * 8-bit modes) or bitfields (for 16- and 32-bit modes)
      */
     dib_size = sizeof(BITMAPINFOHEADER) + 256 * sizeof (RGBQUAD);
-    dib_hdr = (LPBITMAPINFOHEADER) malloc(dib_size);
-    memset(dib_hdr, 0, dib_size);
+    dib_hdr = (LPBITMAPINFOHEADER) SDL_malloc(dib_size);
+    SDL_memset(dib_hdr, 0, dib_size);
     dib_hdr->biSize = sizeof(BITMAPINFOHEADER);
     
     /* Get a device-dependent bitmap that's compatible with the
@@ -425,21 +484,23 @@ static int DIB_SussScreenDepth()
     DeleteObject(hbm);
     ReleaseDC(NULL, hdc);
 
+    depth = 0;
     switch( dib_hdr->biBitCount )
     {
-    case 8:     return 8;
-    case 24:    return 24;
-    case 32:    return 32;
+    case 8:     depth = 8; break;
+    case 24:    depth = 24; break;
+    case 32:    depth = 32; break;
     case 16:
         if( dib_hdr->biCompression == BI_BITFIELDS ) {
             /* check the red mask */
             switch( ((DWORD*)((char*)dib_hdr + dib_hdr->biSize))[0] ) {
-                case 0xf800: return 16;    /* 565 */
-                case 0x7c00: return 15;    /* 555 */
+                case 0xf800: depth = 16; break;   /* 565 */
+                case 0x7c00: depth = 15; break;   /* 555 */
             }
         }
     }
-    return 0;    /* poo. */
+    SDL_free(dib_hdr);
+    return depth;
 #endif /* NO_GETDIBITS */
 }
 
@@ -447,10 +508,81 @@ static int DIB_SussScreenDepth()
 /* Various screen update functions available */
 static void DIB_NormalUpdate(_THIS, int numrects, SDL_Rect *rects);
 
+static void DIB_ResizeWindow(_THIS, int width, int height, int prev_width, int prev_height, Uint32 flags)
+{
+	RECT bounds;
+	int x, y;
+
+#ifndef _WIN32_WCE
+	/* Resize the window */
+	if ( !SDL_windowid && !IsZoomed(SDL_Window) ) {
+#else
+	if ( !SDL_windowid ) {
+#endif
+		HWND top;
+		UINT swp_flags;
+		const char *window = NULL;
+		const char *center = NULL;
+
+		if ( width != prev_width || height != prev_height ) {
+			window = SDL_getenv("SDL_VIDEO_WINDOW_POS");
+			center = SDL_getenv("SDL_VIDEO_CENTERED");
+			if ( window ) {
+				if ( SDL_sscanf(window, "%d,%d", &x, &y) == 2 ) {
+					SDL_windowX = x;
+					SDL_windowY = y;
+				}
+				if ( SDL_strcmp(window, "center") == 0 ) {
+					center = window;
+				}
+			}
+		}
+		swp_flags = (SWP_NOCOPYBITS | SWP_SHOWWINDOW);
+
+		bounds.left = SDL_windowX;
+		bounds.top = SDL_windowY;
+		bounds.right = SDL_windowX+width;
+		bounds.bottom = SDL_windowY+height;
+#ifndef _WIN32_WCE
+		AdjustWindowRectEx(&bounds, GetWindowLong(SDL_Window, GWL_STYLE), (GetMenu(SDL_Window) != NULL), 0);
+#else
+		// The bMenu parameter must be FALSE; menu bars are not supported
+		AdjustWindowRectEx(&bounds, GetWindowLong(SDL_Window, GWL_STYLE), 0, 0);
+#endif
+		width = bounds.right-bounds.left;
+		height = bounds.bottom-bounds.top;
+		if ( (flags & SDL_FULLSCREEN) ) {
+			x = (GetSystemMetrics(SM_CXSCREEN)-width)/2;
+			y = (GetSystemMetrics(SM_CYSCREEN)-height)/2;
+		} else if ( center ) {
+			x = (GetSystemMetrics(SM_CXSCREEN)-width)/2;
+			y = (GetSystemMetrics(SM_CYSCREEN)-height)/2;
+		} else if ( SDL_windowX || SDL_windowY || window ) {
+			x = bounds.left;
+			y = bounds.top;
+		} else {
+			x = y = -1;
+			swp_flags |= SWP_NOMOVE;
+		}
+		if ( flags & SDL_FULLSCREEN ) {
+			top = HWND_TOPMOST;
+		} else {
+			top = HWND_NOTOPMOST;
+		}
+		SetWindowPos(SDL_Window, top, x, y, width, height, swp_flags);
+		if ( !(flags & SDL_FULLSCREEN) ) {
+			SDL_windowX = SDL_bounds.left;
+			SDL_windowY = SDL_bounds.top;
+		}
+		SetForegroundWindow(SDL_Window);
+	}
+}
+
 SDL_Surface *DIB_SetVideoMode(_THIS, SDL_Surface *current,
 				int width, int height, int bpp, Uint32 flags)
 {
 	SDL_Surface *video;
+	int prev_w, prev_h;
 	Uint32 prev_flags;
 	DWORD style;
 	const DWORD directstyle =
@@ -462,14 +594,39 @@ SDL_Surface *DIB_SetVideoMode(_THIS, SDL_Surface *current,
 	int binfo_size;
 	BITMAPINFO *binfo;
 	HDC hdc;
-	RECT bounds;
-	int x, y;
 	Uint32 Rmask, Gmask, Bmask;
+
+	prev_w = current->w;
+	prev_h = current->h;
+	prev_flags = current->flags;
+
+	/*
+	 * Special case for OpenGL windows...since the app needs to call
+	 *  SDL_SetVideoMode() in response to resize events to continue to
+	 *  function, but WGL handles the GL context details behind the scenes,
+	 *  there's no sense in tearing the context down just to rebuild it
+	 *  to what it already was...tearing it down sacrifices your GL state
+	 *  and uploaded textures. So if we're requesting the same video mode
+	 *  attributes just resize the window and return immediately.
+	 */
+	if ( SDL_Window &&
+	     ((current->flags & ~SDL_ANYFORMAT) == (flags & ~SDL_ANYFORMAT)) &&
+	     (current->format->BitsPerPixel == bpp) &&
+	     (flags & SDL_OPENGL) && 
+	     !(flags & SDL_FULLSCREEN) ) {  /* probably not safe for fs */
+		current->w = width;
+		current->h = height;
+		SDL_resizing = 1;
+		DIB_ResizeWindow(this, width, height, prev_w, prev_h, flags);
+		SDL_resizing = 0;
+		return current;
+	}
 
 	/* Clean up any GL context that may be hanging around */
 	if ( current->flags & SDL_OPENGL ) {
 		WIN_GL_ShutDown(this);
 	}
+	SDL_resizing = 1;
 
 	/* Recalculate the bitmasks if necessary */
 	if ( bpp == current->format->BitsPerPixel ) {
@@ -512,59 +669,132 @@ SDL_Surface *DIB_SetVideoMode(_THIS, SDL_Surface *current,
 	}
 
 	/* Fill in part of the video surface */
-	prev_flags = video->flags;
 	video->flags = 0;	/* Clear flags */
 	video->w = width;
 	video->h = height;
 	video->pitch = SDL_CalculatePitch(video);
 
-#ifdef WIN32_PLATFORM_PSPC
-	 /* Stuff to hide that $#!^%#$ WinCE taskbar in fullscreen... */
-	if ( flags & SDL_FULLSCREEN ) {
-		if ( !(prev_flags & SDL_FULLSCREEN) ) {
-			SHFullScreen(SDL_Window, SHFS_HIDETASKBAR);
-			SHFullScreen(SDL_Window, SHFS_HIDESIPBUTTON);
-			ShowWindow(FindWindow(TEXT("HHTaskBar"),NULL),SW_HIDE);
-		}
+	/* Small fix for WinCE/Win32 - when activating window
+	   SDL_VideoSurface is equal to zero, so activating code
+	   is not called properly for fullscreen windows because
+	   macros WINDIB_FULLSCREEN uses SDL_VideoSurface
+	*/
+	SDL_VideoSurface = video;
+
+#if defined(_WIN32_WCE)
+	if ( flags & SDL_FULLSCREEN )
 		video->flags |= SDL_FULLSCREEN;
-	} else {
-		if ( prev_flags & SDL_FULLSCREEN ) {
-			SHFullScreen(SDL_Window, SHFS_SHOWTASKBAR);
-			SHFullScreen(SDL_Window, SHFS_SHOWSIPBUTTON);
-			ShowWindow(FindWindow(TEXT("HHTaskBar"),NULL),SW_SHOWNORMAL);
-		}
-	}
 #endif
+
 #ifndef NO_CHANGEDISPLAYSETTINGS
 	/* Set fullscreen mode if appropriate */
 	if ( (flags & SDL_FULLSCREEN) == SDL_FULLSCREEN ) {
 		DEVMODE settings;
+		BOOL changed;
 
-		memset(&settings, 0, sizeof(DEVMODE));
+		SDL_memset(&settings, 0, sizeof(DEVMODE));
 		settings.dmSize = sizeof(DEVMODE);
+
+#ifdef _WIN32_WCE
+		// try to rotate screen to fit requested resolution
+		if( this->hidden->supportRotation )
+		{
+			DWORD rotation;
+
+			// ask current mode
+			settings.dmFields = DM_DISPLAYORIENTATION;
+			ChangeDisplaySettingsEx(NULL, &settings, NULL, CDS_TEST, NULL);
+			rotation = settings.dmDisplayOrientation;
+
+			if( (width > GetDeviceCaps(GetDC(NULL), HORZRES))
+				&& (height < GetDeviceCaps(GetDC(NULL), VERTRES)))
+			{
+				switch( rotation )
+				{
+				case DMDO_0:
+					settings.dmDisplayOrientation = DMDO_90;
+					break;
+				case DMDO_270:
+					settings.dmDisplayOrientation = DMDO_180;
+					break;
+				}
+				if( settings.dmDisplayOrientation != rotation )
+				{
+					// go to landscape
+					this->hidden->origRotation = rotation;
+					ChangeDisplaySettingsEx(NULL,&settings,NULL,CDS_RESET,NULL);
+				}
+			}
+			if( (width < GetDeviceCaps(GetDC(NULL), HORZRES))
+				&& (height > GetDeviceCaps(GetDC(NULL), VERTRES)))
+			{
+				switch( rotation )
+				{
+				case DMDO_90:
+					settings.dmDisplayOrientation = DMDO_0;
+					break;
+				case DMDO_180:
+					settings.dmDisplayOrientation = DMDO_270;
+					break;
+				}
+				if( settings.dmDisplayOrientation != rotation )
+				{
+					// go to portrait
+					this->hidden->origRotation = rotation;
+					ChangeDisplaySettingsEx(NULL,&settings,NULL,CDS_RESET,NULL);
+				}
+			}
+
+		}
+#endif
+
+#ifndef _WIN32_WCE
 		settings.dmBitsPerPel = video->format->BitsPerPixel;
 		settings.dmPelsWidth = width;
 		settings.dmPelsHeight = height;
 		settings.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL;
-		if ( ChangeDisplaySettings(&settings, CDS_FULLSCREEN) == DISP_CHANGE_SUCCESSFUL ) {
+		if ( width <= (int)SDL_desktop_mode.dmPelsWidth &&
+		     height <= (int)SDL_desktop_mode.dmPelsHeight ) {
+			settings.dmDisplayFrequency = SDL_desktop_mode.dmDisplayFrequency;
+			settings.dmFields |= DM_DISPLAYFREQUENCY;
+		}
+		changed = (ChangeDisplaySettings(&settings, CDS_FULLSCREEN) == DISP_CHANGE_SUCCESSFUL);
+		if ( ! changed && (settings.dmFields & DM_DISPLAYFREQUENCY) ) {
+			settings.dmFields &= ~DM_DISPLAYFREQUENCY;
+			changed = (ChangeDisplaySettings(&settings, CDS_FULLSCREEN) == DISP_CHANGE_SUCCESSFUL);
+		}
+#else
+		changed = 1;
+#endif
+		if ( changed ) {
 			video->flags |= SDL_FULLSCREEN;
 			SDL_fullscreen_mode = settings;
 		}
+
 	}
 #endif /* !NO_CHANGEDISPLAYSETTINGS */
 
 	/* Reset the palette and create a new one if necessary */
+	if ( grab_palette ) {
+		DIB_ReleaseStaticColors(SDL_Window);
+		grab_palette = FALSE;
+	}
 	if ( screen_pal != NULL ) {
 	/*	RJR: March 28, 2000
 		delete identity palette if switching from a palettized mode */
 		DeleteObject(screen_pal);
 		screen_pal = NULL;
 	}
+	if ( screen_logpal != NULL ) {
+		SDL_free(screen_logpal);
+		screen_logpal = NULL;
+	}
+
 	if ( bpp <= 8 )
 	{
 	/*	RJR: March 28, 2000
 		create identity palette switching to a palettized mode */
-		screen_pal = DIB_CreatePalette(bpp);
+		DIB_CreatePalette(this, bpp);
 	}
 
 	style = GetWindowLong(SDL_Window, GWL_STYLE);
@@ -590,13 +820,13 @@ SDL_Surface *DIB_SetVideoMode(_THIS, SDL_Surface *current,
 				video->flags |= SDL_RESIZABLE;
 			}
 		}
-#if WS_MAXIMIZE
+#if WS_MAXIMIZE && !defined(_WIN32_WCE)
 		if (IsZoomed(SDL_Window)) style |= WS_MAXIMIZE;
 #endif
 	}
 
 	/* DJM: Don't piss of anyone who has setup his own window */
-	if ( SDL_windowid == NULL )
+	if ( !SDL_windowid )
 		SetWindowLong(SDL_Window, GWL_STYLE, style);
 
 	/* Delete the old bitmap if necessary */
@@ -615,7 +845,7 @@ SDL_Surface *DIB_SetVideoMode(_THIS, SDL_Surface *current,
 			binfo_size += video->format->palette->ncolors *
 							sizeof(RGBQUAD);
 		}
-		binfo = (BITMAPINFO *)malloc(binfo_size);
+		binfo = (BITMAPINFO *)SDL_malloc(binfo_size);
 		if ( ! binfo ) {
 			if ( video != current ) {
 				SDL_FreeSurface(video);
@@ -644,7 +874,7 @@ SDL_Surface *DIB_SetVideoMode(_THIS, SDL_Surface *current,
 		} else {
 			binfo->bmiHeader.biCompression = BI_RGB;	/* BI_BITFIELDS for 565 vs 555 */
 			if ( video->format->palette ) {
-				memset(binfo->bmiColors, 0,
+				SDL_memset(binfo->bmiColors, 0,
 					video->format->palette->ncolors*sizeof(RGBQUAD));
 			}
 		}
@@ -654,7 +884,7 @@ SDL_Surface *DIB_SetVideoMode(_THIS, SDL_Surface *current,
 		screen_bmp = CreateDIBSection(hdc, binfo, DIB_RGB_COLORS,
 					(void **)(&video->pixels), NULL, 0);
 		ReleaseDC(SDL_Window, hdc);
-		free(binfo);
+		SDL_free(binfo);
 		if ( screen_bmp == NULL ) {
 			if ( video != current ) {
 				SDL_FreeSurface(video);
@@ -665,66 +895,16 @@ SDL_Surface *DIB_SetVideoMode(_THIS, SDL_Surface *current,
 		this->UpdateRects = DIB_NormalUpdate;
 
 		/* Set video surface flags */
-		if ( bpp <= 8 ) {
+		if ( screen_pal && (flags & (SDL_FULLSCREEN|SDL_HWPALETTE)) ) {
+			grab_palette = TRUE;
+		}
+		if ( screen_pal ) {
 			/* BitBlt() maps colors for us */
 			video->flags |= SDL_HWPALETTE;
 		}
 	}
-
-	/* Resize the window */
-	if ( SDL_windowid == NULL ) {
-		HWND top;
-		UINT swp_flags;
-		const char *window = getenv("SDL_VIDEO_WINDOW_POS");
-		const char *center = getenv("SDL_VIDEO_CENTERED");
-
-		if ( !SDL_windowX && !SDL_windowY ) {
-			if ( window ) {
-				if ( sscanf(window, "%d,%d", &x, &y) == 2 ) {
-					SDL_windowX = x;
-					SDL_windowY = y;
-				}
-				if ( strcmp(window, "center") == 0 ) {
-					center = window;
-					window = NULL;
-				}
-			}
-		}
-		swp_flags = (SWP_NOCOPYBITS | SWP_SHOWWINDOW);
-
-		SDL_resizing = 1;
-		bounds.left = SDL_windowX;
-		bounds.top = SDL_windowY;
-		bounds.right = SDL_windowX+video->w;
-		bounds.bottom = SDL_windowY+video->h;
-		AdjustWindowRectEx(&bounds, GetWindowLong(SDL_Window, GWL_STYLE), FALSE, 0);
-		width = bounds.right-bounds.left;
-		height = bounds.bottom-bounds.top;
-		if ( (flags & SDL_FULLSCREEN) ) {
-			x = (GetSystemMetrics(SM_CXSCREEN)-width)/2;
-			y = (GetSystemMetrics(SM_CYSCREEN)-height)/2;
-		} else if ( center ) {
-			x = (GetSystemMetrics(SM_CXSCREEN)-width)/2;
-			y = (GetSystemMetrics(SM_CYSCREEN)-height)/2;
-		} else if ( SDL_windowX || SDL_windowY || window ) {
-			x = bounds.left;
-			y = bounds.top;
-		} else {
-			x = y = -1;
-			swp_flags |= SWP_NOMOVE;
-		}
-		if ( y < 0 ) { /* Cover up title bar for more client area */
-			y -= GetSystemMetrics(SM_CYCAPTION)/2;
-		}
-		if ( flags & SDL_FULLSCREEN ) {
-			top = HWND_TOPMOST;
-		} else {
-			top = HWND_NOTOPMOST;
-		}
-		SetWindowPos(SDL_Window, top, x, y, width, height, swp_flags);
-		SDL_resizing = 0;
-		SetForegroundWindow(SDL_Window);
-	}
+	DIB_ResizeWindow(this, width, height, prev_w, prev_h, flags);
+	SDL_resizing = 0;
 
 	/* Set up for OpenGL */
 	if ( flags & SDL_OPENGL ) {
@@ -733,6 +913,12 @@ SDL_Surface *DIB_SetVideoMode(_THIS, SDL_Surface *current,
 		}
 		video->flags |= SDL_OPENGL;
 	}
+
+	/* JC 14 Mar 2006
+		Flush the message loop or this can cause big problems later
+		Especially if the user decides to use dialog boxes or assert()!
+	*/
+	WIN_FlushMessageQueue();
 
 	/* We're live! */
 	return(video);
@@ -775,35 +961,91 @@ static void DIB_NormalUpdate(_THIS, int numrects, SDL_Rect *rects)
 	ReleaseDC(SDL_Window, hdc);
 }
 
+static int FindPaletteIndex(LOGPALETTE *pal, BYTE r, BYTE g, BYTE b)
+{
+	PALETTEENTRY *entry;
+	int i;
+	int nentries = pal->palNumEntries;
+
+	for ( i = 0; i < nentries; ++i ) {
+		entry = &pal->palPalEntry[i];
+		if ( entry->peRed == r && entry->peGreen == g && entry->peBlue == b ) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+static BOOL CheckPaletteEntry(LOGPALETTE *pal, int index, BYTE r, BYTE g, BYTE b)
+{
+	PALETTEENTRY *entry;
+	BOOL moved = 0;
+
+	entry = &pal->palPalEntry[index];
+	if ( entry->peRed != r || entry->peGreen != g || entry->peBlue != b ) {
+		int found = FindPaletteIndex(pal, r, g, b);
+		if ( found >= 0 ) {
+			pal->palPalEntry[found] = *entry;
+		}
+		entry->peRed = r;
+		entry->peGreen = g;
+		entry->peBlue = b;
+		moved = 1;
+	}
+	entry->peFlags = 0;
+
+	return moved;
+}
+
 int DIB_SetColors(_THIS, int firstcolor, int ncolors, SDL_Color *colors)
 {
-	RGBQUAD *pal;
-	int i;
-#ifndef _WIN32_WCE
+#if !defined(_WIN32_WCE) || (_WIN32_WCE >= 400)
 	HDC hdc, mdc;
+	RGBQUAD *pal;
 #else
 	HDC hdc;
 #endif
+	int i;
+	int moved_entries = 0;
 
 	/* Update the display palette */
 	hdc = GetDC(SDL_Window);
 	if ( screen_pal ) {
-		PALETTEENTRY *entries;
+		PALETTEENTRY *entry;
 
-		entries = (PALETTEENTRY *)alloca(ncolors*sizeof(PALETTEENTRY));
 		for ( i=0; i<ncolors; ++i ) {
-			entries[i].peRed   = colors[i].r;
-			entries[i].peGreen = colors[i].g;
-			entries[i].peBlue  = colors[i].b;
-			entries[i].peFlags = PC_NOCOLLAPSE;
+			entry = &screen_logpal->palPalEntry[firstcolor+i];
+			entry->peRed   = colors[i].r;
+			entry->peGreen = colors[i].g;
+			entry->peBlue  = colors[i].b;
+			entry->peFlags = PC_NOCOLLAPSE;
 		}
-		SetPaletteEntries(screen_pal, firstcolor, ncolors, entries);
+#if defined(SYSPAL_NOSTATIC) && !defined(_WIN32_WCE)
+		/* Check to make sure black and white are in position */
+		if ( GetSystemPaletteUse(hdc) != SYSPAL_NOSTATIC256 ) {
+			moved_entries += CheckPaletteEntry(screen_logpal, 0, 0x00, 0x00, 0x00);
+			moved_entries += CheckPaletteEntry(screen_logpal, screen_logpal->palNumEntries-1, 0xff, 0xff, 0xff);
+		}
+		/* FIXME:
+		   If we don't have full access to the palette, what we
+		   really want to do is find the 236 most diverse colors
+		   in the desired palette, set those entries (10-245) and
+		   then map everything into the new system palette.
+		 */
+#endif
+
+#ifndef _WIN32_WCE
+		/* Copy the entries into the system palette */
+		UnrealizeObject(screen_pal);
+#endif
+		SetPaletteEntries(screen_pal, 0, screen_logpal->palNumEntries, screen_logpal->palPalEntry);
 		SelectPalette(hdc, screen_pal, FALSE);
 		RealizePalette(hdc);
 	}
 
+#if !defined(_WIN32_WCE) || (_WIN32_WCE >= 400)
 	/* Copy palette colors into DIB palette */
-	pal = (RGBQUAD *)alloca(ncolors*sizeof(RGBQUAD));
+	pal = SDL_stack_alloc(RGBQUAD, ncolors);
 	for ( i=0; i<ncolors; ++i ) {
 		pal[i].rgbRed = colors[i].r;
 		pal[i].rgbGreen = colors[i].g;
@@ -812,17 +1054,20 @@ int DIB_SetColors(_THIS, int firstcolor, int ncolors, SDL_Color *colors)
 	}
 
 	/* Set the DIB palette and update the display */
-#ifndef _WIN32_WCE
 	mdc = CreateCompatibleDC(hdc);
 	SelectObject(mdc, screen_bmp);
 	SetDIBColorTable(mdc, firstcolor, ncolors, pal);
-	BitBlt(hdc, 0, 0, this->screen->w, this->screen->h,
-	       mdc, 0, 0, SRCCOPY);
+	if ( moved_entries || !grab_palette ) {
+		BitBlt(hdc, 0, 0, this->screen->w, this->screen->h,
+		       mdc, 0, 0, SRCCOPY);
+	}
 	DeleteDC(mdc);
+	SDL_stack_free(pal);
 #endif
 	ReleaseDC(SDL_Window, hdc);
 	return(1);
 }
+
 
 static void DIB_CheckGamma(_THIS)
 {
@@ -872,7 +1117,7 @@ void DIB_QuitGamma(_THIS)
 		}
 
 		/* Free the saved gamma memory */
-		free(gamma_saved);
+		SDL_free(gamma_saved);
 		gamma_saved = 0;
 	}
 #endif /* !NO_GAMMA_SUPPORT */
@@ -889,7 +1134,7 @@ int DIB_SetGammaRamp(_THIS, Uint16 *ramp)
 
 	/* Set the ramp for the display */
 	if ( ! gamma_saved ) {
-		gamma_saved = (WORD *)malloc(3*256*sizeof(*gamma_saved));
+		gamma_saved = (WORD *)SDL_malloc(3*256*sizeof(*gamma_saved));
 		if ( ! gamma_saved ) {
 			SDL_OutOfMemory();
 			return -1;
@@ -926,30 +1171,17 @@ int DIB_GetGammaRamp(_THIS, Uint16 *ramp)
 #endif /* !NO_GAMMA_SUPPORT */
 }
 
-static void FlushMessageQueue()
-{
-	MSG  msg;
-	while ( PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) ) {
-		if ( msg.message == WM_QUIT ) break;
-		TranslateMessage( &msg );
-		DispatchMessage( &msg );
-	}
-}
-
 void DIB_VideoQuit(_THIS)
 {
+	int i, j;
+
 	/* Destroy the window and everything associated with it */
 	if ( SDL_Window ) {
 		/* Delete the screen bitmap (also frees screen->pixels) */
 		if ( this->screen ) {
-#ifdef WIN32_PLATFORM_PSPC
-			if ( this->screen->flags & SDL_FULLSCREEN ) {
-				/* Unhide taskbar, etc. */
-				SHFullScreen(SDL_Window, SHFS_SHOWTASKBAR);
-				SHFullScreen(SDL_Window, SHFS_SHOWSIPBUTTON);
-				ShowWindow(FindWindow(TEXT("HHTaskBar"),NULL),SW_SHOWNORMAL);
+			if ( grab_palette ) {
+				DIB_ReleaseStaticColors(SDL_Window);
 			}
-#endif
 #ifndef NO_CHANGEDISPLAYSETTINGS
 			if ( this->screen->flags & SDL_FULLSCREEN ) {
 				ChangeDisplaySettings(NULL, 0);
@@ -961,6 +1193,14 @@ void DIB_VideoQuit(_THIS)
 			}
 			this->screen->pixels = NULL;
 		}
+		if ( screen_pal != NULL ) {
+			DeleteObject(screen_pal);
+			screen_pal = NULL;
+		}
+		if ( screen_logpal != NULL ) {
+			SDL_free(screen_logpal);
+			screen_logpal = NULL;
+		}
 		if ( screen_bmp ) {
 			DeleteObject(screen_bmp);
 			screen_bmp = NULL;
@@ -971,33 +1211,89 @@ void DIB_VideoQuit(_THIS)
 		}
 		DIB_QuitGamma(this);
 		DIB_DestroyWindow(this);
-		FlushMessageQueue();
 
 		SDL_Window = NULL;
+
+#if defined(_WIN32_WCE)
+
+// Unload wince aygshell library to prevent leak
+		if( aygshell ) 
+		{
+			FreeLibrary(aygshell);
+			aygshell = NULL;
+		}
+#endif
+	}
+
+	for ( i=0; i < SDL_arraysize(SDL_modelist); ++i ) {
+		if ( !SDL_modelist[i] ) {
+			continue;
+		}
+		for ( j=0; SDL_modelist[i][j]; ++j ) {
+			SDL_free(SDL_modelist[i][j]);
+		}
+		SDL_free(SDL_modelist[i]);
+		SDL_modelist[i] = NULL;
+		SDL_nummodes[i] = 0;
 	}
 }
 
 /* Exported for the windows message loop only */
-static void DIB_FocusPalette(_THIS, int foreground)
+static void DIB_GrabStaticColors(HWND window)
+{
+#if defined(SYSPAL_NOSTATIC) && !defined(_WIN32_WCE)
+	HDC hdc;
+
+	hdc = GetDC(window);
+	SetSystemPaletteUse(hdc, SYSPAL_NOSTATIC256);
+	if ( GetSystemPaletteUse(hdc) != SYSPAL_NOSTATIC256 ) {
+		SetSystemPaletteUse(hdc, SYSPAL_NOSTATIC);
+	}
+	ReleaseDC(window, hdc);
+#endif
+}
+static void DIB_ReleaseStaticColors(HWND window)
+{
+#if defined(SYSPAL_NOSTATIC) && !defined(_WIN32_WCE)
+	HDC hdc;
+
+	hdc = GetDC(window);
+	SetSystemPaletteUse(hdc, SYSPAL_STATIC);
+	ReleaseDC(window, hdc);
+#endif
+}
+static void DIB_Activate(_THIS, BOOL active, BOOL minimized)
+{
+	if ( grab_palette ) {
+		if ( !active ) {
+			DIB_ReleaseStaticColors(SDL_Window);
+			DIB_RealizePalette(this);
+		} else if ( !minimized ) {
+			DIB_GrabStaticColors(SDL_Window);
+			DIB_RealizePalette(this);
+		}
+	}
+}
+static void DIB_RealizePalette(_THIS)
 {
 	if ( screen_pal != NULL ) {
 		HDC hdc;
 
 		hdc = GetDC(SDL_Window);
+#ifndef _WIN32_WCE
+		UnrealizeObject(screen_pal);
+#endif
 		SelectPalette(hdc, screen_pal, FALSE);
-		if ( RealizePalette(hdc) )
+		if ( RealizePalette(hdc) ) {
 			InvalidateRect(SDL_Window, NULL, FALSE);
+		}
 		ReleaseDC(SDL_Window, hdc);
 	}
-}
-static void DIB_RealizePalette(_THIS)
-{
-	DIB_FocusPalette(this, 1);
 }
 static void DIB_PaletteChanged(_THIS, HWND window)
 {
 	if ( window != SDL_Window ) {
-		DIB_FocusPalette(this, 0);
+		DIB_RealizePalette(this);
 	}
 }
 
@@ -1017,7 +1313,7 @@ static void DIB_WinPAINT(_THIS, HDC hdc)
 }
 
 /* Stub in case DirectX isn't available */
-#ifndef ENABLE_DIRECTX
+#if !SDL_AUDIO_DRIVER_DSOUND
 void DX5_SoundFocus(HWND hwnd)
 {
 	return;

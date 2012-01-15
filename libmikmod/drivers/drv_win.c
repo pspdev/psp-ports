@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_win.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: drv_win.c,v 1.2 2004/01/31 22:39:40 raph Exp $
 
   Driver for output on win32 platforms using the multimedia API
 
@@ -173,7 +173,7 @@ MIKMODAPI MDRIVER drv_win={
 	"Windows waveform-audio driver v0.1",
 	0,255,
 	"winmm",
-
+	NULL,
 	NULL,
 	WIN_IsThere,
 	VC_SampleLoad,

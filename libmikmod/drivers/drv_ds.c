@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_ds.c,v 1.2 2004/01/21 17:29:32 raph Exp $
+  $Id: drv_ds.c,v 1.3 2004/01/31 22:39:40 raph Exp $
 
   Driver for output on win32 platforms using DirectSound
 
@@ -346,7 +346,8 @@ MIKMODAPI MDRIVER drv_ds=
 	"DirectSound Driver (DX6+) v0.4",
 	0,255,
 	"ds",
-
+	"buffer:r:12,19,16:Audio buffer log2 size\n"
+        "globalfocus:b:0:Play if window does not have the focus\n",
 	DS_CommandLine,
 	DS_IsPresent,
 	VC_SampleLoad,

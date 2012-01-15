@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: mdriver.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: mdriver.c,v 1.3 2004/02/18 13:29:19 raph Exp $
 
   These routines are used to access the available soundcard drivers.
 
@@ -239,6 +239,22 @@ MIKMODAPI int MikMod_DriverFromAlias(CHAR *alias)
 	MUTEX_UNLOCK(lists);
 
 	return rank;
+}
+
+MIKMODAPI MDRIVER *MikMod_DriverByOrdinal(int ordinal)
+{
+        MDRIVER *cruise;
+
+        /* Allow only driver ordinals > 0 */
+        if (!ordinal)
+                return 0;
+
+        MUTEX_LOCK(lists);
+        cruise = firstdriver;
+        while (cruise && --ordinal)
+                cruise = cruise->next;
+        MUTEX_UNLOCK(lists);
+        return cruise;
 }
 
 SWORD MD_SampleLoad(SAMPLOAD* s, int type)
@@ -800,7 +816,8 @@ MIKMODAPI long MikMod_GetVersion(void)
 #define INIT_MUTEX(name) \
 	HANDLE _mm_mutex_##name
 #else
-#define INIT_MUTEX(name)
+#define INIT_MUTEX(name) \
+	void *_mm_mutex_##name = NULL
 #endif
 
 INIT_MUTEX(vars);

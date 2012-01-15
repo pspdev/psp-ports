@@ -1,0 +1,53 @@
+>> BUILD INSTRUCTIONS FOR libmikmod FOR MAC OS X
+------------------------------------------------
+
+You can always use the UNIX commandline tools
+instead of the IDE projects in this directory.
+
+Go to the top level and follow the INSTALL there...
+(Hint: "./configure && make && sudo make install")
+
+In that case your files will end up under /usr/local.
+The IDE stuff will end up under a "build" directory.
+
+
+
+Mac OS X 10.1 "Puma"
+-------------
+
+1) Go to the Apple store. http://store.apple.com
+
+2) Purchase a new version of Mac OS X. (for $129)
+   It comes with a newer version Developer Tools.
+
+
+Mac OS X 10.2 "Puma"
+-------------
+
+1) You should be using the December 2002 Dev Tools.
+
+2) Open "libmikmod.pbproj" with Project Builder.
+
+
+Mac OS X 10.3 "Panther"
+-------------
+
+1) You should be using Xcode 1.1 Dev Tools, or up.
+
+2) Open "libmikmod.xcode" with the Xcode app.
+
+
+
+The frameworks come in two versions, Carbon and CoreAudio.
+Carbon uses the old Macintosh Sound Manager driver,
+and CoreAudio uses the new Mac OS X CoreAudio driver.
+
+Unless you are building an application to be used from
+Mac OS 9 too (which these tools won't do anyway), the
+CoreAudio driver is recommended - since it's better...
+
+
+Enjoy!
+
+Anders F Bjšrklund <afb@algonet.se>
+http://www.algonet.se/~afb/mikmod

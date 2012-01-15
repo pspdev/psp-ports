@@ -1,29 +1,27 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_syscdrom.c,v 1.5 2004/01/04 16:49:16 slouken Exp $";
-#endif
+#ifdef SDL_CDROM_MACOS
 
 /* MacOS functions for system-level CD-ROM audio control */
 
@@ -32,7 +30,7 @@ static char rcsid =
 #include <LowMem.h> /* Use entry table macros, not functions in InterfaceLib  */
 
 #include "SDL_cdrom.h"
-#include "SDL_syscdrom.h"
+#include "../SDL_syscdrom.h"
 #include "SDL_syscdrom_c.h"
 
 /* Added by Matt Slot */
@@ -165,7 +163,7 @@ static int SDL_SYS_CDGetTOC(SDL_CD *cdrom)
 	long				i, leadout;
 
 	/* Get the number of tracks on the CD by examining the TOC */
-	memset(&cdpb, 0, sizeof(cdpb));
+	SDL_memset(&cdpb, 0, sizeof(cdpb));
 	cdpb.ioVRefNum = SDL_cdlist[cdrom->id].driveNum;
 	cdpb.ioCRefNum = SDL_cdlist[cdrom->id].dRefNum;
 	cdpb.csCode = kReadTOC;
@@ -186,7 +184,7 @@ static int SDL_SYS_CDGetTOC(SDL_CD *cdrom)
 
 
 	/* Get the lead out area of the CD by examining the TOC */
-	memset(&cdpb, 0, sizeof(cdpb));
+	SDL_memset(&cdpb, 0, sizeof(cdpb));
 	cdpb.ioVRefNum = SDL_cdlist[cdrom->id].driveNum;
 	cdpb.ioCRefNum = SDL_cdlist[cdrom->id].dRefNum;
 	cdpb.csCode = kReadTOC;
@@ -202,8 +200,8 @@ static int SDL_SYS_CDGetTOC(SDL_CD *cdrom)
 			SDL_SYS_BCDToShort(cdpb.csParam.bytes[2]));
 
 	/* Get an array of track locations by examining the TOC */
-	memset(tracks, 0, sizeof(tracks));
-	memset(&cdpb, 0, sizeof(cdpb));
+	SDL_memset(tracks, 0, sizeof(tracks));
+	SDL_memset(&cdpb, 0, sizeof(cdpb));
 	cdpb.ioVRefNum = SDL_cdlist[cdrom->id].driveNum;
 	cdpb.ioCRefNum = SDL_cdlist[cdrom->id].dRefNum;
 	cdpb.csCode = kReadTOC;
@@ -260,7 +258,7 @@ static CDstatus SDL_SYS_CDStatus(SDL_CD *cdrom, int *position)
 	if ( ! get_drivenum(cdrom->id) ) {
 		return(CD_TRAYEMPTY);
 	}
-	memset(&cdpb, 0, sizeof(cdpb));
+	SDL_memset(&cdpb, 0, sizeof(cdpb));
 	cdpb.ioVRefNum = SDL_cdlist[cdrom->id].driveNum;
 	cdpb.ioCRefNum = SDL_cdlist[cdrom->id].dRefNum;
 	cdpb.csCode = kReadTOC;
@@ -281,7 +279,7 @@ static CDstatus SDL_SYS_CDStatus(SDL_CD *cdrom, int *position)
 
 	if (1 || SDL_cdlist[cdrom->id].hasAudio) {
 		/* Get the current playback status */
-		memset(&cdpb, 0, sizeof(cdpb));
+		SDL_memset(&cdpb, 0, sizeof(cdpb));
 		cdpb.ioVRefNum = SDL_cdlist[cdrom->id].driveNum;
 		cdpb.ioCRefNum = SDL_cdlist[cdrom->id].dRefNum;
 		cdpb.csCode = kAudioStatus;
@@ -340,7 +338,7 @@ static int SDL_SYS_CDPlay(SDL_CD *cdrom, int start, int length)
 	}
 
 	/* Specify the AudioCD playback mode */
-	memset(&cdpb, 0, sizeof(cdpb));
+	SDL_memset(&cdpb, 0, sizeof(cdpb));
 	cdpb.ioVRefNum = SDL_cdlist[cdrom->id].driveNum;
 	cdpb.ioCRefNum = SDL_cdlist[cdrom->id].dRefNum;
 	cdpb.csCode = kSetPlayMode;
@@ -351,7 +349,7 @@ static int SDL_SYS_CDPlay(SDL_CD *cdrom, int start, int length)
 
 #if 1
 	/* Specify the end of audio playback */
-	memset(&cdpb, 0, sizeof(cdpb));
+	SDL_memset(&cdpb, 0, sizeof(cdpb));
 	cdpb.ioVRefNum = SDL_cdlist[cdrom->id].driveNum;
 	cdpb.ioCRefNum = SDL_cdlist[cdrom->id].dRefNum;
 	cdpb.csCode = kAudioStop;
@@ -363,7 +361,7 @@ static int SDL_SYS_CDPlay(SDL_CD *cdrom, int start, int length)
 	}
 
 	/* Specify the start of audio playback, and start it */
-	memset(&cdpb, 0, sizeof(cdpb));
+	SDL_memset(&cdpb, 0, sizeof(cdpb));
 	cdpb.ioVRefNum = SDL_cdlist[cdrom->id].driveNum;
 	cdpb.ioCRefNum = SDL_cdlist[cdrom->id].dRefNum;
 	cdpb.csCode = kAudioPlay;
@@ -378,7 +376,7 @@ static int SDL_SYS_CDPlay(SDL_CD *cdrom, int start, int length)
 #else
 	/* Specify the end of audio playback */
 	FRAMES_TO_MSF(start+length, &m, &s, &f);
-	memset(&cdpb, 0, sizeof(cdpb));
+	SDL_memset(&cdpb, 0, sizeof(cdpb));
 	cdpb.ioVRefNum = SDL_cdlist[cdrom->id].driveNum;
 	cdpb.ioCRefNum = SDL_cdlist[cdrom->id].dRefNum;
 	cdpb.csCode = kAudioStop;
@@ -393,7 +391,7 @@ static int SDL_SYS_CDPlay(SDL_CD *cdrom, int start, int length)
 
 	/* Specify the start of audio playback, and start it */
 	FRAMES_TO_MSF(start, &m, &s, &f);
-	memset(&cdpb, 0, sizeof(cdpb));
+	SDL_memset(&cdpb, 0, sizeof(cdpb));
 	cdpb.ioVRefNum = SDL_cdlist[cdrom->id].driveNum;
 	cdpb.ioCRefNum = SDL_cdlist[cdrom->id].dRefNum;
 	cdpb.csCode = kAudioPlay;
@@ -416,7 +414,7 @@ static int SDL_SYS_CDPause(SDL_CD *cdrom)
 {
 	CDCntrlParam cdpb;
 
-	memset(&cdpb, 0, sizeof(cdpb));
+	SDL_memset(&cdpb, 0, sizeof(cdpb));
 	cdpb.ioVRefNum = SDL_cdlist[cdrom->id].driveNum;
 	cdpb.ioCRefNum = SDL_cdlist[cdrom->id].dRefNum;
 	cdpb.csCode = kAudioPause;
@@ -434,7 +432,7 @@ static int SDL_SYS_CDResume(SDL_CD *cdrom)
 {
 	CDCntrlParam cdpb;
 
-	memset(&cdpb, 0, sizeof(cdpb));
+	SDL_memset(&cdpb, 0, sizeof(cdpb));
 	cdpb.ioVRefNum = SDL_cdlist[cdrom->id].driveNum;
 	cdpb.ioCRefNum = SDL_cdlist[cdrom->id].dRefNum;
 	cdpb.csCode = kAudioPause;
@@ -452,7 +450,7 @@ static int SDL_SYS_CDStop(SDL_CD *cdrom)
 {
 	CDCntrlParam cdpb;
 
-	memset(&cdpb, 0, sizeof(cdpb));
+	SDL_memset(&cdpb, 0, sizeof(cdpb));
 	cdpb.ioVRefNum = SDL_cdlist[cdrom->id].driveNum;
 	cdpb.ioCRefNum = SDL_cdlist[cdrom->id].dRefNum;
 	cdpb.csCode = kAudioStop;
@@ -486,7 +484,7 @@ static int SDL_SYS_CDEject(SDL_CD *cdrom)
 		}
 	
 		/* Does drive contain mounted volume? If not, skip */
-		memset(&hpb, 0, sizeof(hpb));
+		SDL_memset(&hpb, 0, sizeof(hpb));
 		hpb.volumeParam.ioVRefNum = driveElem->dQDrive;
 		if ( PBHGetVInfoSync(&hpb) != noErr ) {
 			continue;
@@ -500,7 +498,7 @@ static int SDL_SYS_CDEject(SDL_CD *cdrom)
 
 	/* If no disk is present, just eject the tray */
 	if (! disk) {
-		memset(&cpb, 0, sizeof(cpb));
+		SDL_memset(&cpb, 0, sizeof(cpb));
 		cpb.cntrlParam.ioVRefNum = 0; /* No Drive */
 		cpb.cntrlParam.ioCRefNum = SDL_cdlist[cdrom->id].dRefNum;
 		cpb.cntrlParam.csCode = kEjectTheDisc;
@@ -521,6 +519,7 @@ static void SDL_SYS_CDClose(SDL_CD *cdrom)
 void SDL_SYS_CDQuit(void)
 {
 	while(SDL_numcds--) 
-		memset(SDL_cdlist + SDL_numcds, 0, sizeof(SDL_cdlist[0]));
+		SDL_memset(SDL_cdlist + SDL_numcds, 0, sizeof(SDL_cdlist[0]));
 }
 
+#endif /* SDL_CDROM_MACOS */

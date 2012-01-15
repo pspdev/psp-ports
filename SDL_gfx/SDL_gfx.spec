@@ -1,5 +1,5 @@
 %define prefix  %{_prefix}
-%define version 2.0.13
+%define version 2.0.23
 %define release 1
 %define _unpackaged_files_terminate_build 0
 
@@ -10,9 +10,9 @@ Release: %{release}
 License: LGPL
 Group: System Environment/Libraries
 Prefix: %{prefix}
-Source: http://www.ferzkopp.net/~aschiffler/Software/SDL_gfx-2.0/SDL_gfx-2.0.13.tar.gz
+Source: http://www.ferzkopp.net/Software/SDL_gfx-2.0/SDL_gfx-2.0.23.tar.gz
 Packager: Danny Sung <dannys at mail.com>
-Vendor: Andreas Schiffler <aschiffler at appwares.com>
+Vendor: Andreas Schiffler <aschiffler at ferzkopp.net>
 BuildRoot: /tmp/%{name}-root-%{version}
 
 %description
@@ -27,9 +27,9 @@ The current components of the SDL_gfx library are:
    * Rotozoomer (SDL_rotozoom.h)
    * Framerate control (SDL_framerate.h)
    * MMX image filters (SDL_imageFilter.h)
+   * Custom blit functions (SDL_gfxBlitFunc.h)
 
-The library is backwards compatible to the above mentioned code. Its
-is written in plain C and can be used in C++ code.
+The library is is written in plain C and can be used in C++ code.
 
 %package devel
 Summary: Libraries and includes to develop SDL_gfx programs
@@ -48,12 +48,12 @@ The current components of the SDL_gfx library are:
    * Rotozoomer (SDL_rotozoom.h)
    * Framerate control (SDL_framerate.h)
    * MMX image filters (SDL_imageFilter.h)
+   * Custom blit functions (SDL_gfxBlitFunc.h)
 
-The library is backwards compatible to the above mentioned code. Its
-is written in plain C and can be used in C++ code.
+The library is is written in plain C and can be used in C++ code.
 
 %package demos
-Summary: SDL_gfx demo programs
+Summary: SDL_gfx demo and test programs
 Group: Applications/Multimedia
 Requires: %{name} = %{version}
 
@@ -99,6 +99,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_includedir}/SDL/SDL_gfxPrimitives.h
 %{_includedir}/SDL/SDL_imageFilter.h
 %{_includedir}/SDL/SDL_rotozoom.h
+%{_includedir}/SDL/SDL_gfxBlitFunc.h
 
 %files demos
 %defattr(-,root,root)

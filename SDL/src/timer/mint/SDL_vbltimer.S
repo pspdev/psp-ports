@@ -1,29 +1,24 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002  Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_vbltimer.S,v 1.3 2002/03/06 11:23:02 slouken Exp $";
-#endif
 
 /*
  *	VBL queue routine
@@ -32,11 +27,14 @@ static char rcsid =
  */
 
 #define _vbl_queue 0x456
+#define _hz_200    0x4ba
 
 	.text
 
 	.globl	_SDL_AtariVblInstall
 	.globl	_SDL_AtariVblUninstall
+
+	.globl	_SDL_MintAudio_hasfpu
 
 /*--- Vector installer ---*/
 
@@ -45,6 +43,7 @@ _SDL_AtariVblInstall:
 	lea		_my_vbl,a0
 
 	clrw	vbl_mutex
+	movel	_hz_200.w, _SDL_Atari_hz200
 
 	/* Stop interrupts */
 
@@ -111,6 +110,9 @@ badvector:
 /*--- Our vbl ---*/
 
 _my_vbl:
+	/* Update _hz_200 */
+	movel	_hz_200.w, _SDL_Atari_hz200
+
 	/* Verify if this is not already running */
 
 	tstw	vbl_mutex
@@ -118,8 +120,30 @@ _my_vbl:
 	notw	vbl_mutex
 
 	moveml	d0-d7/a0-a6,sp@-
+
+	/* Save FPU if needed */
+	tstw	_SDL_MintAudio_hasfpu
+	beqs	SDL_AtariVbl_nofpu1
+	.chip	68060
+	fsave	sp@-
+	fmoveml fpcr/fpsr/fpiar,sp@-
+	fmovemx	fp0-fp7,sp@-
+	.chip	68000
+SDL_AtariVbl_nofpu1:
+
 	movel	my_vector,a0
 	jsr		a0@
+
+	/* Restore FPU if needed */
+	tstw	_SDL_MintAudio_hasfpu
+	beqs	SDL_AtariVbl_Xbios_nofpu2
+	.chip	68060
+	fmovemx	sp@+,fp0-fp7
+	fmoveml	sp@+,fpcr/fpsr/fpiar
+	frestore	sp@+
+	.chip	68000
+SDL_AtariVbl_Xbios_nofpu2:
+
 	moveml	sp@+,d0-d7/a0-a6
 
 	clrw	vbl_mutex
@@ -127,6 +151,8 @@ vbl_end:
 	rts
 
 	.data
+	.even
+	.comm	_SDL_Atari_hz200,4*1
 	.even
 	.comm	vbl_mutex,2*1
 	.even

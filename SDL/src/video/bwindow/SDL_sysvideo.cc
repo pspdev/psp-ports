@@ -1,54 +1,44 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_sysvideo.cc,v 1.10 2004/07/18 19:14:33 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* BWindow based framebuffer implementation */
 
-#include <stdlib.h>
-#include <string.h>
-
-#include <stdio.h>
 #include <unistd.h>
 
-#include "SDL.h"
-#include "SDL_BeApp.h"
 #include "SDL_BWin.h"
 #include "SDL_timer.h"
-#include "blank_cursor.h"
 
 extern "C" {
 
-#include "SDL_sysvideo.h"
-#include "SDL_sysmouse_c.h"
+#include "../SDL_sysvideo.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_sysevents_c.h"
-#include "SDL_events_c.h"
+#include "SDL_sysmouse_c.h"
 #include "SDL_syswm_c.h"
 #include "SDL_lowvideo.h"
-#include "SDL_yuvfuncs.h"
+#include "../SDL_yuvfuncs.h"
 #include "SDL_sysyuv.h"
+#include "../blank_cursor.h"
 
 #define BEOS_HIDDEN_SIZE	32	/* starting hidden window size */
 
@@ -70,7 +60,7 @@ static int BE_ToggleFullScreen(_THIS, int fullscreen);
 static SDL_Overlay *BE_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, SDL_Surface *display);
 
 /* OpenGL functions */
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 static int BE_GL_LoadLibrary(_THIS, const char *path);
 static void* BE_GL_GetProcAddress(_THIS, const char *proc);
 static int BE_GL_GetAttribute(_THIS, SDL_GLattr attrib, int* value);
@@ -87,8 +77,8 @@ static int BE_Available(void)
 
 static void BE_DeleteDevice(SDL_VideoDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	SDL_free(device->hidden);
+	SDL_free(device);
 }
 
 static SDL_VideoDevice *BE_CreateDevice(int devindex)
@@ -96,20 +86,20 @@ static SDL_VideoDevice *BE_CreateDevice(int devindex)
 	SDL_VideoDevice *device;
 
 	/* Initialize all variables that we clean on shutdown */
-	device = (SDL_VideoDevice *)malloc(sizeof(SDL_VideoDevice));
+	device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
 	if ( device ) {
-		memset(device, 0, (sizeof *device));
+		SDL_memset(device, 0, (sizeof *device));
 		device->hidden = (struct SDL_PrivateVideoData *)
-				malloc((sizeof *device->hidden));
+				SDL_malloc((sizeof *device->hidden));
 	}
 	if ( (device == NULL) || (device->hidden == NULL) ) {
 		SDL_OutOfMemory();
 		if ( device ) {
-			free(device);
+			SDL_free(device);
 		}
 		return(0);
 	}
-	memset(device->hidden, 0, (sizeof *device->hidden));
+	SDL_memset(device->hidden, 0, (sizeof *device->hidden));
 
 	/* Set the function pointers */
 	/* Initialization/Query functions */
@@ -133,7 +123,7 @@ static SDL_VideoDevice *BE_CreateDevice(int devindex)
 	device->FlipHWSurface = NULL;
 	device->FreeHWSurface = BE_FreeHWSurface;
 	/* Gamma support */
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	/* OpenGL support */
 	device->GL_LoadLibrary = BE_GL_LoadLibrary;
 	device->GL_GetProcAddress = BE_GL_GetProcAddress;
@@ -145,7 +135,7 @@ static SDL_VideoDevice *BE_CreateDevice(int devindex)
 	device->SetCaption = BE_SetWMCaption;
 	device->SetIcon = NULL;
 	device->IconifyWindow = BE_IconifyWindow;
-	device->GrabInput = NULL;
+	device->GrabInput = BE_GrabInput;
 	device->GetWMInfo = BE_GetWMInfo;
 	/* Cursor manager functions */
 	device->FreeWMCursor = BE_FreeWMCursor;
@@ -153,7 +143,7 @@ static SDL_VideoDevice *BE_CreateDevice(int devindex)
 	device->ShowWMCursor = BE_ShowWMCursor;
 	device->WarpWMCursor = BE_WarpWMCursor;
 	device->MoveWMCursor = NULL;
-	device->CheckMouseMode = NULL;
+	device->CheckMouseMode = BE_CheckMouseMode;
 	/* Event manager functions */
 	device->InitOSKeymap = BE_InitOSKeymap;
 	device->PumpEvents = BE_PumpEvents;
@@ -238,7 +228,7 @@ static int BE_AddMode(_THIS, int index, unsigned int w, unsigned int h)
 	}
 
 	/* Set up the new video mode rectangle */
-	mode = (SDL_Rect *)malloc(sizeof *mode);
+	mode = (SDL_Rect *)SDL_malloc(sizeof *mode);
 	if ( mode == NULL ) {
 		SDL_OutOfMemory();
 		return(-1);
@@ -254,11 +244,11 @@ static int BE_AddMode(_THIS, int index, unsigned int w, unsigned int h)
 	/* Allocate the new list of modes, and fill in the new mode */
 	next_mode = SDL_nummodes[index];
 	SDL_modelist[index] = (SDL_Rect **)
-	       realloc(SDL_modelist[index], (1+next_mode+1)*sizeof(SDL_Rect *));
+	       SDL_realloc(SDL_modelist[index], (1+next_mode+1)*sizeof(SDL_Rect *));
 	if ( SDL_modelist[index] == NULL ) {
 		SDL_OutOfMemory();
 		SDL_nummodes[index] = 0;
-		free(mode);
+		SDL_free(mode);
 		return(-1);
 	}
 	SDL_modelist[index][next_mode] = mode;
@@ -285,6 +275,8 @@ int BE_VideoInit(_THIS, SDL_PixelFormat *vformat)
 
 	/* Save the current display mode */
 	bscreen.GetMode(&saved_mode);
+	_this->info.current_w = saved_mode.virtual_width;
+	_this->info.current_h = saved_mode.virtual_height;
 
 	/* Determine the screen depth */
 	vformat->BitsPerPixel = ColorSpaceToBitsPerPixel(bscreen.ColorSpace());
@@ -296,7 +288,7 @@ int BE_VideoInit(_THIS, SDL_PixelFormat *vformat)
 
 	/* Get the video modes we can switch to in fullscreen mode */
 	bscreen.GetModeList(&modes, &nmodes);
-	qsort(modes, nmodes, sizeof *modes, CompareModes);
+	SDL_qsort(modes, nmodes, sizeof *modes, CompareModes);
 	for ( i=0; i<nmodes; ++i ) {
 		bpp = ColorSpaceToBitsPerPixel(modes[i].space);
 		//if ( bpp != 0 ) { // There are bugs in changing colorspace
@@ -313,7 +305,7 @@ int BE_VideoInit(_THIS, SDL_PixelFormat *vformat)
 	bounds.bottom = BEOS_HIDDEN_SIZE;
 	SDL_Win = new SDL_BWin(bounds);
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	/* testgl application doesn't load library, just tries to load symbols */
 	/* is it correct? if so we have to load library here */
 	BE_GL_LoadLibrary(_this, NULL);
@@ -366,15 +358,26 @@ static bool BE_FindClosestFSMode(_THIS, int width, int height, int bpp,
 	                  (current.timing.h_total * current.timing.v_total);
 
 	modes = SDL_modelist[((bpp+7)/8)-1];
-	for ( i=0; modes[i] && (modes[i]->w > width) &&
-		      (modes[i]->h > height); ++i ) {
-		/* still looking */
+	
+	// find end of list (lowest-resolution mode; modes are ordered
+	// highest-to-lowest).
+	i = 0; while(modes[i]) i++;
+	if (!i) return false;		// what? no modes at all?
+	
+	// find first mode with resolution >= requested in both dimensions
+	for (--i; i >= 0; --i)
+	{
+		if (modes[i]->w >= width && modes[i]->h >= height)
+			break;
 	}
-	if ( ! modes[i] || (modes[i]->w < width) || (modes[i]->h < width) ) {
-		--i;	/* We went too far */
-	}
+	
+	// unable to find any mode with that high a resolution!
+	if (i < 0)
+		return false;
+	
 	width = modes[i]->w;
-	height = modes[i]->h;      
+	height = modes[i]->h;
+
 	bscreen.GetModeList(&dmodes, &nmodes);
 	for ( i = 0; i < nmodes; ++i ) {
 		if ( (bpp == ColorSpaceToBitsPerPixel(dmodes[i].space)) &&
@@ -402,89 +405,88 @@ static bool BE_FindClosestFSMode(_THIS, int width, int height, int bpp,
 
 static int BE_SetFullScreen(_THIS, SDL_Surface *screen, int fullscreen)
 {
-	int was_fullscreen;
-	bool needs_unlock;
+	// printf("SetFullScreen(%d)\n", fullscreen);
 	BScreen bscreen;
-	BRect bounds;
-	display_mode mode;
-	int width, height, bpp;
 
-	/* Set the fullscreen mode */
-	was_fullscreen = SDL_Win->IsFullScreen();
-	SDL_Win->SetFullScreen(fullscreen);
-	fullscreen = SDL_Win->IsFullScreen();
+	// SetFullSscreen() does not work as expected if called in a window
+	// that was never shown. This is probably a bug in the Haiku Game Kit that needs
+	// to be investigated.	
+	if (SDL_Win->Lock()) {
+		// Show our window.
+		SDL_Win->Show();
+	}	
+	
+	if (SDL_Win->IsLocked()) {
+		// Unlock the window if it was locked. This is needed as only the
+		// first call to Show() unlocks the looper. All other calls to it
+		// will not.
+		SDL_Win->Unlock();
+	}
 
-	width = screen->w;
-	height = screen->h;
-
-	/* Set the appropriate video mode */
-	if ( fullscreen ) {
-		bpp = screen->format->BitsPerPixel;
+	int width = screen->w;
+	int height = screen->h;
+	
+	if (fullscreen) {
+		// Set resolution to the closest available one that matches the
+		// current SDL resolution.
+		display_mode mode;
 		bscreen.GetMode(&mode);
-		if ( (bpp != ColorSpaceToBitsPerPixel(mode.space)) ||
-		     (width != mode.virtual_width) ||
-		     (height != mode.virtual_height)) {
+
+		int bpp = screen->format->BitsPerPixel;
+		if (bpp != ColorSpaceToBitsPerPixel(mode.space) ||
+			width != mode.virtual_width || height != mode.virtual_height) {
 			if(BE_FindClosestFSMode(_this, width, height, bpp, &mode)) {
 				bscreen.SetMode(&mode);
-				/* This simply stops the next resize event from being
-				 * sent to the SDL handler.
-				 */
-				SDL_Win->InhibitResize();
 			} else {
-				fullscreen = 0;
-				SDL_Win->SetFullScreen(fullscreen);
-			}
+				// printf("Could not set new mode.\n");
+				return(0);
+			}			
 		}
+	} else {
+		// Reset to the previous known resolution as we are now in window
+		// mode.
+		bscreen.SetMode(&saved_mode);	
 	}
-	if ( was_fullscreen && ! fullscreen ) {
-		bscreen.SetMode(&saved_mode);
-	}
-
-	if ( SDL_Win->Lock() ) {
-		int xoff, yoff;
-		if ( SDL_Win->Shown() ) {
-			needs_unlock = 1;
-			SDL_Win->Hide();
-		} else {
-			needs_unlock = 0;
-		}
-		/* This resizes the window and view area, but inhibits resizing
-		 * of the BBitmap due to the InhibitResize call above. Thus the
-		 * bitmap (pixel data) never changes.
-		 */
+	
+	// Effectivelly set/reset full screen mode. If we are already in
+	// full screen mode, we reset back to windowed mode first so the
+	// window can resize when going fullscreen.
+	// if (fullscreen)
+		// printf("Going fullscreen\n");
+	// else
+		// printf("Going windowed\n"); 
+	SDL_Win->SetFullScreen(fullscreen);
+	
+	// Calculate offsets for centering the window (in window mode) and for
+	// dentering the bitmap (in full screen mode).
+	BRect bounds = bscreen.Frame();
+	bounds.PrintToStream();
+	int32 cx = (bounds.IntegerWidth() - width)/2;
+	int32 cy = (bounds.IntegerHeight() - height)/2;
+	
+	// printf ("cx = %d, cy = %d\n", cx, cy);
+	if (!SDL_Win->IsFullScreen()) {
+		// printf("Doing not fullscreen stuff.\n");
+		// We are not in full screen mode, so we want to change the window
+		// size to match the resolution in SDL.
 		SDL_Win->ResizeTo(width, height);
-		bounds = bscreen.Frame();
-		/* Calculate offsets - used either to center window
-		 * (windowed mode) or to set drawing offsets (fullscreen mode)
-		 */
-		xoff = (bounds.IntegerWidth() - width)/2;
-		yoff = (bounds.IntegerHeight() - height)/2;
-		if ( fullscreen ) {
-			/* Set offset for drawing */
-			SDL_Win->SetXYOffset(xoff, yoff);
-		} else {
-			/* Center window and reset the drawing offset */
-			SDL_Win->SetXYOffset(0, 0);
-		}
-		if ( ! needs_unlock || was_fullscreen ) {
-			/* Center the window the first time */
-			SDL_Win->MoveTo(xoff > 0 ? (float)xoff : 0.0f,
-					yoff > 0 ? (float)yoff : 0.0f);
-		}
-		SDL_Win->Show();
 		
-		/* Unlock the window manually after the first Show() */
-		if ( needs_unlock ) {
-			SDL_Win->Unlock();
-		}
+		// And also center the window and reset the drawing offset.
+		SDL_Win->MoveTo(cx, cy);
+		SDL_Win->SetXYOffset(0, 0);
+	} else {
+		// printf("Doing fullscreen stuff.");
+		// Center the bitmap whenever we are in full screen mode.
+		SDL_Win->SetXYOffset(cx, cy);
 	}
-
-	/* Set the fullscreen flag in the screen surface */
-	if ( fullscreen ) {
+	
+	// Set relevant internal SDL screen flags.
+	if (SDL_Win->IsFullScreen()) {
 		screen->flags |= SDL_FULLSCREEN;
 	} else {
 		screen->flags &= ~SDL_FULLSCREEN; 
 	}
+
 	return(1);
 }
 
@@ -634,7 +636,7 @@ static void BE_NormalUpdate(_THIS, int numrects, SDL_Rect *rects)
 	}
 }
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 /* Passing a NULL path means load pointers from the application */
 int BE_GL_LoadLibrary(_THIS, const char *path)
 {
@@ -644,10 +646,14 @@ int BE_GL_LoadLibrary(_THIS, const char *path)
 			int32 cookie = 0;
 			while (get_next_image_info(0,&cookie,&info) == B_OK) {
 				void *location = NULL;
-				if (get_image_symbol((image_id)cookie,"glBegin",B_SYMBOL_TYPE_ANY,&location) == B_OK) {
-					_this->gl_config.dll_handle = (void*)cookie;
+#ifdef __HAIKU__
+				if (get_image_symbol(info.id,"glBegin",B_SYMBOL_TYPE_ANY,&location) == B_OK) { // This is how it actually works in Haiku
+#else
+				if (get_image_symbol((image_id)cookie,"glBegin",B_SYMBOL_TYPE_ANY,&location) == B_OK) { // I don't know if that *did* work in BeOS
+#endif
+					_this->gl_config.dll_handle = (void*)info.id;
 					_this->gl_config.driver_loaded = 1;
-					strncpy(_this->gl_config.driver_path, "libGL.so", sizeof(_this->gl_config.driver_path)-1);
+					SDL_strlcpy(_this->gl_config.driver_path, "libGL.so", SDL_arraysize(_this->gl_config.driver_path));
 				}
 			}
 		}
@@ -675,7 +681,7 @@ int BE_GL_LoadLibrary(_THIS, const char *path)
 
 		if ((_this->gl_config.dll_handle = (void*)load_add_on(path)) != (void*)B_ERROR) {
 			_this->gl_config.driver_loaded = 1;
-			strncpy(_this->gl_config.driver_path, path, sizeof(_this->gl_config.driver_path)-1);
+			SDL_strlcpy(_this->gl_config.driver_path, path, SDL_arraysize(_this->gl_config.driver_path));
 		}*/
 	}
 
@@ -684,7 +690,7 @@ int BE_GL_LoadLibrary(_THIS, const char *path)
 	} else {
 		_this->gl_config.dll_handle = NULL;
 		_this->gl_config.driver_loaded = 0;
-		strcpy(_this->gl_config.driver_path, "");
+		*_this->gl_config.driver_path = '\0';
 		return -1;
 	}
 }
@@ -810,9 +816,9 @@ void BE_VideoQuit(_THIS)
 	for ( i=0; i<NUM_MODELISTS; ++i ) {
 		if ( SDL_modelist[i] ) {
 			for ( j=0; SDL_modelist[i][j]; ++j ) {
-				free(SDL_modelist[i][j]);
+				SDL_free(SDL_modelist[i][j]);
 			}
-			free(SDL_modelist[i]);
+			SDL_free(SDL_modelist[i]);
 			SDL_modelist[i] = NULL;
 		}
 	}
@@ -825,7 +831,7 @@ void BE_VideoQuit(_THIS)
 		_this->screen->pixels = NULL;
 	}
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	if (_this->gl_config.dll_handle != NULL)
 		unload_add_on((image_id)_this->gl_config.dll_handle);
 #endif

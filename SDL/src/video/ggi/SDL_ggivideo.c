@@ -1,35 +1,29 @@
 /*
-	SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    SDL - Simple DirectMedia Layer
+    Copyright (C) 1997-2009 Sam Lantinga
 
-	This library is free software; you can redistribute it and/or
-	modify it under the terms of the GNU Library General Public
-	License as published by the Free Software Foundation; either
-	version 2 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-	This library is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-	Library General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-	You should have received a copy of the GNU Library General Public
-	License along with this library; if not, write to the Free
-	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-	Sam Lantinga
-	slouken@libsdl.org
+    Sam Lantinga
+    slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_ggivideo.c,v 1.6 2004/01/04 16:49:25 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* GGI-based SDL video driver implementation.
 */
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -37,13 +31,11 @@ static char rcsid =
 #include <ggi/ggi.h>
 #include <ggi/gii.h>
 
-#include "SDL.h"
-#include "SDL_error.h"
 #include "SDL_video.h"
 #include "SDL_mouse.h"
-#include "SDL_sysvideo.h"
-#include "SDL_pixels_c.h"
-#include "SDL_events_c.h"
+#include "../SDL_sysvideo.h"
+#include "../SDL_pixels_c.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_ggivideo.h"
 #include "SDL_ggimouse_c.h"
 #include "SDL_ggievents_c.h"
@@ -88,8 +80,8 @@ static int GGI_Available(void)
 
 static void GGI_DeleteDevice(SDL_VideoDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	SDL_free(device->hidden);
+	SDL_free(device);
 }
 
 static SDL_VideoDevice *GGI_CreateDevice(int devindex)
@@ -97,20 +89,20 @@ static SDL_VideoDevice *GGI_CreateDevice(int devindex)
 	SDL_VideoDevice *device;
 
 	/* Initialize all variables that we clean on shutdown */
-	device = (SDL_VideoDevice *)malloc(sizeof(SDL_VideoDevice));
+	device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
 	if ( device ) {
-		memset(device, 0, (sizeof *device));
+		SDL_memset(device, 0, (sizeof *device));
 		device->hidden = (struct SDL_PrivateVideoData *)
-				malloc((sizeof *device->hidden));
+				SDL_malloc((sizeof *device->hidden));
 	}
 	if ( (device == NULL) || (device->hidden == NULL) ) {
 		SDL_OutOfMemory();
 		if ( device ) {
-			free(device);
+			SDL_free(device);
 		}
 		return(0);
 	}
-	memset(device->hidden, 0, (sizeof *device->hidden));
+	SDL_memset(device->hidden, 0, (sizeof *device->hidden));
 
 	/* Set the function pointers */
 	device->VideoInit = GGI_VideoInit;
@@ -167,7 +159,7 @@ int GGI_VideoInit(_THIS, SDL_PixelFormat *vformat)
 	int err, num_bufs;
 	ggi_pixel white, black;
 	
-	priv = malloc(sizeof(struct private_hwdata));
+	priv = SDL_malloc(sizeof(struct private_hwdata));
 	if (priv == NULL)
 	{
 		SDL_SetError("Unhandled GGI mode type!\n");
@@ -204,6 +196,10 @@ int GGI_VideoInit(_THIS, SDL_PixelFormat *vformat)
 		ggiExit();
 		GGI_VideoQuit(NULL);
 	}
+
+	/* Determine the current screen size */
+	this->info.current_w = mode.virt.x;
+	this->info.current_h = mode.virt.y;
 
 	/* Set a palette for palletized modes */
 	if (GT_SCHEME(mode.graphtype) == GT_PALETTE)

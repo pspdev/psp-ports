@@ -3,6 +3,53 @@ This is a list of API changes in SDL's version history.
 
 Version 1.0:
 
+1.2.14:
+	Added cast macros for correct usage with C++:
+		SDL_reinterpret_cast(type, expression)
+		SDL_static_cast(type, expression)
+
+	Added SDL_VIDEO_FULLSCREEN_DISPLAY as a preferred synonym for 
+	SDL_VIDEO_FULLSCREEN_HEAD on X11.
+
+	Added SDL_DISABLE_LOCK_KEYS environment variable to enable normal
+	up/down events for Caps-Lock and Num-Lock keys.
+
+1.2.13:
+	Added SDL_BUTTON_X1 and SDL_BUTTON_X2 constants.
+
+1.2.12:
+	Added SDL_VIDEO_ALLOW_SCREENSAVER to override SDL's disabling
+	of the screensaver on Mac OS X and X11.
+
+1.2.10:
+	If SDL_OpenAudio() is passed zero for the desired format
+	fields, the following environment variables will be used
+	to fill them in:
+		SDL_AUDIO_FREQUENCY
+		SDL_AUDIO_FORMAT
+		SDL_AUDIO_CHANNELS
+		SDL_AUDIO_SAMPLES
+	If an environment variable is not specified, it will be set
+	to a reasonable default value.
+
+	Added support for the SDL_VIDEO_FULLSCREEN_HEAD environment
+	variable, currently supported on X11 Xinerama configurations.
+
+	Added SDL_GL_SWAP_CONTROL to wait for vsync in OpenGL applications.
+
+	Added SDL_GL_ACCELERATED_VISUAL to guarantee hardware acceleration.
+
+	Added current_w and current_h to the SDL_VideoInfo structure,
+	which is set to the desktop resolution during video intialization,
+	and then set to the current resolution when a video mode is set.
+
+	SDL_SetVideoMode() now accepts 0 for width or height and will use
+	the current video mode (or the desktop mode if no mode has been set.)
+
+	Added SDL_GetKeyRepeat()
+
+	Added SDL_config.h, with defaults for various build environments.
+
 1.2.7:
 	Added CPU feature detection functions to SDL_cpuinfo.h:
 		SDL_HasRDTSC(), SDL_HasMMX(), SDL_Has3DNow(), SDL_HasSSE(),

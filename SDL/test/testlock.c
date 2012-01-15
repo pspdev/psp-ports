@@ -5,7 +5,6 @@
 
 #include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "SDL.h"
 #include "SDL_mutex.h"
@@ -14,6 +13,16 @@
 static SDL_mutex *mutex = NULL;
 static Uint32 mainthread;
 static SDL_Thread *threads[6];
+static volatile int doterminate = 0;
+
+/*
+ * SDL_Quit() shouldn't be used with atexit() directly because
+ *  calling conventions may differ...
+ */
+static void SDL_Quit_Wrapper(void)
+{
+	SDL_Quit();
+}
 
 void printid(void)
 {
@@ -22,8 +31,8 @@ void printid(void)
 	
 void terminate(int sig)
 {
-	printf("Process %u:  raising SIGTERM\n", SDL_ThreadID());
-	raise(SIGTERM);
+	signal(SIGINT, terminate);
+	doterminate = 1;
 }
 void closemutex(int sig)
 {
@@ -35,7 +44,7 @@ void closemutex(int sig)
 	SDL_DestroyMutex(mutex);
 	exit(sig);
 }
-int Run(void *data)
+int SDLCALL Run(void *data)
 {
 	if ( SDL_ThreadID() == mainthread )
 		signal(SIGTERM, closemutex);
@@ -54,6 +63,10 @@ int Run(void *data)
 		}
 		/* If this sleep isn't done, then threads may starve */
 		SDL_Delay(10);
+		if (SDL_ThreadID() == mainthread && doterminate) {
+			printf("Process %u:  raising SIGTERM\n", SDL_ThreadID());
+			raise(SIGTERM);
+		}
 	}
 	return(0);
 }
@@ -68,7 +81,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "%s\n", SDL_GetError());
 		exit(1);
 	}
-	atexit(SDL_Quit);
+	atexit(SDL_Quit_Wrapper);
 
 	if ( (mutex=SDL_CreateMutex()) == NULL ) {
 		fprintf(stderr, "Couldn't create mutex: %s\n", SDL_GetError());

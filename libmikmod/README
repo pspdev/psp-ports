@@ -1,8 +1,27 @@
   Hello folks!
 
 
-This is libmikmod, version 3.1.11, a portable sound library for Unix
+This is libmikmod, version 3.2.0-beta1, a portable sound library for Unix
 and other systems. Check out the file 'NEWS' for more history information.
+
+
+>> BETA WARNING
+---------------
+
+This is a *beta* version of libmikmod. Although it should work fine on
+almost all systems, there are likely a few last-minute errors or typos
+in the source, and some parts have not received enough hours of testing yet.
+
+Also, please note that all features planned for the final 3.2.0 release are not
+available yet. Some structures or functions may change. This release is mainly
+intended to the libmikmod developers to share a common base for adding new
+features...
+
+The library programming documentation (in docs/) is mostly up-to-date... It
+lacks the Player_QueryVoices documentation, though.
+
+If you're not scared, then you can proceed and enjoy fewer bugs than in the
+previous version (-;
 
 
 >> BUILDING LIBMIKMOD
@@ -426,11 +445,5 @@ copyright notice applies to these parts:
 * web:
   libmikmod home page is located at:
     http://mikmod.raphnet.net
-
-* ftp:
-  Latest releases of libmikmod can be found:
-  - on the web site
-    htp://mikmod.raphnet.net
-
 
 

@@ -1,41 +1,29 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-    BERO
-    bero@geocities.co.jp
-
-    based on SDL_nullevents.c by
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_dcevents.c,v 1.2 2004/01/04 16:49:24 slouken Exp $";
-#endif
-
-/* Being a null driver, there's no event stream. We just define stubs for
-   most of the API. */
+#include "SDL_config.h"
 
 #include "SDL.h"
-#include "SDL_sysevents.h"
-#include "SDL_events_c.h"
+#include "../../events/SDL_sysevents.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_dcvideo.h"
 #include "SDL_dcevents_c.h"
 
@@ -120,12 +108,12 @@ static void keyboard_update(void)
 
 	if (addr!=old_addr) {
 		old_addr = addr;
-		memset(&old_state,0,sizeof(old_state));
+		SDL_memset(&old_state,0,sizeof(old_state));
 	}
 
 	maple_raddr(addr,&port,&unit);
 
-	state = kbd_get_state(port,unit);
+	state = maple_dev_state(port,unit);
 	if (!state) return;
 
 	shiftkeys = state->shift_keys ^ old_state.shift_keys;

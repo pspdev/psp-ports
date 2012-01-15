@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
     Copyright (C) 2001  Hsieh-Fu Tsai
     Copyright (C) 2002  Greg Haerr <greg@censoft.com>
 
@@ -24,14 +24,12 @@
     Hsieh-Fu Tsai
     clare@setabox.com
 */
+#include "SDL_config.h"
 
-#include <stdlib.h>
-#include <string.h>
-
-#include "SDL_video.h"
-#include "SDL_pixels_c.h"
-#include "SDL_events_c.h"
 #include "SDL_thread.h"
+#include "SDL_video.h"
+#include "../SDL_pixels_c.h"
+#include "../../events/SDL_events_c.h"
 
 #define MWINCLUDECOLORS
 #include "SDL_nxvideo.h"
@@ -69,9 +67,9 @@ static void NX_DeleteDevice (SDL_VideoDevice * device)
     Dprintf ("enter NX_DeleteDevice\n") ;
 
     if (device) {
-        if (device -> hidden) free (device -> hidden) ;
-        if (device -> gl_data) free (device -> gl_data) ;
-            free (device) ;
+        if (device -> hidden) SDL_free (device -> hidden) ;
+        if (device -> gl_data) SDL_free (device -> gl_data) ;
+            SDL_free (device) ;
     }
 
     Dprintf ("leave NX_DeleteDevice\n") ;
@@ -84,11 +82,11 @@ static SDL_VideoDevice * NX_CreateDevice (int devindex)
     Dprintf ("enter NX_CreateDevice\n") ;
 
     // Initialize all variables that we clean on shutdown
-    device = (SDL_VideoDevice *) malloc (sizeof (SDL_VideoDevice)) ;
+    device = (SDL_VideoDevice *) SDL_malloc (sizeof (SDL_VideoDevice)) ;
     if (device) {
-        memset (device, 0, (sizeof * device)) ;
+        SDL_memset (device, 0, (sizeof * device)) ;
         device -> hidden = (struct SDL_PrivateVideoData *)
-                malloc ((sizeof * device -> hidden)) ;
+                SDL_malloc ((sizeof * device -> hidden)) ;
         device -> gl_data = NULL ;
     }
     if ((device == NULL) || (device -> hidden == NULL)) {
@@ -96,7 +94,7 @@ static SDL_VideoDevice * NX_CreateDevice (int devindex)
         NX_DeleteDevice (device) ;
         return 0 ;
     }
-    memset (device -> hidden, 0, (sizeof * device -> hidden)) ;
+    SDL_memset (device -> hidden, 0, (sizeof * device -> hidden)) ;
 
     // Set the function pointers
     device -> VideoInit = NX_VideoInit ;
@@ -122,7 +120,7 @@ static SDL_VideoDevice * NX_CreateDevice (int devindex)
     device -> SetGammaRamp = NX_SetGammaRamp ;
     device -> GetGammaRamp = NX_GetGammaRamp ;
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
     device -> GL_LoadLibrary = NULL ;
     device -> GL_GetProcAddress = NULL ;
     device -> GL_GetAttribute = NULL ;
@@ -211,10 +209,14 @@ int NX_VideoInit (_THIS, SDL_PixelFormat * vformat)
     GrGetScreenInfo (& si) ;
     SDL_Visual.bpp = si.bpp ;
 
+    /* Determine the current screen size */
+    this->info.current_w = si.cols ;
+    this->info.current_h = si.rows ;
+
     // GetVideoMode
-    SDL_modelist = (SDL_Rect **) malloc (sizeof (SDL_Rect *) * 2) ;
+    SDL_modelist = (SDL_Rect **) SDL_malloc (sizeof (SDL_Rect *) * 2) ;
     if (SDL_modelist) {
-        SDL_modelist [0] = (SDL_Rect *) malloc (sizeof(SDL_Rect)) ;
+        SDL_modelist [0] = (SDL_Rect *) SDL_malloc (sizeof(SDL_Rect)) ;
         if (SDL_modelist [0]) {
             SDL_modelist [0] -> x = 0 ;
             SDL_modelist [0] -> y = 0 ;
@@ -257,9 +259,9 @@ void NX_VideoQuit (_THIS)
         GrDestroyWindow (FSwindow) ;
     }
     NX_FreeVideoModes (this) ;
-    free (GammaRamp_R) ;
-    free (GammaRamp_G) ;
-    free (GammaRamp_B) ;
+    SDL_free (GammaRamp_R) ;
+    SDL_free (GammaRamp_G) ;
+    SDL_free (GammaRamp_B) ;
 
 #ifdef ENABLE_NANOX_DIRECT_FB
     if (Clientfb)
@@ -307,7 +309,7 @@ static int NX_CreateWindow (_THIS, SDL_Surface * screen,
 
     // See if we have been given a window id
     if (SDL_windowid) {
-        SDL_Window = strtol (SDL_windowid, NULL, 0) ;
+        SDL_Window = SDL_strtol (SDL_windowid, NULL, 0) ;
     } else {
         SDL_Window = 0 ;
     }
@@ -378,6 +380,9 @@ SDL_Surface * NX_SetVideoMode (_THIS, SDL_Surface * current,
         current -> pitch = SDL_CalculatePitch (current) ;
         NX_ResizeImage (this, current, flags) ;
     }
+
+    /* Clear these flags and set them only if they are in the new set. */
+    current -> flags &= ~(SDL_RESIZABLE|SDL_NOFRAME);
     current -> flags |= (flags & (SDL_RESIZABLE | SDL_NOFRAME)) ;
 
   done:
@@ -486,9 +491,9 @@ static int NX_SetGammaRamp (_THIS, Uint16 * ramp)
     
     if (SDL_Visual.bpp != 32 && SDL_Visual.bpp != 24) return -1 ;
 
-    if (! GammaRamp_R) GammaRamp_R = (Uint16 *) malloc (sizeof (Uint16) * CI_SIZE) ;
-    if (! GammaRamp_G) GammaRamp_G = (Uint16 *) malloc (sizeof (Uint16) * CI_SIZE) ;
-    if (! GammaRamp_B) GammaRamp_B = (Uint16 *) malloc (sizeof (Uint16) * CI_SIZE) ;
+    if (! GammaRamp_R) GammaRamp_R = (Uint16 *) SDL_malloc (sizeof (Uint16) * CI_SIZE) ;
+    if (! GammaRamp_G) GammaRamp_G = (Uint16 *) SDL_malloc (sizeof (Uint16) * CI_SIZE) ;
+    if (! GammaRamp_B) GammaRamp_B = (Uint16 *) SDL_malloc (sizeof (Uint16) * CI_SIZE) ;
     if ((! GammaRamp_R) || (! GammaRamp_G) || (! GammaRamp_B)) {
         SDL_OutOfMemory () ;
         return -1 ;

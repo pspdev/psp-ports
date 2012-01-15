@@ -19,13 +19,15 @@
     Max Horn
     max@quendi.de
 */
+#include "SDL_config.h"
+#include "SDL_endian.h"
 
-#if defined(macintosh) || defined(MACOSX)
+#if __MACOS__ /*|| __MACOSX__ */
 
 #include "native_midi.h"
 #include "native_midi_common.h"
 
-#ifdef MACOSX
+#if __MACOSX__
 #include <QuickTime/QuickTimeMusic.h>
 #else
 #include <QuickTimeMusic.h>
@@ -87,7 +89,75 @@ int native_midi_detect()
 	return 1;
 }
 
-NativeMidiSong *native_midi_loadsong(char *midifile)
+NativeMidiSong *native_midi_loadsong(const char *midifile)
+{
+	NativeMidiSong	*song = NULL;
+	MIDIEvent		*evntlist = NULL;
+	int				part_to_inst[32];
+	int				part_poly_max[32];
+	int				numParts = 0;
+	Uint16			ppqn;
+	SDL_RWops		*rw;
+
+	/* Init the arrays */
+	memset(part_poly_max,0,sizeof(part_poly_max));
+	memset(part_to_inst,-1,sizeof(part_to_inst));
+	
+	/* Attempt to load the midi file */
+	rw = SDL_RWFromFile(midifile, "rb");
+	if (rw) {
+		evntlist = CreateMIDIEventList(rw, &ppqn);
+		SDL_RWclose(rw);
+		if (!evntlist)
+			goto bail;
+	}
+
+	/* Allocate memory for the song struct */
+	song = malloc(sizeof(NativeMidiSong));
+	if (!song)
+		goto bail;
+
+	/* Build a tune sequence from the event list */
+	song->tuneSequence = BuildTuneSequence(evntlist, ppqn, part_poly_max, part_to_inst, &numParts);
+	if(!song->tuneSequence)
+		goto bail;
+
+	/* Now build a tune header from the data we collect above, create
+	   all parts as needed and assign them the correct instrument.
+	*/
+	song->tuneHeader = BuildTuneHeader(part_poly_max, part_to_inst, numParts);
+	if(!song->tuneHeader)
+		goto bail;
+	
+	/* Increment the instance count */
+	gInstaceCount++;
+	if (gTunePlayer == NULL)
+		gTunePlayer = OpenDefaultComponent(kTunePlayerComponentType, 0);
+
+	/* Finally, free the event list */
+	FreeMIDIEventList(evntlist);
+	
+	return song;
+	
+bail:
+	if (evntlist)
+		FreeMIDIEventList(evntlist);
+	
+	if (song)
+	{
+		if(song->tuneSequence)
+			free(song->tuneSequence);
+		
+		if(song->tuneHeader)
+			DisposePtr((Ptr)song->tuneHeader);
+
+		free(song);
+	}
+	
+	return NULL;
+}
+
+NativeMidiSong *native_midi_loadsong_RW(SDL_RWops *rw)
 {
 	NativeMidiSong	*song = NULL;
 	MIDIEvent		*evntlist = NULL;
@@ -101,7 +171,7 @@ NativeMidiSong *native_midi_loadsong(char *midifile)
 	memset(part_to_inst,-1,sizeof(part_to_inst));
 	
 	/* Attempt to load the midi file */
-	evntlist = CreateMIDIEventList(midifile, &ppqn);
+	evntlist = CreateMIDIEventList(rw, &ppqn);
 	if (!evntlist)
 		goto bail;
 
@@ -269,7 +339,7 @@ void native_midi_setvolume(int volume)
 	TuneSetVolume(gTunePlayer, (0x00010000 * volume)/SDL_MIX_MAXVOLUME);
 }
 
-char *native_midi_error()
+const char *native_midi_error(void)
 {
 	return gErrorBuffer;
 }
@@ -591,8 +661,22 @@ Uint32 *BuildTuneHeader(int part_poly_max[32], int part_to_inst[32], int numPart
 		qtma_StuffGeneralEvent(*myPos1, *myPos2, part, kGeneralEventNoteRequest, kNoteRequestEventLength);
 		myNoteRequest = (NoteRequest *)(myPos1 + 1);
 		myNoteRequest->info.flags = 0;
+		/* I'm told by the Apple people that the Quicktime types were poorly designed and it was 
+		 * too late to change them. On little endian, the BigEndian(Short|Fixed) types are structs
+		 * while on big endian they are primitive types. Furthermore, Quicktime failed to 
+		 * provide setter and getter functions. To get this to work, we need to case the 
+		 * code for the two possible situations.
+		 * My assumption is that the right-side value was always expected to be BigEndian
+		 * as it was written way before the Universal Binary transition. So in the little endian
+		 * case, OSSwap is used.
+		 */
+#if SDL_BYTEORDER == SDL_LIL_ENDIAN
+		myNoteRequest->info.polyphony.bigEndianValue = OSSwapHostToBigInt16(part_poly_max[part]);
+		myNoteRequest->info.typicalPolyphony.bigEndianValue = OSSwapHostToBigInt32(0x00010000);
+#else
 		myNoteRequest->info.polyphony = part_poly_max[part];
 		myNoteRequest->info.typicalPolyphony = 0x00010000;
+#endif
 		myErr = NAStuffToneDescription(myNoteAllocator,part_to_inst[part],&myNoteRequest->tone);
 		if (myErr != noErr)
 			goto bail;

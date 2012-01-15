@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,8 +19,14 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /* Tru64 UNIX MME support */
+#include <mme_api.h>
+
+#include "SDL_timer.h"
+#include "SDL_audio.h"
+#include "../SDL_audio_c.h"
 #include "SDL_mmeaudio.h"
 
 static BOOL inUse[NUM_BUFFERS];
@@ -43,10 +49,10 @@ static void Audio_DeleteDevice(SDL_AudioDevice *device)
 {
     if ( device ) {
 	if ( device->hidden ) {
-	    free(device->hidden);
+	    SDL_free(device->hidden);
 	    device->hidden = NULL;
 	}
-	free(device);
+	SDL_free(device);
 	device = NULL;
     }
 }
@@ -56,19 +62,19 @@ static SDL_AudioDevice *Audio_CreateDevice(int devindex)
     SDL_AudioDevice *this;
 
 /* Initialize all variables that we clean on shutdown */
-    this = malloc(sizeof(SDL_AudioDevice));
+    this = SDL_malloc(sizeof(SDL_AudioDevice));
     if ( this ) {
-	memset(this, 0, (sizeof *this));
-	this->hidden = malloc((sizeof *this->hidden));
+	SDL_memset(this, 0, (sizeof *this));
+	this->hidden = SDL_malloc((sizeof *this->hidden));
     }
     if ( (this == NULL) || (this->hidden == NULL) ) {
 	SDL_OutOfMemory();
 	if ( this ) {
-	    free(this);
+	    SDL_free(this);
 	}
 	return(0);
     }
-    memset(this->hidden, 0, (sizeof *this->hidden));
+    SDL_memset(this->hidden, 0, (sizeof *this->hidden));
     /* Set the function pointers */
     this->OpenAudio       =       MME_OpenAudio;
     this->WaitAudio       =       MME_WaitAudio;
@@ -91,8 +97,8 @@ static void SetMMerror(char *function, MMRESULT code)
     int len;
     char errbuf[MAXERRORLENGTH];
 
-    sprintf(errbuf, "%s: ", function);
-    len = strlen(errbuf);
+    SDL_snprintf(errbuf, SDL_arraysize(errbuf), "%s: ", function);
+    len = SDL_strlen(errbuf);
     waveOutGetErrorText(code, errbuf+len, MAXERRORLENGTH-len);
     SDL_SetError("%s",errbuf);
 }

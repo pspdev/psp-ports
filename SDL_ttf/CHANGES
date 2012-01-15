@@ -1,3 +1,36 @@
+2.0.10:
+Loïc LAMBERT - Sat Oct 17 11:15:33 PDT 2009
+ * Set the appropriate font styles for bold and italic fonts
+ * Added font style TTF_STYLE_STRIKETHROUGH
+ * Fixed size calculations taking outline and underline into account
+Adam Strzelecki - Sun Oct 11 03:51:31 PDT 2009
+ * Added API for font outlining: TTF_GetFontOutline()/TTF_SetFontOutline()
+Sam Lantinga - Sat Sep 26 01:13:29 PDT 2009
+ * Added API to disable kerning: TTF_GetFontKerning()/TTF_SetFontKerning()
+Sam Lantinga - Sat Sep 26 00:54:30 PDT 2009
+ * Fixed height calculation for fonts that extend below the font height
+Gregory Smith - 2008-09-04 18:05:28 PDT 
+ * Added access to font hinting: TTF_GetFontHinting()/TTF_SetFontHinting()
+Matthias Weigand - Mon Jul 23 21:09:20 PDT 2007
+ * Added TTF_GlyphIsProvided() to check whether a glyph is in a given font
+
+2.0.9:
+Kanou Hiroki - Sat Jul 14 23:15:40 PDT 2007
+ * Fixed rendering of fonts with 2 bit and 4 bit embedded graymaps
+Sam Lantinga - Wed Jun 13 00:32:29 PDT 2007
+ * Fixed bug in solid bold glyph rendering (thanks Roy!)
+Ryan Gordon - Tue Feb 13 10:19:00 2007 UTC
+ * Updated to build with the latest version of FreeType
+Sam Lantinga - Mon Jun 5 16:22:51 2006 UTC
+ * Fixed crash when passing NULL to TTF_CloseFont()
+
+2.0.8:
+Stepan Roh - 2005-10-02 09:46
+ * Fixed line spacing by using font ascender and descender
+Sam Lantinga - Sun Apr 30 01:48:40 PDT 2006
+ * Added gcc-fat.sh for generating Universal binaries on Mac OS X
+ * Updated libtool support to version 1.5.22
+
 2.0.7:
 Philippe Plantier - Sat, 30 Oct 2004 22:46:47 +0200
  * Fixed memory corruption problems with some italic fonts

@@ -20,7 +20,7 @@
   
 /*==============================================================================
 
-  $Id: drv_AF.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: drv_AF.c,v 1.2 2004/01/31 22:39:40 raph Exp $
 
   Driver for output on AF audio server.
 
@@ -185,7 +185,7 @@ MIKMODAPI MDRIVER drv_AF={
 	"AudioFile driver v1.3",
 	0,255,
 	"audiofile",
-
+	"machine:t::Audio server machine (hostname:port)\n",
 	AF_CommandLine,	
 	AF_IsThere,
 	VC_SampleLoad,

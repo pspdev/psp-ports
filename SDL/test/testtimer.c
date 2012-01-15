@@ -12,15 +12,15 @@
 
 static int ticks = 0;
 
-static Uint32 ticktock(Uint32 interval)
+static Uint32 SDLCALL ticktock(Uint32 interval)
 {
 	++ticks;
 	return(interval);
 }
 
-static Uint32 callback(Uint32 interval, void *param)
+static Uint32 SDLCALL callback(Uint32 interval, void *param)
 {
-  printf("Timer %d : param = %d\n", interval, (int) param);
+  printf("Timer %d : param = %d\n", interval, (int)(uintptr_t)param);
   return interval;
 }
 
@@ -30,10 +30,9 @@ int main(int argc, char *argv[])
 	SDL_TimerID t1, t2, t3;
 
 	if ( SDL_Init(SDL_INIT_TIMER) < 0 ) {
-		fprintf(stderr, "Couldn't load SDL: %s\n", SDL_GetError());
-		exit(1);
+		fprintf(stderr, "Couldn't initialize SDL: %s\n", SDL_GetError());
+		return(1);
 	}
-	atexit(SDL_Quit);
 
 	/* Start the timer */
 	desired = 0;
@@ -83,5 +82,6 @@ int main(int argc, char *argv[])
 	SDL_RemoveTimer(t2);
 	SDL_RemoveTimer(t3);
 
+	SDL_Quit();
 	return(0);
 }

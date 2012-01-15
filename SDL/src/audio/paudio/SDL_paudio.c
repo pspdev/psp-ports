@@ -1,37 +1,30 @@
 /*
-    AIX support for the SDL - Simple DirectMedia Layer
-    Copyright (C) 2000  Carsten Griwodz
+    SDL - Simple DirectMedia Layer
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Carsten Griwodz
     griff@kom.tu-darmstadt.de
 
     based on linux/SDL_dspaudio.c by Sam Lantinga
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_paudio.c,v 1.2 2001/04/26 16:50:17 hercules Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Allow access to a raw mixing buffer */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -39,12 +32,11 @@ static char rcsid =
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#include "SDL_audio.h"
-#include "SDL_error.h"
-#include "SDL_audiomem.h"
-#include "SDL_audio_c.h"
 #include "SDL_timer.h"
-#include "SDL_audiodev_c.h"
+#include "SDL_audio.h"
+#include "../SDL_audiomem.h"
+#include "../SDL_audio_c.h"
+#include "../SDL_audiodev_c.h"
 #include "SDL_paudio.h"
 
 #define DEBUG_AUDIO 1
@@ -87,8 +79,8 @@ static int Audio_Available(void)
 
 static void Audio_DeleteDevice(SDL_AudioDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	SDL_free(device->hidden);
+	SDL_free(device);
 }
 
 static SDL_AudioDevice *Audio_CreateDevice(int devindex)
@@ -96,20 +88,20 @@ static SDL_AudioDevice *Audio_CreateDevice(int devindex)
 	SDL_AudioDevice *this;
 
 	/* Initialize all variables that we clean on shutdown */
-	this = (SDL_AudioDevice *)malloc(sizeof(SDL_AudioDevice));
+	this = (SDL_AudioDevice *)SDL_malloc(sizeof(SDL_AudioDevice));
 	if ( this ) {
-		memset(this, 0, (sizeof *this));
+		SDL_memset(this, 0, (sizeof *this));
 		this->hidden = (struct SDL_PrivateAudioData *)
-				malloc((sizeof *this->hidden));
+				SDL_malloc((sizeof *this->hidden));
 	}
 	if ( (this == NULL) || (this->hidden == NULL) ) {
 		SDL_OutOfMemory();
 		if ( this ) {
-			free(this);
+			SDL_free(this);
 		}
 		return(0);
 	}
-	memset(this->hidden, 0, (sizeof *this->hidden));
+	SDL_memset(this->hidden, 0, (sizeof *this->hidden));
 	audio_fd = -1;
 
 	/* Set the function pointers */
@@ -462,7 +454,7 @@ static int Paud_OpenAudio(_THIS, SDL_AudioSpec *spec)
 	if ( mixbuf == NULL ) {
 		return -1;
 	}
-	memset(mixbuf, spec->silence, spec->size);
+	SDL_memset(mixbuf, spec->silence, spec->size);
 
 	/*
 	 * Set some paramters: full volume, first speaker that we can find.
@@ -503,7 +495,7 @@ static int Paud_OpenAudio(_THIS, SDL_AudioSpec *spec)
 
         /* Check to see if we need to use select() workaround */
         { char *workaround;
-                workaround = getenv("SDL_DSP_NOSELECT");
+                workaround = SDL_getenv("SDL_DSP_NOSELECT");
                 if ( workaround ) {
                         frame_ticks = (float)(spec->samples*1000)/spec->freq;
                         next_frame = SDL_GetTicks()+frame_ticks;

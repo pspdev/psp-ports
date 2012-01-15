@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,17 +19,20 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /* Atari OSMesa.ldg implementation of SDL OpenGL support */
 
 #ifndef _SDL_ATARIGL_H_
 #define _SDL_ATARIGL_H_
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 #include <GL/osmesa.h>
 #endif
 
-#include "SDL_sysvideo.h"
+#include "../SDL_sysvideo.h"
+
+/* Hidden "this" pointer for the video functions */
 #define _THIS   SDL_VideoDevice *this
 
 struct SDL_PrivateGLData {
@@ -50,7 +53,7 @@ struct SDL_PrivateGLData {
 	/* to convert the shadow buffer to the screen format */
 	void (*CopyShadow)(_THIS, SDL_Surface *surface);	
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	OSMesaContext	ctx;
 
 	/* OpenGL functions */

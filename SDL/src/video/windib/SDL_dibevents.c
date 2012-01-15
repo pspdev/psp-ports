@@ -1,42 +1,45 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_dibevents.c,v 1.24 2005/04/17 10:23:58 icculus Exp $";
-#endif
-
-#include <stdlib.h>
-#include <stdio.h>
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include "SDL_main.h"
 #include "SDL_events.h"
-#include "SDL_error.h"
 #include "SDL_syswm.h"
-#include "SDL_sysevents.h"
-#include "SDL_events_c.h"
-#include "SDL_lowvideo.h"
-#include "SDL_dibvideo.h"
+#include "../../events/SDL_sysevents.h"
+#include "../../events/SDL_events_c.h"
+#include "../wincommon/SDL_lowvideo.h"
+#include "SDL_gapidibvideo.h"
 #include "SDL_vkeys.h"
+
+#ifdef SDL_VIDEO_DRIVER_GAPI
+#include "../gapi/SDL_gapivideo.h"
+#endif
+
+#ifdef SDL_VIDEO_DRIVER_WINDIB
+#include "SDL_dibvideo.h"
+#endif
 
 #ifndef WM_APP
 #define WM_APP	0x8000
@@ -48,8 +51,8 @@ static char rcsid =
 
 /* The translation table from a Microsoft VK keysym to a SDL keysym */
 static SDLKey VK_keymap[SDLK_LAST];
-static SDL_keysym *TranslateKey(UINT vkey, UINT scancode, SDL_keysym *keysym, int pressed);
-static BOOL prev_shiftstates[2];
+static SDL_keysym *TranslateKey(WPARAM vkey, UINT scancode, SDL_keysym *keysym, int pressed);
+static SDLKey Arrows_keymap[4];
 
 /* Masks for processing the windows KEYDOWN and KEYUP messages */
 #define REPEATED_KEYMASK	(1<<30)
@@ -57,11 +60,76 @@ static BOOL prev_shiftstates[2];
 
 /* DJM: If the user setup the window for us, we want to save his window proc,
    and give him a chance to handle some messages. */
-static WNDPROC userWindowProc = NULL;
+#ifdef STRICT
+#define WNDPROCTYPE	WNDPROC
+#else
+#define WNDPROCTYPE	FARPROC
+#endif
+static WNDPROCTYPE userWindowProc = NULL;
+
+
+#ifdef SDL_VIDEO_DRIVER_GAPI
+
+WPARAM rotateKey(WPARAM key,int direction) 
+{
+	if(direction ==0 ) return key;
+	
+	switch (key) {
+		case 0x26: /* up */
+			return Arrows_keymap[(2 + direction) % 4];
+		case 0x27: /* right */
+			return Arrows_keymap[(1 + direction) % 4];
+		case 0x28: /* down */
+			return Arrows_keymap[direction % 4];
+		case 0x25: /* left */
+			return Arrows_keymap[(3 + direction) % 4];
+	}
+
+	return key;
+}
+
+static void GapiTransform(GapiInfo *gapiInfo, LONG *x, LONG *y)
+{
+    if(gapiInfo->hiresFix)
+    {
+	*x *= 2;
+	*y *= 2;
+    }
+
+    // 0 3 0
+    if((!gapiInfo->userOrientation && gapiInfo->systemOrientation && !gapiInfo->gapiOrientation) ||
+    // 3 0 3
+       (gapiInfo->userOrientation && !gapiInfo->systemOrientation && gapiInfo->gapiOrientation) ||
+    // 3 0 0
+       (gapiInfo->userOrientation && !gapiInfo->systemOrientation && !gapiInfo->gapiOrientation))
+    {
+	Sint16 temp = *x;
+        *x = SDL_VideoSurface->w - *y;
+        *y = temp;
+    }
+    else
+    // 0 0 0
+    if((!gapiInfo->userOrientation && !gapiInfo->systemOrientation && !gapiInfo->gapiOrientation) ||
+    // 0 0 3
+      (!gapiInfo->userOrientation && !gapiInfo->systemOrientation && gapiInfo->gapiOrientation))
+    {
+	// without changes
+	// *x = *x;
+	// *y = *y;
+    }
+    // default
+    else
+    {
+	// without changes
+	// *x = *x;
+	// *y = *y;
+    }
+}
+#endif 
+
 
 /* The main Win32 event handler */
-LONG
- DIB_HandleMessage(_THIS, HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT DIB_HandleMessage(_THIS, HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	extern int posted;
 
@@ -70,6 +138,16 @@ LONG
 		case WM_KEYDOWN: {
 			SDL_keysym keysym;
 
+#ifdef SDL_VIDEO_DRIVER_GAPI
+			if(this->hidden->gapiInfo)
+			{
+				// Drop GAPI artefacts
+				if (wParam == 0x84 || wParam == 0x5B)
+					return 0;
+
+				wParam = rotateKey(wParam, this->hidden->gapiInfo->coordinateTransform);
+			}
+#endif 
 			/* Ignore repeated keys */
 			if ( lParam&REPEATED_KEYMASK ) {
 				return(0);
@@ -83,14 +161,24 @@ LONG
 					break;
 				case VK_SHIFT:
 					/* EXTENDED trick doesn't work here */
-					if (!prev_shiftstates[0] && (GetKeyState(VK_LSHIFT) & 0x8000)) {
+					{
+					Uint8 *state = SDL_GetKeyState(NULL);
+					if (state[SDLK_LSHIFT] == SDL_RELEASED && (GetKeyState(VK_LSHIFT) & 0x8000)) {
 						wParam = VK_LSHIFT;
-						prev_shiftstates[0] = TRUE;
-					} else if (!prev_shiftstates[1] && (GetKeyState(VK_RSHIFT) & 0x8000)) {
+					} else if (state[SDLK_RSHIFT] == SDL_RELEASED && (GetKeyState(VK_RSHIFT) & 0x8000)) {
 						wParam = VK_RSHIFT;
-						prev_shiftstates[1] = TRUE;
 					} else {
-						/* Huh? */
+						/* Win9x */
+						int sc = HIWORD(lParam) & 0xFF;
+
+						if (sc == 0x2A)
+							wParam = VK_LSHIFT;
+						else
+						if (sc == 0x36)
+							wParam = VK_RSHIFT;
+						else
+							wParam = VK_LSHIFT;
+					}
 					}
 					break;
 				case VK_MENU:
@@ -110,11 +198,9 @@ LONG
 				m.wParam = wParam;
 				m.lParam = lParam;
 				m.time = 0;
-				if ( TranslateMessage(&m) && PeekMessage(&m, hwnd, 0, WM_USER, PM_NOREMOVE) && (m.message == WM_CHAR) ) {
+				if ( PeekMessage(&m, hwnd, 0, WM_USER, PM_NOREMOVE) && (m.message == WM_CHAR) ) {
 					GetMessage(&m, hwnd, 0, WM_USER);
 			    		wParam = m.wParam;
-				} else {
-					wParam = 0;
 				}
 			}
 #endif /* NO_GETKEYBOARDSTATE */
@@ -127,6 +213,17 @@ LONG
 		case WM_KEYUP: {
 			SDL_keysym keysym;
 
+#ifdef SDL_VIDEO_DRIVER_GAPI
+			if(this->hidden->gapiInfo)
+			{
+				// Drop GAPI artifacts
+				if (wParam == 0x84 || wParam == 0x5B)
+					return 0;
+	
+				wParam = rotateKey(wParam, this->hidden->gapiInfo->coordinateTransform);
+			}
+#endif
+
 			switch (wParam) {
 				case VK_CONTROL:
 					if ( lParam&EXTENDED_KEYMASK )
@@ -136,14 +233,24 @@ LONG
 					break;
 				case VK_SHIFT:
 					/* EXTENDED trick doesn't work here */
-					if (prev_shiftstates[0] && !(GetKeyState(VK_LSHIFT) & 0x8000)) {
+					{
+					Uint8 *state = SDL_GetKeyState(NULL);
+					if (state[SDLK_LSHIFT] == SDL_PRESSED && !(GetKeyState(VK_LSHIFT) & 0x8000)) {
 						wParam = VK_LSHIFT;
-						prev_shiftstates[0] = FALSE;
-					} else if (prev_shiftstates[1] && !(GetKeyState(VK_RSHIFT) & 0x8000)) {
+					} else if (state[SDLK_RSHIFT] == SDL_PRESSED && !(GetKeyState(VK_RSHIFT) & 0x8000)) {
 						wParam = VK_RSHIFT;
-						prev_shiftstates[1] = FALSE;
 					} else {
-						/* Huh? */
+						/* Win9x */
+						int sc = HIWORD(lParam) & 0xFF;
+
+						if (sc == 0x2A)
+							wParam = VK_LSHIFT;
+						else
+						if (sc == 0x36)
+							wParam = VK_RSHIFT;
+						else
+							wParam = VK_LSHIFT;
+					}
 					}
 					break;
 				case VK_MENU:
@@ -153,16 +260,25 @@ LONG
 						wParam = VK_LMENU;
 					break;
 			}
+			/* Windows only reports keyup for print screen */
+			if ( wParam == VK_SNAPSHOT && SDL_GetKeyState(NULL)[SDLK_PRINT] == SDL_RELEASED ) {
+				posted = SDL_PrivateKeyboard(SDL_PRESSED,
+					TranslateKey(wParam,HIWORD(lParam),&keysym,1));
+			}
 			posted = SDL_PrivateKeyboard(SDL_RELEASED,
 				TranslateKey(wParam,HIWORD(lParam),&keysym,0));
 		}
 		return(0);
-
 #if defined(SC_SCREENSAVE) && defined(SC_MONITORPOWER)
 		case WM_SYSCOMMAND: {
-			if ((wParam&0xFFF0)==SC_SCREENSAVE ||
-				(wParam&0xFFF0)==SC_MONITORPOWER)
+			const DWORD val = (DWORD) (wParam & 0xFFF0);
+			if ((val == SC_SCREENSAVE) || (val == SC_MONITORPOWER)) {
+				if (this->hidden->dibInfo && !allow_screensaver) {
+					/* Note that this doesn't stop anything on Vista
+					   if the screensaver has a password. */
 					return(0);
+				}
+			}
 		}
 		/* Fall through to default processing */
 #endif /* SC_SCREENSAVE && SC_MONITORPOWER */
@@ -192,23 +308,107 @@ LONG
 	return(DefWindowProc(hwnd, msg, wParam, lParam));
 }
 
+#ifdef _WIN32_WCE
+static BOOL GetLastStylusPos(POINT* ptLast)
+{
+    BOOL bResult = FALSE;
+    UINT nRet;
+    GetMouseMovePoints(ptLast, 1, &nRet);
+    if ( nRet == 1 ) {
+        ptLast->x /= 4;
+        ptLast->y /= 4;
+        bResult = TRUE;
+    }
+    return bResult;
+}
+#endif
+
+static void DIB_GenerateMouseMotionEvent(_THIS)
+{
+	extern int mouse_relative;
+	extern int posted;
+
+	POINT mouse;
+#ifdef _WIN32_WCE
+	if ( !GetCursorPos(&mouse) && !GetLastStylusPos(&mouse) ) return;
+#else
+	if ( !GetCursorPos(&mouse) ) return;
+#endif
+
+	if ( mouse_relative ) {
+		POINT center;
+		center.x = (SDL_VideoSurface->w/2);
+		center.y = (SDL_VideoSurface->h/2);
+		ClientToScreen(SDL_Window, &center);
+
+		mouse.x -= center.x;
+		mouse.y -= center.y;
+		if ( mouse.x || mouse.y ) {
+			SetCursorPos(center.x, center.y);
+			posted = SDL_PrivateMouseMotion(0, 1, (Sint16)mouse.x, (Sint16)mouse.y);
+		}
+	} else {
+		ScreenToClient(SDL_Window, &mouse);
+#ifdef SDL_VIDEO_DRIVER_GAPI
+       if (SDL_VideoSurface && this->hidden->gapiInfo)
+			GapiTransform(this->hidden->gapiInfo, &mouse.x, &mouse.y);
+#endif
+		posted = SDL_PrivateMouseMotion(0, 0, (Sint16)mouse.x, (Sint16)mouse.y);
+	}
+}
+
 void DIB_PumpEvents(_THIS)
 {
 	MSG msg;
 
 	while ( PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE) ) {
 		if ( GetMessage(&msg, NULL, 0, 0) > 0 ) {
+			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
 	}
+
+	if ( SDL_GetAppState() & SDL_APPMOUSEFOCUS ) {
+		DIB_GenerateMouseMotionEvent( this );
+	}
 }
+
+static HKL hLayoutUS = NULL;
 
 void DIB_InitOSKeymap(_THIS)
 {
-	int i;
+	int	i;
+#ifndef _WIN32_WCE
+	char	current_layout[KL_NAMELENGTH];
 
+	GetKeyboardLayoutName(current_layout);
+	//printf("Initial Keyboard Layout Name: '%s'\n", current_layout);
+
+	hLayoutUS = LoadKeyboardLayout("00000409", KLF_NOTELLSHELL);
+
+	if (!hLayoutUS) {
+		//printf("Failed to load US keyboard layout. Using current.\n");
+		hLayoutUS = GetKeyboardLayout(0);
+	}
+	LoadKeyboardLayout(current_layout, KLF_ACTIVATE);
+#else
+#if _WIN32_WCE >=420
+	TCHAR	current_layout[KL_NAMELENGTH];
+
+	GetKeyboardLayoutName(current_layout);
+	//printf("Initial Keyboard Layout Name: '%s'\n", current_layout);
+
+	hLayoutUS = LoadKeyboardLayout(L"00000409", 0);
+
+	if (!hLayoutUS) {
+		//printf("Failed to load US keyboard layout. Using current.\n");
+		hLayoutUS = GetKeyboardLayout(0);
+	}
+	LoadKeyboardLayout(current_layout, 0);
+#endif // _WIN32_WCE >=420
+#endif
 	/* Map the VK keysyms */
-	for ( i=0; i<SDL_TABLESIZE(VK_keymap); ++i )
+	for ( i=0; i<SDL_arraysize(VK_keymap); ++i )
 		VK_keymap[i] = SDLK_UNKNOWN;
 
 	VK_keymap[VK_BACK] = SDLK_BACKSPACE;
@@ -237,6 +437,7 @@ void DIB_InitOSKeymap(_THIS)
 	VK_keymap[VK_EQUALS] = SDLK_EQUALS;
 	VK_keymap[VK_LBRACKET] = SDLK_LEFTBRACKET;
 	VK_keymap[VK_BACKSLASH] = SDLK_BACKSLASH;
+	VK_keymap[VK_OEM_102] = SDLK_LESS;
 	VK_keymap[VK_RBRACKET] = SDLK_RIGHTBRACKET;
 	VK_keymap[VK_GRAVE] = SDLK_BACKQUOTE;
 	VK_keymap[VK_BACKTICK] = SDLK_BACKQUOTE;
@@ -330,42 +531,133 @@ void DIB_InitOSKeymap(_THIS)
 	VK_keymap[VK_CANCEL] = SDLK_BREAK;
 	VK_keymap[VK_APPS] = SDLK_MENU;
 
-	prev_shiftstates[0] = FALSE;
-	prev_shiftstates[1] = FALSE;
+	Arrows_keymap[3] = 0x25;
+	Arrows_keymap[2] = 0x26;
+	Arrows_keymap[1] = 0x27;
+	Arrows_keymap[0] = 0x28;
 }
 
-static SDL_keysym *TranslateKey(UINT vkey, UINT scancode, SDL_keysym *keysym, int pressed)
+#define EXTKEYPAD(keypad) ((scancode & 0x100)?(mvke):(keypad))
+
+static int SDL_MapVirtualKey(int scancode, int vkey)
+{
+#ifndef _WIN32_WCE
+	int	mvke  = MapVirtualKeyEx(scancode & 0xFF, 1, hLayoutUS);
+#else
+	int	mvke  = MapVirtualKey(scancode & 0xFF, 1);
+#endif
+
+	switch(vkey) {
+		/* These are always correct */
+		case VK_DIVIDE:
+		case VK_MULTIPLY:
+		case VK_SUBTRACT:
+		case VK_ADD:
+		case VK_LWIN:
+		case VK_RWIN:
+		case VK_APPS:
+		/* These are already handled */
+		case VK_LCONTROL:
+		case VK_RCONTROL:
+		case VK_LSHIFT:
+		case VK_RSHIFT:
+		case VK_LMENU:
+		case VK_RMENU:
+		case VK_SNAPSHOT:
+		case VK_PAUSE:
+			return vkey;
+	}	
+	switch(mvke) {
+		/* Distinguish between keypad and extended keys */
+		case VK_INSERT: return EXTKEYPAD(VK_NUMPAD0);
+		case VK_DELETE: return EXTKEYPAD(VK_DECIMAL);
+		case VK_END:    return EXTKEYPAD(VK_NUMPAD1);
+		case VK_DOWN:   return EXTKEYPAD(VK_NUMPAD2);
+		case VK_NEXT:   return EXTKEYPAD(VK_NUMPAD3);
+		case VK_LEFT:   return EXTKEYPAD(VK_NUMPAD4);
+		case VK_CLEAR:  return EXTKEYPAD(VK_NUMPAD5);
+		case VK_RIGHT:  return EXTKEYPAD(VK_NUMPAD6);
+		case VK_HOME:   return EXTKEYPAD(VK_NUMPAD7);
+		case VK_UP:     return EXTKEYPAD(VK_NUMPAD8);
+		case VK_PRIOR:  return EXTKEYPAD(VK_NUMPAD9);
+	}
+	return mvke?mvke:vkey;
+}
+
+static SDL_keysym *TranslateKey(WPARAM vkey, UINT scancode, SDL_keysym *keysym, int pressed)
 {
 	/* Set the keysym information */
 	keysym->scancode = (unsigned char) scancode;
-	keysym->sym = VK_keymap[vkey];
 	keysym->mod = KMOD_NONE;
 	keysym->unicode = 0;
-	if ( pressed && SDL_TranslateUNICODE ) { /* Someday use ToUnicode() */
+	
+	if ((vkey == VK_RETURN) && (scancode & 0x100)) {
+		/* No VK_ code for the keypad enter key */
+		keysym->sym = SDLK_KP_ENTER;
+	}
+	else {
+		keysym->sym = VK_keymap[SDL_MapVirtualKey(scancode, vkey)];
+	}
+
+	if ( pressed && SDL_TranslateUNICODE ) {
 #ifdef NO_GETKEYBOARDSTATE
 		/* Uh oh, better hope the vkey is close enough.. */
+		if((keysym->sym == vkey) || (vkey > 0x7f))
 		keysym->unicode = vkey;
 #else
-		BYTE keystate[256];
-		BYTE chars[2];
+		BYTE	keystate[256];
+		Uint16	wchars[2];
 
 		GetKeyboardState(keystate);
-		if ( ToAscii(vkey,scancode,keystate,(WORD *)chars,0) == 1 ) {
-			keysym->unicode = chars[0];
+		/* Numlock isn't taken into account in ToUnicode,
+		 * so we handle it as a special case here */
+		if ((keystate[VK_NUMLOCK] & 1) && vkey >= VK_NUMPAD0 && vkey <= VK_NUMPAD9)
+		{
+			keysym->unicode = vkey - VK_NUMPAD0 + '0';
+		}
+		else if (SDL_ToUnicode((UINT)vkey, scancode, keystate, wchars, sizeof(wchars)/sizeof(wchars[0]), 0) > 0)
+		{
+			keysym->unicode = wchars[0];
 		}
 #endif /* NO_GETKEYBOARDSTATE */
 	}
+
+#if 0
+	{
+		HKL     hLayoutCurrent = GetKeyboardLayout(0);
+		int     sc = scancode & 0xFF;
+
+		printf("SYM:%d, VK:0x%02X, SC:0x%04X, US:(1:0x%02X, 3:0x%02X), "
+			"Current:(1:0x%02X, 3:0x%02X)\n",
+			keysym->sym, vkey, scancode,
+			MapVirtualKeyEx(sc, 1, hLayoutUS),
+			MapVirtualKeyEx(sc, 3, hLayoutUS),
+			MapVirtualKeyEx(sc, 1, hLayoutCurrent),
+			MapVirtualKeyEx(sc, 3, hLayoutCurrent)
+		);
+	}
+#endif
 	return(keysym);
 }
 
 int DIB_CreateWindow(_THIS)
 {
-#ifndef CS_BYTEALIGNCLIENT
-#define CS_BYTEALIGNCLIENT	0
-#endif
-	SDL_RegisterApp("SDL_app", CS_BYTEALIGNCLIENT, 0);
+	char *windowid;
+
+	SDL_RegisterApp(NULL, 0, 0);
+
+	windowid = SDL_getenv("SDL_WINDOWID");
+	SDL_windowid = (windowid != NULL);
 	if ( SDL_windowid ) {
-		SDL_Window = (HWND)strtol(SDL_windowid, NULL, 0);
+#if defined(_WIN32_WCE) && (_WIN32_WCE < 300)
+		/* wince 2.1 does not have strtol */
+		wchar_t *windowid_t = SDL_malloc((SDL_strlen(windowid) + 1) * sizeof(wchar_t));
+		MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, windowid, -1, windowid_t, SDL_strlen(windowid) + 1);
+		SDL_Window = (HWND)wcstol(windowid_t, NULL, 0);
+		SDL_free(windowid_t);
+#else
+		SDL_Window = (HWND)SDL_strtoull(windowid, NULL, 0);
+#endif
 		if ( SDL_Window == NULL ) {
 			SDL_SetError("Couldn't get user specified window");
 			return(-1);
@@ -374,8 +666,8 @@ int DIB_CreateWindow(_THIS)
 		/* DJM: we want all event's for the user specified
 			window to be handled by SDL.
 		 */
-		userWindowProc = (WNDPROC)GetWindowLong(SDL_Window, GWL_WNDPROC);
-		SetWindowLong(SDL_Window, GWL_WNDPROC, (LONG)WinMessage);
+		userWindowProc = (WNDPROCTYPE)GetWindowLongPtr(SDL_Window, GWLP_WNDPROC);
+		SetWindowLongPtr(SDL_Window, GWLP_WNDPROC, (LONG_PTR)WinMessage);
 	} else {
 		SDL_Window = CreateWindow(SDL_Appname, SDL_Appname,
                         (WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX),
@@ -386,14 +678,28 @@ int DIB_CreateWindow(_THIS)
 		}
 		ShowWindow(SDL_Window, SW_HIDE);
 	}
+
+	/* JC 14 Mar 2006
+		Flush the message loop or this can cause big problems later
+		Especially if the user decides to use dialog boxes or assert()!
+	*/
+	WIN_FlushMessageQueue();
+
 	return(0);
 }
 
 void DIB_DestroyWindow(_THIS)
 {
 	if ( SDL_windowid ) {
-		SetWindowLong(SDL_Window, GWL_WNDPROC, (LONG)userWindowProc);
+		SetWindowLongPtr(SDL_Window, GWLP_WNDPROC, (LONG_PTR)userWindowProc);
 	} else {
 		DestroyWindow(SDL_Window);
 	}
+	SDL_UnregisterApp();
+
+	/* JC 14 Mar 2006
+		Flush the message loop or this can cause big problems later
+		Especially if the user decides to use dialog boxes or assert()!
+	*/
+	WIN_FlushMessageQueue();
 }

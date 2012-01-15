@@ -5,6 +5,10 @@
 
 #include "SDL.h"
 
+#ifdef __MACOS__
+#define HAVE_OPENGL
+#endif
+
 #ifdef HAVE_OPENGL
 
 #include "SDL_opengl.h"
@@ -245,8 +249,6 @@ void DrawLogoCursor(void)
 	static int w, h;
 	int x, y;
 
-	SDL_Surface *screen = SDL_GetVideoSurface();
-
 	if ( ! cursor_texture ) {
 		SDL_Surface *image;
 		GLfloat texcoord[4];
@@ -303,7 +305,6 @@ void DrawLogoTexture(void)
 	static int w, h;
 	static int delta_x = 1;
 	static int delta_y = 1;
-	static Uint32 last_moved = 0;
 
 	SDL_Surface *screen = SDL_GetVideoSurface();
 
@@ -377,7 +378,6 @@ void DrawLogoBlit(void)
 	static int w, h;
 	static int delta_x = 1;
 	static int delta_y = 1;
-	static Uint32 last_moved = 0;
 
 	SDL_Rect dst;
 	SDL_Surface *screen = SDL_GetVideoSurface();
@@ -449,7 +449,7 @@ void DrawLogoBlit(void)
 }
 
 int RunGLTest( int argc, char* argv[],
-               int logo, int logocursor, int slowly, int bpp, float gamma, int noframe, int fsaa )
+               int logo, int logocursor, int slowly, int bpp, float gamma, int noframe, int fsaa, int sync, int accel )
 {
 	int i;
 	int rgb_size[3];
@@ -498,7 +498,7 @@ int RunGLTest( int argc, char* argv[],
 		video_flags = SDL_OPENGL;
 	}
 	for ( i=1; argv[i]; ++i ) {
-		if ( strcmp(argv[1], "-fullscreen") == 0 ) {
+		if ( strcmp(argv[i], "-fullscreen") == 0 ) {
 			video_flags |= SDL_FULLSCREEN;
 		}
 	}
@@ -535,6 +535,14 @@ int RunGLTest( int argc, char* argv[],
 		SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 1 );
 		SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, fsaa );
 	}
+	if ( accel ) {
+		SDL_GL_SetAttribute( SDL_GL_ACCELERATED_VISUAL, 1 );
+	}
+	if ( sync ) {
+		SDL_GL_SetAttribute( SDL_GL_SWAP_CONTROL, 1 );
+	} else {
+		SDL_GL_SetAttribute( SDL_GL_SWAP_CONTROL, 0 );
+	}
 	if ( SDL_SetVideoMode( w, h, bpp, video_flags ) == NULL ) {
 		fprintf(stderr, "Couldn't set GL mode: %s\n", SDL_GetError());
 		SDL_Quit();
@@ -561,9 +569,17 @@ int RunGLTest( int argc, char* argv[],
 	printf( "SDL_GL_DOUBLEBUFFER: requested 1, got %d\n", value );
 	if ( fsaa ) {
 		SDL_GL_GetAttribute( SDL_GL_MULTISAMPLEBUFFERS, &value );
-		printf( "SDL_GL_MULTISAMPLEBUFFERS: requested 1, got %d\n", value );
+		printf("SDL_GL_MULTISAMPLEBUFFERS: requested 1, got %d\n", value );
 		SDL_GL_GetAttribute( SDL_GL_MULTISAMPLESAMPLES, &value );
-		printf( "SDL_GL_MULTISAMPLESAMPLES: requested %d, got %d\n", fsaa, value );
+		printf("SDL_GL_MULTISAMPLESAMPLES: requested %d, got %d\n", fsaa, value );
+	}
+	if ( accel ) {
+		SDL_GL_GetAttribute( SDL_GL_ACCELERATED_VISUAL, &value );
+		printf( "SDL_GL_ACCELERATED_VISUAL: requested 1, got %d\n", value );
+	}
+	if ( sync ) {
+		SDL_GL_GetAttribute( SDL_GL_SWAP_CONTROL, &value );
+		printf( "SDL_GL_SWAP_CONTROL: requested 1, got %d\n", value );
 	}
 
 	/* Set the window manager title bar */
@@ -657,7 +673,7 @@ int RunGLTest( int argc, char* argv[],
 			glVertex3fv(cube[2]);
 			glColor3fv(color[7]);
 			glVertex3fv(cube[7]);
-#else // flat cube
+#else /* flat cube */
 			glColor3f(1.0, 0.0, 0.0);
 			glVertex3fv(cube[0]);
 			glVertex3fv(cube[1]);
@@ -767,13 +783,15 @@ int RunGLTest( int argc, char* argv[],
 
 int main(int argc, char *argv[])
 {
-	int i, logo, logocursor;
+	int i, logo, logocursor = 0;
 	int numtests;
 	int bpp = 0;
 	int slowly;
 	float gamma = 0.0;
 	int noframe = 0;
 	int fsaa = 0;
+	int accel = 0;
+	int sync = 0;
 
 	logo = 0;
 	slowly = 0;
@@ -808,15 +826,21 @@ int main(int argc, char *argv[])
 		if ( strcmp(argv[i], "-fsaa") == 0 ) {
  		       ++fsaa;
 		}
+		if ( strcmp(argv[i], "-accel") == 0 ) {
+ 		       ++accel;
+		}
+		if ( strcmp(argv[i], "-sync") == 0 ) {
+ 		       ++sync;
+		}
 		if ( strncmp(argv[i], "-h", 2) == 0 ) {
  		       printf(
-"Usage: %s [-twice] [-logo] [-logocursor] [-slow] [-bpp n] [-gamma n] [-noframe] [-fsaa] [-fullscreen]\n",
+"Usage: %s [-twice] [-logo] [-logocursor] [-slow] [-bpp n] [-gamma n] [-noframe] [-fsaa] [-accel] [-sync] [-fullscreen]\n",
  			      argv[0]);
 			exit(0);
 		}
 	}
 	for ( i=0; i<numtests; ++i ) {
- 		RunGLTest(argc, argv, logo, logocursor, slowly, bpp, gamma, noframe, fsaa);
+ 		RunGLTest(argc, argv, logo, logocursor, slowly, bpp, gamma, noframe, fsaa, sync, accel);
 	}
 	return 0;
 }

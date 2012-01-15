@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: load_it.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: load_it.c,v 1.2 2004/02/06 19:29:03 raph Exp $
 
   Impulse tracker (IT) module loader
 
@@ -739,7 +739,7 @@ BOOL IT_Load(BOOL curious)
 				} 
 			} else {
 				/* load IT 2xx volume, pan and pitch envelopes */
-#if defined __STDC__ || defined _MSC_VER
+#if defined __STDC__ || defined _MSC_VER || defined MPW_C
 #define IT_LoadEnvelope(name,type) 										\
 				ih. name##flg   =_mm_read_UBYTE(modreader);				\
 				ih. name##pts   =_mm_read_UBYTE(modreader);				\
@@ -827,7 +827,7 @@ BOOL IT_Load(BOOL curious)
 					d->rpanvar = ih.rpanvar;
 				}
 
-#if defined __STDC__ || defined _MSC_VER
+#if defined __STDC__ || defined _MSC_VER || defined MPW_C
 #define IT_ProcessEnvelope(name) 										\
 				if(ih. name##flg&1) d-> name##flg|=EF_ON;				\
 				if(ih. name##flg&2) d-> name##flg|=EF_LOOP;				\

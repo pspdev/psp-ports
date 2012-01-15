@@ -18,7 +18,9 @@
 
 
 */
+#include "SDL_config.h"
 
+#ifdef SDL_CDROM_OSF
 
 /* Functions for system-level CD-ROM audio control */
 
@@ -31,15 +33,9 @@
 #include <io/cam/cdrom.h>
 #include <io/cam/rzdisk.h>
 #include <io/common/devgetinfo.h>
-#include <alloca.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
 
-#include "SDL_error.h"
 #include "SDL_cdrom.h"
-#include "SDL_syscdrom.h"
+#include "../SDL_syscdrom.h"
 
 /* The maximum number of CD-ROM drives we'll detect */
 #define MAX_DRIVES 16
@@ -125,13 +121,11 @@ static void AddDrive(char *drive, struct stat *stbuf)
 
 	/* Add this drive to our list */
 	i = SDL_numcds;
-	SDL_cdlist[i] = (char *)malloc(strlen(drive)+1);
+	SDL_cdlist[i] = SDL_strdup(drive);
 	if ( SDL_cdlist[i] == NULL ) {
 	    SDL_OutOfMemory();
 	    return;
 	}
-
-	strcpy(SDL_cdlist[i], drive);
 	SDL_cdmode[i] = stbuf->st_rdev;
 	++SDL_numcds;
 #ifdef DEBUG_CDROM
@@ -177,15 +171,16 @@ int  SDL_SYS_CDInit(void)
 
 
     /* Look in the environment for our CD-ROM drive list */
-    SDLcdrom = getenv("SDL_CDROM");	/* ':' separated list of devices */
+    SDLcdrom = SDL_getenv("SDL_CDROM");	/* ':' separated list of devices */
     if ( SDLcdrom != NULL ) {
 	char *cdpath, *delim;
-	cdpath = malloc(strlen(SDLcdrom)+1);
+	size_t len = SDL_strlen(SDLcdrom)+1;
+	cdpath = SDL_stack_alloc(char, len);
 	if ( cdpath != NULL ) {
-	    strcpy(cdpath, SDLcdrom);
+	    SDL_strlcpy(cdpath, SDLcdrom, len);
 	    SDLcdrom = cdpath;
 	    do {
-		delim = strchr(SDLcdrom, ':');
+		delim = SDL_strchr(SDLcdrom, ':');
 		if ( delim ) {
 		    *delim++ = '\0';
 		}
@@ -198,7 +193,7 @@ int  SDL_SYS_CDInit(void)
 		    SDLcdrom = NULL;
 		}
 	    } while ( SDLcdrom );
-	    free(cdpath);
+	    SDL_stack_free(cdpath);
 	}
 
 	/* If we found our drives, there's nothing left to do */
@@ -214,11 +209,11 @@ int  SDL_SYS_CDInit(void)
 
 	devdir = opendir(checklist[i].dir);
 	if (devdir) {
-	    name_len = strlen(checklist[i].name);
+	    name_len = SDL_strlen(checklist[i].name);
 	    while (devent = readdir(devdir))
-		if (memcmp(checklist[i].name, devent->d_name, name_len) == 0)
+		if (SDL_memcmp(checklist[i].name, devent->d_name, name_len) == 0)
 		    if (devent->d_name[devent->d_namlen-1] == 'c') {
-			sprintf(drive, "%s/%s", checklist[i].dir, devent->d_name);
+			SDL_snprintf(drive, SDL_arraysize(drive), "%s/%s", checklist[i].dir, devent->d_name);
 #ifdef DEBUG_CDROM
 			fprintf(stderr, "Try to add drive: %s\n", drive);
 #endif
@@ -232,15 +227,6 @@ int  SDL_SYS_CDInit(void)
 #endif
 	}
     }
-
-/*
-    SDLcdrom=malloc(sizeof(char) * 32);
-    strcpy(SDLcdrom,"/dev/rdisk/cdrom0c");
-    SDL_cdlist[0] = SDLcdrom;
-    stat(SDLcdrom, &stbuf);
-    SDL_cdmode[0] = stbuf.st_rdev;
-    SDL_numcds = 1;
- */
     return (0);
 }
 
@@ -449,10 +435,10 @@ void SDL_SYS_CDQuit(void)
 
     if ( SDL_numcds > 0 ) {
 	for ( i=0; i<SDL_numcds; ++i ) {
-	    free(SDL_cdlist[i]);
+	    SDL_free(SDL_cdlist[i]);
 	}
 	SDL_numcds = 0;
     }
 }
 
-
+#endif /* SDL_CDROM_OSF */

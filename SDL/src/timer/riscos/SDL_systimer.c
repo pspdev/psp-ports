@@ -1,29 +1,27 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
-    slouken@devolution.com
+    slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_systimer.c,v 1.4 2005/02/12 18:01:30 slouken Exp $";
-#endif
+#ifdef SDL_TIMER_RISCOS
 
 #include <stdio.h>
 #include <time.h>
@@ -32,12 +30,11 @@ static char rcsid =
 #include <string.h>
 #include <errno.h>
 
-#include "SDL_error.h"
 #include "SDL_timer.h"
-#include "SDL_timer_c.h"
+#include "../SDL_timer_c.h"
 
-#ifdef DISABLE_THREADS
-/* Timer start/reset time */
+#if SDL_THREADS_DISABLED
+/* Timer  SDL_arraysize(Timer ),start/reset time */
 static Uint32 timerStart;
 /* Timer running function */
 void RISCOS_CheckTimer();
@@ -87,7 +84,7 @@ Uint32 SDL_GetTicks (void)
 void SDL_Delay (Uint32 ms)
 {
     Uint32 now,then,elapsed;
-#ifndef DISABLE_THREADS
+#if !SDL_THREADS_DISABLED
     int is_event_thread;
     if (riscos_using_threads)
     {
@@ -107,7 +104,7 @@ void SDL_Delay (Uint32 ms)
 
 	do {
 		/* Do background tasks required while sleeping as we are not multithreaded */
-#ifdef DISABLE_THREADS
+#if SDL_THREADS_DISABLED
 		RISCOS_BackgroundTasks();
 #else
 		/* For threaded build only run background tasks in event thread */
@@ -122,7 +119,7 @@ void SDL_Delay (Uint32 ms)
 			break;
 		}
 		ms -= elapsed;
-#ifndef DISABLE_THREADS
+#if !SDL_THREADS_DISABLED
             /* Need to yield to let other threads have a go */
             if (riscos_using_threads) pthread_yield();
 #endif
@@ -130,7 +127,7 @@ void SDL_Delay (Uint32 ms)
 	} while ( 1 );
 }
 
-#ifdef DISABLE_THREADS
+#if SDL_THREADS_DISABLED
 
 /* Non-threaded version of timer */
 
@@ -231,4 +228,6 @@ void SDL_SYS_StopTimer(void)
 	return;
 }
 
-#endif /* DISABLE_THREADS */
+#endif /* SDL_THREADS_DISABLED */
+
+#endif /* SDL_TIMER_RISCOS */

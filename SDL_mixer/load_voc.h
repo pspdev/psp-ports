@@ -1,6 +1,6 @@
 /*
     SDL_mixer:  An audio mixer library based on the SDL library
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -21,13 +21,13 @@
     externally-callable function is Mix_LoadVOC_RW(), which is meant to
     act as identically to SDL_LoadWAV_RW() as possible.
 
-    This file by Ryan C. Gordon (icculus@linuxgames.com).
+    This file by Ryan C. Gordon (icculus@icculus.org).
 
     Heavily borrowed from sox v12.17.1's voc.c.
         (http://www.freshmeat.net/projects/sox/)
 */
 
-/* $Id: load_voc.h,v 1.3 2004/01/04 17:37:04 slouken Exp $ */
+/* $Id: load_voc.h 4211 2008-12-08 00:27:32Z slouken $ */
 
 /* Don't call this directly; use Mix_LoadWAV_RW() for now. */
 SDL_AudioSpec *Mix_LoadVOC_RW (SDL_RWops *src, int freesrc,

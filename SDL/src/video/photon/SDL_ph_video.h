@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,12 +19,13 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 #ifndef __SDL_PH_VIDEO_H__
 #define __SDL_PH_VIDEO_H__
 
 #include "SDL_mouse.h"
-#include "SDL_sysvideo.h"
+#include "../SDL_sysvideo.h"
 
 #include <sys/neutrino.h>
 
@@ -33,14 +34,14 @@
 #include <photon/Pg.h>
 #include <photon/PdDirect.h>
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
     #if (_NTO_VERSION < 630)
         #include <photon/PdGL.h>
     #else
         #include <GL/qnxgl.h>
         #include <GL/GLPh.h>
     #endif /* 6.3.0 */
-#endif /* HAVE_OPENGL */
+#endif /* SDL_VIDEO_OPENGL */
 
 /* Hidden "this" pointer for the video functions */
 #define _THIS	SDL_VideoDevice* this
@@ -74,7 +75,7 @@ struct SDL_PrivateVideoData
     PgDisplaySettings_t mode_settings;	
     PtWidget_t *Window;                  /* used to handle input events */
     PhImage_t *image;	                 /* used to display image       */
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
     #if (_NTO_VERSION < 630)
         PdOpenGLContext_t* OGLContext;   /* OpenGL context              */
         void* OGLBuffers;                /* OpenGL buffers (unused)     */
@@ -85,7 +86,7 @@ struct SDL_PrivateVideoData
 
     Uint32 OGLFlags;                     /* OpenGL flags                */
     Uint32 OGLBPP;                       /* OpenGL bpp                  */
-#endif /* HAVE_OPENGL */
+#endif /* SDL_VIDEO_OPENGL */
     PgColor_t savedpal[_Pg_MAX_PALETTE];
     PgColor_t syspalph[_Pg_MAX_PALETTE];
 
@@ -139,18 +140,18 @@ struct SDL_PrivateVideoData
 #define currently_fullscreen  (this->hidden->currently_fullscreen)
 #define currently_hided       (this->hidden->currently_hided)
 #define currently_maximized   (this->hidden->currently_maximized)
-#define event                 (this->hidden->event)
+#define phevent               (this->hidden->event)
 #define current_overlay       (this->hidden->overlay)
 #define desktop_mode          (this->hidden->desktop_mode)
 #define mouse_relative        (this->hidden->mouse_relative)
 #define SDL_BlankCursor       (this->hidden->BlankCursor)
 #define videomode_emulatemode (this->hidden->videomode_emulatemode)
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
      #define oglctx               (this->hidden->OGLContext)
      #define oglbuffers           (this->hidden->OGLBuffers)
      #define oglflags             (this->hidden->OGLFlags)
      #define oglbpp               (this->hidden->OGLBPP)
-#endif /* HAVE_OPENGL */
+#endif /* SDL_VIDEO_OPENGL */
 
 #endif /* __SDL_PH_VIDEO_H__ */

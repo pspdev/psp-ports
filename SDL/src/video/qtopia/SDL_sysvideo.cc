@@ -1,52 +1,43 @@
 /*
-  SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    SDL - Simple DirectMedia Layer
+    Copyright (C) 1997-2009 Sam Lantinga
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Library General Public
-  License as published by the Free Software Foundation; either
-  version 2 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Library General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Library General Public
-  License along with this library; if not, write to the Free
-  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-  Sam Lantinga
-  slouken@libsdl.org
+    Sam Lantinga
+    slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_sysvideo.cc,v 1.5 2004/01/04 16:49:26 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Qtopia based framebuffer implementation */
 
-#include <stdlib.h>
-#include <string.h>
-
-#include <stdio.h>
 #include <unistd.h>
 
 #include <qapplication.h>
 #include <qpe/qpeapplication.h>
 
-#include "SDL.h"
 #include "SDL_timer.h"
 
 #include "SDL_QWin.h"
 
 extern "C" {
 
-#include "SDL_sysvideo.h"
-#include "SDL_sysmouse_c.h"
+#include "../SDL_sysvideo.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_sysevents_c.h"
-#include "SDL_events_c.h"
+#include "SDL_sysmouse_c.h"
 #include "SDL_syswm_c.h"
 #include "SDL_lowvideo.h"
 
@@ -87,8 +78,8 @@ extern "C" {
 
   static void QT_DeleteDevice(SDL_VideoDevice *device)
   {
-    free(device->hidden);
-    free(device);
+    SDL_free(device->hidden);
+    SDL_free(device);
   }
 
   static SDL_VideoDevice *QT_CreateDevice(int devindex)
@@ -96,20 +87,20 @@ extern "C" {
     SDL_VideoDevice *device;
 
     /* Initialize all variables that we clean on shutdown */
-    device = (SDL_VideoDevice *)malloc(sizeof(SDL_VideoDevice));
+    device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
     if ( device ) {
-      memset(device, 0, (sizeof *device));
+      SDL_memset(device, 0, (sizeof *device));
       device->hidden = (struct SDL_PrivateVideoData *)
-	malloc((sizeof *device->hidden));
+	SDL_malloc((sizeof *device->hidden));
     }
     if ( (device == NULL) || (device->hidden == NULL) ) {
       SDL_OutOfMemory();
       if ( device ) {
-	free(device);
+	SDL_free(device);
       }
       return(0);
     }
-    memset(device->hidden, 0, (sizeof *device->hidden));
+    SDL_memset(device->hidden, 0, (sizeof *device->hidden));
 
     /* Set the function pointers */
     device->VideoInit = QT_VideoInit;
@@ -190,7 +181,7 @@ extern "C" {
     }
 
     /* Set up the new video mode rectangle */
-    mode = (SDL_Rect *)malloc(sizeof *mode);
+    mode = (SDL_Rect *)SDL_malloc(sizeof *mode);
     if ( mode == NULL ) {
       SDL_OutOfMemory();
       return(-1);
@@ -206,11 +197,11 @@ extern "C" {
     /* Allocate the new list of modes, and fill in the new mode */
     next_mode = SDL_nummodes[index];
     SDL_modelist[index] = (SDL_Rect **)
-      realloc(SDL_modelist[index], (1+next_mode+1)*sizeof(SDL_Rect *));
+      SDL_realloc(SDL_modelist[index], (1+next_mode+1)*sizeof(SDL_Rect *));
     if ( SDL_modelist[index] == NULL ) {
       SDL_OutOfMemory();
       SDL_nummodes[index] = 0;
-      free(mode);
+      SDL_free(mode);
       return(-1);
     }
     SDL_modelist[index][next_mode] = mode;
@@ -234,6 +225,10 @@ extern "C" {
 	       desktop_size.width(), desktop_size.height());
     QT_AddMode(_this, ((vformat->BitsPerPixel+7)/8)-1,
 	       desktop_size.height(), desktop_size.width());
+
+    /* Determine the current screen size */
+    _this->info.current_w = desktop_size.width();
+    _this->info.current_h = desktop_size.height();
 
     /* Create the window / widget */
     SDL_Win = new SDL_QWin(QSize(QT_HIDDEN_SIZE, QT_HIDDEN_SIZE));
@@ -293,7 +288,7 @@ extern "C" {
       current->h = desktop_size.height();
     } else if(width <= desktop_size.height() && height <= desktop_size.width()) {
       // Landscape mode
-      char * envString = getenv(SDL_QT_ROTATION_ENV_NAME);
+      char * envString = SDL_getenv(SDL_QT_ROTATION_ENV_NAME);
       int envValue = envString ? atoi(envString) : 0;
       screenRotation = envValue ? SDL_QT_ROTATION_270 : SDL_QT_ROTATION_90;
       current->h = desktop_size.width();

@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: load_imf.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: load_imf.c,v 1.2 2004/02/06 19:29:03 raph Exp $
 
   Imago Orpheus (IMF) module loader
 
@@ -508,7 +508,7 @@ BOOL IMF_Load(BOOL curious)
 		_mm_read_I_UWORDS(ih.panenv,IMFENVCNT,modreader);
 		_mm_read_I_UWORDS(ih.pitenv,IMFENVCNT,modreader);
 
-#if defined __STDC__ || defined _MSC_VER
+#if defined __STDC__ || defined _MSC_VER || defined MPW_C
 #define IMF_FinishLoadingEnvelope(name)					\
 		ih. name##pts=_mm_read_UBYTE(modreader);		\
 		ih. name##sus=_mm_read_UBYTE(modreader);		\
@@ -561,7 +561,7 @@ BOOL IMF_Load(BOOL curious)
 			d->samplenumber[u]=ih.what[u]>ih.numsmp?0xffff:ih.what[u]+of.numsmp;
 		d->volfade=ih.volfade;
 
-#if defined __STDC__ || defined _MSC_VER
+#if defined __STDC__ || defined _MSC_VER || defined MPW_C
 #define IMF_ProcessEnvelope(name) 									\
 		for (u = 0; u < (IMFENVCNT >> 1); u++) {					\
 			d-> name##env[u].pos = ih. name##env[u << 1];			\

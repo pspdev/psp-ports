@@ -1,42 +1,34 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_x11image.c,v 1.11 2004/02/11 16:40:17 slouken Exp $";
-#endif
-
-#include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 
-#include "SDL_error.h"
 #include "SDL_endian.h"
-#include "SDL_events_c.h"
+#include "../../events/SDL_events_c.h"
 #include "SDL_x11image_c.h"
 
 #ifndef NO_SHARED_MEMORY
-
-/* Shared memory information */
-extern int XShmQueryExtension(Display *dpy);	/* Not in X11 headers */
 
 /* Shared memory error handler routine */
 static int shm_error;
@@ -52,6 +44,10 @@ static int shm_errhandler(Display *d, XErrorEvent *e)
 
 static void try_mitshm(_THIS, SDL_Surface *screen)
 {
+	/* Dynamic X11 may not have SHM entry points on this box. */
+	if ((use_mitshm) && (!SDL_X11_HAVE_SHM))
+		use_mitshm = 0;
+
 	if(!use_mitshm)
 		return;
 	shminfo.shmid = shmget(IPC_PRIVATE, screen->h*screen->pitch,
@@ -107,7 +103,7 @@ int X11_SetupImage(_THIS, SDL_Surface *screen)
 #endif /* not NO_SHARED_MEMORY */
 	{
 		int bpp;
-		screen->pixels = malloc(screen->h*screen->pitch);
+		screen->pixels = SDL_malloc(screen->h*screen->pitch);
 		if ( screen->pixels == NULL ) {
 			SDL_OutOfMemory();
 			return -1;
@@ -157,18 +153,18 @@ static int num_CPU(void)
        static int num_cpus = 0;
 
        if(!num_cpus) {
-#if defined(__linux)
+#if defined(__LINUX__)
            char line[BUFSIZ];
            FILE *pstat = fopen("/proc/stat", "r");
            if ( pstat ) {
                while ( fgets(line, sizeof(line), pstat) ) {
-                   if (memcmp(line, "cpu", 3) == 0 && line[3] != ' ') {
+                   if (SDL_memcmp(line, "cpu", 3) == 0 && line[3] != ' ') {
                        ++num_cpus;
                    }
                }
                fclose(pstat);
            }
-#elif defined(__sgi)
+#elif defined(__IRIX__)
 	   num_cpus = sysconf(_SC_NPROC_ONLN);
 #elif defined(_SC_NPROCESSORS_ONLN)
 	   /* number of processors online (SVR4.0MP compliant machines) */
@@ -319,3 +315,4 @@ void X11_RefreshDisplay(_THIS)
 	}
 	XSync(SDL_Display, False);
 }
+

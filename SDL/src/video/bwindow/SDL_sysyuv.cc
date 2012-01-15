@@ -1,40 +1,31 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_sysyuv.cc,v 1.2 2004/01/04 16:49:24 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* This is the BeOS version of SDL YUV video overlays */
 
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-
-#include "SDL_error.h"
 #include "SDL_video.h"
 #include "SDL_sysyuv.h"
-#include "SDL_yuvfuncs.h"
+#include "../SDL_yuvfuncs.h"
 
 extern "C" {
 
@@ -103,7 +94,7 @@ BBitmap * BE_GetOverlayBitmap(BRect bounds, color_space cs) {
 
 // See <GraphicsDefs.h> [btw: Cb=U, Cr=V]
 // See also http://www.fourcc.org/indexyuv.htm
-enum color_space convert_color_space(Uint32 format) {
+color_space convert_color_space(Uint32 format) {
 	switch (format) {
 	case SDL_YV12_OVERLAY:
 		return B_YUV9;
@@ -163,7 +154,7 @@ SDL_Overlay *BE_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, SD
 	}
 
     /* Create the overlay structure */
-    overlay = (SDL_Overlay*)calloc(1, sizeof(SDL_Overlay));
+    overlay = (SDL_Overlay*)SDL_calloc(1, sizeof(SDL_Overlay));
 
     if (overlay == NULL)
     {
@@ -181,7 +172,7 @@ SDL_Overlay *BE_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, SD
     overlay->hwfuncs = &be_yuvfuncs;
 
     /* Create the pixel data and lookup tables */
-    hwdata = (struct private_yuvhwdata*)calloc(1, sizeof(struct private_yuvhwdata));
+    hwdata = (struct private_yuvhwdata*)SDL_calloc(1, sizeof(struct private_yuvhwdata));
 
     if (hwdata == NULL)
     {
@@ -220,8 +211,8 @@ SDL_Overlay *BE_CreateYUVOverlay(_THIS, int width, int height, Uint32 format, SD
 	overlay->hwdata->bbitmap = bbitmap;
 	
 	overlay->planes = planes;
-	overlay->pitches = (Uint16*)calloc(overlay->planes, sizeof(Uint16));
-	overlay->pixels  = (Uint8**)calloc(overlay->planes, sizeof(Uint8*));
+	overlay->pitches = (Uint16*)SDL_calloc(overlay->planes, sizeof(Uint16));
+	overlay->pixels  = (Uint8**)SDL_calloc(overlay->planes, sizeof(Uint8*));
 	if (!overlay->pitches || !overlay->pixels)
 	{
         SDL_OutOfMemory();
@@ -272,7 +263,7 @@ void BE_UnlockYUVOverlay(_THIS, SDL_Overlay* overlay)
     overlay->hwdata->locked = 0;
 }
 
-int BE_DisplayYUVOverlay(_THIS, SDL_Overlay* overlay, SDL_Rect* dstrect)
+int BE_DisplayYUVOverlay(_THIS, SDL_Overlay* overlay, SDL_Rect* src, SDL_Rect *dst)
 {
     if ((overlay == NULL) || (overlay->hwdata==NULL)
         || (overlay->hwdata->bview==NULL) || (SDL_Win->View() == NULL))
@@ -286,11 +277,11 @@ int BE_DisplayYUVOverlay(_THIS, SDL_Overlay* overlay, SDL_Rect* dstrect)
     if (SDL_Win->IsFullScreen()) {
     	int left,top;
     	SDL_Win->GetXYOffset(left,top);
-	    bview->MoveTo(left+dstrect->x,top+dstrect->y);
+	    bview->MoveTo(left+dst->x,top+dst->y);
     } else {
-	    bview->MoveTo(dstrect->x,dstrect->y);
+	    bview->MoveTo(dst->x,dst->y);
     }
-    bview->ResizeTo(dstrect->w,dstrect->h);
+    bview->ResizeTo(dst->w,dst->h);
     bview->Flush();
 	if (overlay->hwdata->first_display) {
 		bview->Show();
@@ -317,7 +308,7 @@ void BE_FreeYUVOverlay(_THIS, SDL_Overlay *overlay)
 
 	delete overlay->hwdata->bbitmap;
 
-    free(overlay->hwdata);
+    SDL_free(overlay->hwdata);
 }
 
 }; // extern "C"

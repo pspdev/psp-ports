@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: load_xm.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: load_xm.c,v 1.2 2004/02/06 19:29:03 raph Exp $
 
   Fasttracker (XM) module loader
 
@@ -512,7 +512,7 @@ static BOOL LoadInstruments(void)
 					d->samplenumber[u]=pth.what[u]+of.numsmp;
 				d->volfade = pth.volfade;
 
-#if defined __STDC__ || defined _MSC_VER
+#if defined __STDC__ || defined _MSC_VER || defined MPW_C
 #define XM_ProcessEnvelope(name) 										\
 				for (u = 0; u < (XMENVCNT >> 1); u++) {					\
 					d-> name##env[u].pos = pth. name##env[u << 1];		\

@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
     Copyright (C) 2001  Hsieh-Fu Tsai
     Copyright (C) 2002  Greg Haerr <greg@censoft.com>
 
@@ -24,9 +24,10 @@
     Hsieh-Fu Tsai
     clare@setabox.com
 */
+#include "SDL_config.h"
 
 #include "SDL_keysym.h"
-#include "SDL_events_c.h"
+#include "../../events/SDL_events_c.h"
 
 #include "SDL_nxevents_c.h"
 #include "SDL_nximage_c.h"
@@ -41,7 +42,7 @@ void NX_InitOSKeymap (_THIS)
     Dprintf ("enter NX_InitOSKeymap\n") ;
 
     // Map the nanox scancodes to SDL keysyms
-    for (i = 0; i < SDL_TABLESIZE (NX_NONASCII_keymap); ++ i)
+    for (i = 0; i < SDL_arraysize (NX_NONASCII_keymap); ++ i)
         NX_NONASCII_keymap [i] = SDLK_UNKNOWN ;
 
     NX_NONASCII_keymap [MWKEY_LEFT        & 0xFF] = SDLK_LEFT ;

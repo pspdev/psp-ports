@@ -1,29 +1,25 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
-
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_nullvideo.c,v 1.7 2004/01/04 16:49:24 slouken Exp $";
-#endif
+#include "SDL_config.h"
 
 /* Dummy SDL video driver implementation; this is just enough to make an
  *  SDL-based application THINK it's got a working video driver, for
@@ -35,22 +31,16 @@ static char rcsid =
  *  is a performance problem for a given platform, enable this driver, and
  *  then see if your application runs faster without video overhead.
  *
- * Initial work by Ryan C. Gordon (icculus@linuxgames.com). A good portion
+ * Initial work by Ryan C. Gordon (icculus@icculus.org). A good portion
  *  of this was cut-and-pasted from Stephane Peter's work in the AAlib
  *  SDL video driver.  Renamed to "DUMMY" by Sam Lantinga.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "SDL.h"
-#include "SDL_error.h"
 #include "SDL_video.h"
 #include "SDL_mouse.h"
-#include "SDL_sysvideo.h"
-#include "SDL_pixels_c.h"
-#include "SDL_events_c.h"
+#include "../SDL_sysvideo.h"
+#include "../SDL_pixels_c.h"
+#include "../../events/SDL_events_c.h"
 
 #include "SDL_nullvideo.h"
 #include "SDL_nullevents_c.h"
@@ -78,8 +68,8 @@ static void DUMMY_UpdateRects(_THIS, int numrects, SDL_Rect *rects);
 
 static int DUMMY_Available(void)
 {
-	const char *envr = getenv("SDL_VIDEODRIVER");
-	if ((envr) && (strcmp(envr, DUMMYVID_DRIVER_NAME) == 0)) {
+	const char *envr = SDL_getenv("SDL_VIDEODRIVER");
+	if ((envr) && (SDL_strcmp(envr, DUMMYVID_DRIVER_NAME) == 0)) {
 		return(1);
 	}
 
@@ -88,8 +78,8 @@ static int DUMMY_Available(void)
 
 static void DUMMY_DeleteDevice(SDL_VideoDevice *device)
 {
-	free(device->hidden);
-	free(device);
+	SDL_free(device->hidden);
+	SDL_free(device);
 }
 
 static SDL_VideoDevice *DUMMY_CreateDevice(int devindex)
@@ -97,20 +87,20 @@ static SDL_VideoDevice *DUMMY_CreateDevice(int devindex)
 	SDL_VideoDevice *device;
 
 	/* Initialize all variables that we clean on shutdown */
-	device = (SDL_VideoDevice *)malloc(sizeof(SDL_VideoDevice));
+	device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
 	if ( device ) {
-		memset(device, 0, (sizeof *device));
+		SDL_memset(device, 0, (sizeof *device));
 		device->hidden = (struct SDL_PrivateVideoData *)
-				malloc((sizeof *device->hidden));
+				SDL_malloc((sizeof *device->hidden));
 	}
 	if ( (device == NULL) || (device->hidden == NULL) ) {
 		SDL_OutOfMemory();
 		if ( device ) {
-			free(device);
+			SDL_free(device);
 		}
 		return(0);
 	}
-	memset(device->hidden, 0, (sizeof *device->hidden));
+	SDL_memset(device->hidden, 0, (sizeof *device->hidden));
 
 	/* Set the function pointers */
 	device->VideoInit = DUMMY_VideoInit;
@@ -150,7 +140,9 @@ VideoBootStrap DUMMY_bootstrap = {
 
 int DUMMY_VideoInit(_THIS, SDL_PixelFormat *vformat)
 {
+	/*
 	fprintf(stderr, "WARNING: You are using the SDL dummy video driver!\n");
+	*/
 
 	/* Determine the screen depth (use default 8-bit depth) */
 	/* we change this during the SDL_SetVideoMode implementation... */
@@ -170,10 +162,10 @@ SDL_Surface *DUMMY_SetVideoMode(_THIS, SDL_Surface *current,
 				int width, int height, int bpp, Uint32 flags)
 {
 	if ( this->hidden->buffer ) {
-		free( this->hidden->buffer );
+		SDL_free( this->hidden->buffer );
 	}
 
-	this->hidden->buffer = malloc(width * height * (bpp / 8));
+	this->hidden->buffer = SDL_malloc(width * height * (bpp / 8));
 	if ( ! this->hidden->buffer ) {
 		SDL_SetError("Couldn't allocate buffer for requested mode");
 		return(NULL);
@@ -181,11 +173,11 @@ SDL_Surface *DUMMY_SetVideoMode(_THIS, SDL_Surface *current,
 
 /* 	printf("Setting mode %dx%d\n", width, height); */
 
-	memset(this->hidden->buffer, 0, width * height * (bpp / 8));
+	SDL_memset(this->hidden->buffer, 0, width * height * (bpp / 8));
 
 	/* Allocate the new pixel format for the screen */
 	if ( ! SDL_ReallocFormat(current, bpp, 0, 0, 0, 0) ) {
-		free(this->hidden->buffer);
+		SDL_free(this->hidden->buffer);
 		this->hidden->buffer = NULL;
 		SDL_SetError("Couldn't allocate new pixel format for requested mode");
 		return(NULL);
@@ -241,7 +233,7 @@ void DUMMY_VideoQuit(_THIS)
 {
 	if (this->screen->pixels != NULL)
 	{
-		free(this->screen->pixels);
+		SDL_free(this->screen->pixels);
 		this->screen->pixels = NULL;
 	}
 }

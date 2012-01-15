@@ -1,29 +1,27 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_syscdrom.c,v 1.3 2004/01/04 16:49:16 slouken Exp $";
-#endif
+#ifdef SDL_CDROM_MACOSX
 
 #include "SDL_syscdrom_c.h"
 
@@ -63,7 +61,7 @@ static int LoadTracks (SDL_CD *cdrom)
         return 0;
         
     /* Allocate memory for tracks */
-    tracks[cdrom->id] = (FSRef*) calloc (1, sizeof(**tracks) * cdrom->numtracks);
+    tracks[cdrom->id] = (FSRef*) SDL_calloc (1, sizeof(**tracks) * cdrom->numtracks);
     if (tracks[cdrom->id] == NULL) {
         SDL_OutOfMemory ();
         return -1;
@@ -208,14 +206,14 @@ int SDL_SYS_CDInit (void)
     }
     
     /* Allocate space for volumes */
-    volumes = (FSVolumeRefNum*) calloc (1, sizeof(*volumes) * SDL_numcds);
+    volumes = (FSVolumeRefNum*) SDL_calloc (1, sizeof(*volumes) * SDL_numcds);
     if (volumes == NULL) {
         SDL_OutOfMemory ();
         return -1;
     }
     
     /* Allocate space for tracks */
-    tracks = (FSRef**) calloc (1, sizeof(*tracks) * (SDL_numcds + 1));
+    tracks = (FSRef**) SDL_calloc (1, sizeof(*tracks) * (SDL_numcds + 1));
     if (tracks == NULL) {
         SDL_OutOfMemory ();
         return -1;
@@ -265,6 +263,14 @@ void SDL_SYS_CDQuit(void)
 /* Get the Unix disk name of the volume */
 static const char *SDL_SYS_CDName (int drive)
 {
+    /*
+     * !!! FIXME: PBHGetVolParmsSync() is gone in 10.6,
+     * !!! FIXME:  replaced with FSGetVolumeParms(), which
+     * !!! FIXME:  isn't available before 10.5.  :/
+     */
+    return "Mac OS X CD-ROM Device";
+
+#if 0
     OSStatus     err = noErr;
     HParamBlockRec  pb;
     GetVolParmsInfoBuffer   volParmsInfo;
@@ -284,6 +290,7 @@ static const char *SDL_SYS_CDName (int drive)
     }
 
     return volParmsInfo.vMDeviceID;
+#endif
 }
 
 /* Open the "device" */
@@ -412,7 +419,7 @@ static int SDL_SYS_CDResume(SDL_CD *cdrom)
     
     Lock ();
     
-    if (PauseFile () < 0) {
+    if (PlayFile () < 0) {
         Unlock ();
         return -2;
     }
@@ -455,8 +462,8 @@ static int SDL_SYS_CDStop(SDL_CD *cdrom)
 static int SDL_SYS_CDEject(SDL_CD *cdrom)
 {
     OSStatus err;
-	HParamBlockRec  pb;
-    
+    pid_t dissenter;
+
     if (fakeCD) {
         SDL_SetError (kErrorFakeDevice);
         return -1;
@@ -476,10 +483,8 @@ static int SDL_SYS_CDEject(SDL_CD *cdrom)
     
     status = CD_STOPPED;
     
-	// Eject the volume
-	pb.ioParam.ioNamePtr = NULL;
-	pb.ioParam.ioVRefNum = volumes[cdrom->id];
-	err = PBUnmountVol((ParamBlockRec *) &pb);
+	/* Eject the volume */
+	err = FSEjectVolumeSync(volumes[cdrom->id], kNilOptions, &dissenter);
 
 	if (err != noErr) {
         Unlock ();
@@ -506,3 +511,4 @@ static void SDL_SYS_CDClose(SDL_CD *cdrom)
     return;
 }
 
+#endif /* SDL_CDROM_MACOSX */

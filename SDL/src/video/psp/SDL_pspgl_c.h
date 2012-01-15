@@ -24,8 +24,8 @@
 #define _SDL_pspgl_c_h
 
 #ifdef HAVE_OPENGL
+#include <GL/gl.h>
 #include <GLES/egl.h>
-#include <GLES/gl.h>
 #endif
 
 #include "SDL_pspvideo.h"

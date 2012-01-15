@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,25 +19,22 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
 /* Atari OSMesa.ldg implementation of SDL OpenGL support */
 
 /*--- Includes ---*/
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 #include <GL/osmesa.h>
 #endif
 
 #include <mint/osbind.h>
 
-#include "SDL_video.h"
-#include "SDL_error.h"
 #include "SDL_endian.h"
+#include "SDL_video.h"
 #include "SDL_atarigl_c.h"
-#ifdef ENABLE_OSMESA_SHARED
+#if SDL_VIDEO_OPENGL_OSMESA_DYNAMIC
 #include "SDL_loadso.h"
 #endif
 
@@ -53,7 +50,7 @@
 
 static void SDL_AtariGL_UnloadLibrary(_THIS);
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 static void CopyShadowNull(_THIS, SDL_Surface *surface);
 static void CopyShadowDirect(_THIS, SDL_Surface *surface);
 static void CopyShadowRGBTo555(_THIS, SDL_Surface *surface);
@@ -80,7 +77,7 @@ static int InitOld(_THIS, SDL_Surface *current);
 
 int SDL_AtariGL_Init(_THIS, SDL_Surface *current)
 {
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	if (gl_oldmesa) {
 		gl_active = InitOld(this, current);		
 	} else {
@@ -93,7 +90,7 @@ int SDL_AtariGL_Init(_THIS, SDL_Surface *current)
 
 void SDL_AtariGL_Quit(_THIS, SDL_bool unload)
 {
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	if (gl_oldmesa) {
 		/* Old mesa implementations */
 		if (this->gl_data->OSMesaDestroyLDG) {
@@ -117,15 +114,15 @@ void SDL_AtariGL_Quit(_THIS, SDL_bool unload)
 		SDL_AtariGL_UnloadLibrary(this);
 	}
 
-#endif /* HAVE_OPENGL */
+#endif /* SDL_VIDEO_OPENGL */
 	gl_active = 0;
 }
 
 int SDL_AtariGL_LoadLibrary(_THIS, const char *path)
 {
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 
-#ifdef ENABLE_OSMESA_SHARED
+#if SDL_VIDEO_OPENGL_OSMESA_DYNAMIC
 	void *handle;
 	SDL_bool cancel_load;
 
@@ -141,7 +138,7 @@ int SDL_AtariGL_LoadLibrary(_THIS, const char *path)
 	handle = SDL_LoadObject(path);
 	if (handle == NULL) {
 		/* Try to load another one */
-		path = getenv("SDL_VIDEO_GL_DRIVER");
+		path = SDL_getenv("SDL_VIDEO_GL_DRIVER");
 		if ( path != NULL ) {
 			handle = SDL_LoadObject(path);
 		}
@@ -223,10 +220,10 @@ int SDL_AtariGL_LoadLibrary(_THIS, const char *path)
 
 	this->gl_config.dll_handle = handle;
 	if ( path ) {
-		strncpy(this->gl_config.driver_path, path,
-			sizeof(this->gl_config.driver_path)-1);
+		SDL_strlcpy(this->gl_config.driver_path, path,
+			SDL_arraysize(this->gl_config.driver_path));
 	} else {
-		strcpy(this->gl_config.driver_path, "");
+		*this->gl_config.driver_path = '\0';
 	}
 
 #endif
@@ -241,7 +238,7 @@ int SDL_AtariGL_LoadLibrary(_THIS, const char *path)
 void *SDL_AtariGL_GetProcAddress(_THIS, const char *proc)
 {
 	void *func = NULL;
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 
 	if (this->gl_config.dll_handle) {
 		func = SDL_LoadFunction(this->gl_config.dll_handle, (void *)proc);
@@ -255,7 +252,7 @@ void *SDL_AtariGL_GetProcAddress(_THIS, const char *proc)
 
 int SDL_AtariGL_GetAttribute(_THIS, SDL_GLattr attrib, int* value)
 {
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	GLenum mesa_attrib;
 	SDL_Surface *surface;
 
@@ -311,7 +308,7 @@ int SDL_AtariGL_GetAttribute(_THIS, SDL_GLattr attrib, int* value)
 
 int SDL_AtariGL_MakeCurrent(_THIS)
 {
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	SDL_Surface *surface;
 	GLenum type;
 
@@ -355,7 +352,7 @@ int SDL_AtariGL_MakeCurrent(_THIS)
 
 void SDL_AtariGL_SwapBuffers(_THIS)
 {
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 	if (gl_active) {
 		if (this->gl_config.dll_handle) {
 			if (this->gl_data->glFinish) {
@@ -374,7 +371,7 @@ void SDL_AtariGL_SwapBuffers(_THIS)
 
 void SDL_AtariGL_InitPointers(_THIS)
 {
-#if defined(HAVE_OPENGL)
+#if SDL_VIDEO_OPENGL
 	this->gl_data->OSMesaCreateContextExt = OSMesaCreateContextExt;
 	this->gl_data->OSMesaDestroyContext = OSMesaDestroyContext;
 	this->gl_data->OSMesaMakeCurrent = OSMesaMakeCurrent;
@@ -394,7 +391,7 @@ void SDL_AtariGL_InitPointers(_THIS)
 
 static void SDL_AtariGL_UnloadLibrary(_THIS)
 {
-#if defined(HAVE_OPENGL)
+#if SDL_VIDEO_OPENGL
 	if (this->gl_config.dll_handle) {
 		SDL_UnloadObject(this->gl_config.dll_handle);
 		this->gl_config.dll_handle = NULL;
@@ -407,7 +404,7 @@ static void SDL_AtariGL_UnloadLibrary(_THIS)
 
 /*--- Creation of an OpenGL context using new/old functions ---*/
 
-#ifdef HAVE_OPENGL
+#if SDL_VIDEO_OPENGL
 static int InitNew(_THIS, SDL_Surface *current)
 {
 	GLenum osmesa_format;
@@ -697,7 +694,7 @@ static void CopyShadowDirect(_THIS, SDL_Surface *surface)
 	}
 
 	for (y=0; y<surface->h; y++) {
-		memcpy(dstline, srcline, srcpitch);
+		SDL_memcpy(dstline, srcline, srcpitch);
 
 		srcline += srcpitch;
 		dstline += dstpitch;
@@ -1088,4 +1085,4 @@ static void ConvertBGRAToABGR(_THIS, SDL_Surface *surface)
 	}
 }
 
-#endif /* HAVE_OPENGL */
+#endif /* SDL_VIDEO_OPENGL */

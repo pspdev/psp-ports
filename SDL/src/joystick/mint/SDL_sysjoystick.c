@@ -1,29 +1,27 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_sysjoystick.c,v 1.8 2005/06/25 18:21:13 pmandin Exp $";
-#endif
+#ifdef SDL_JOYSTICK_MINT
 
 /*
  *	Atari Joystick/Joypad drivers
@@ -31,40 +29,43 @@ static char rcsid =
  *	Patrice Mandin
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include <mint/cookie.h>
 #include <mint/osbind.h>
 
-#include "SDL_types.h"
-#include "SDL_error.h"
-#include "SDL_joystick.h"
-#include "SDL_sysjoystick.h"
-#include "SDL_joystick_c.h"
+#include "SDL_events.h"
+#include "../SDL_sysjoystick.h"
+#include "../SDL_joystick_c.h"
 
-#include "SDL_ikbdinterrupt_s.h"
-#include "SDL_xbiosevents_c.h"
-#include "SDL_xbiosinterrupt_s.h"
+#include "../../video/ataricommon/SDL_ikbdinterrupt_s.h"
+#include "../../video/ataricommon/SDL_xbiosevents_c.h"
+#include "../../video/ataricommon/SDL_xbiosinterrupt_s.h"
 
 /*--- Const ---*/
 
 /* We can have:
 	1 joystick on IKBD port 1, read via hardware I/O
-      or same joystick on IKBD port 1, read via xbios
-	2 joypads on ports A,B
-	  or 4 joysticks on joypads ports A,B
+	  or same joystick on IKBD port 1, read via xbios
+	1 joypad on port A (up to 4 with teamtap)
+	  or 2 joysticks on joypad port A
+	  or 1 analog paddle on joypad port A
 	  or 1 lightpen on joypad port A
-	  or 2 analog paddles on joypads ports A,B
+	1 joypad on port B (up to 4 with teamtap)
+	  or 2 joysticks on joypad port B
+	  or 1 analog paddle on joypad port B
 	2 joysticks on parallel port
 */
 
 enum {
 	IKBD_JOY1=0,
 	XBIOS_JOY1,
-	PORTA_PAD,
-	PORTB_PAD,
+	PORTA_PAD0,
+	PORTA_PAD1,
+	PORTA_PAD2,
+	PORTA_PAD3,
+	PORTB_PAD0,
+	PORTB_PAD1,
+	PORTB_PAD2,
+	PORTB_PAD3,
 	PORTA_JOY0,
 	PORTA_JOY1,
 	PORTB_JOY0,
@@ -111,6 +112,96 @@ enum {
 #define PORT_JS_UP		(1<<3)
 #define PORT_JS_FIRE	(1<<4)
 
+enum {
+	TEAMTAP_MAYBE=0,
+	TEAMTAP_YES,
+	TEAMTAP_NO
+};
+
+/* Teamtap detection values */
+static const Uint32 teamtap_ghosts[20][4]={
+	{1<<JP_UP,	/* for this event on joypad 0, port X */
+		(1<<JP_UP)|(1<<JP_KP0),	/* we get this on joypad 1 */
+		(1<<JP_UP)|(1<<JP_KPNUM)|(1<<JP_KP0),	/* this on joypad 2 */
+		(1<<JP_KPMULT)|(1<<JP_KP0)},	/* this on joypad 3 */
+	{1<<JP_DOWN,
+		(1<<JP_DOWN)|(1<<JP_KP8),
+		(1<<JP_DOWN)|(1<<JP_KP9)|(1<<JP_KP8),
+		(1<<JP_KP7)|(1<<JP_KP8)},
+	{1<<JP_LEFT,
+		(1<<JP_LEFT)|(1<<JP_KP5),
+		(1<<JP_LEFT)|(1<<JP_KP6)|(1<<JP_KP5),
+		(1<<JP_KP4)|(1<<JP_KP5)},
+	{1<<JP_RIGHT,
+		(1<<JP_RIGHT)|(1<<JP_KP2),
+		(1<<JP_RIGHT)|(1<<JP_KP3)|(1<<JP_KP2),
+		(1<<JP_KP1)|(1<<JP_KP2)},
+	{1<<JP_OPTION,
+		(1<<JP_OPTION)|(1<<JP_FIRE1)|(1<<JP_FIRE2),
+		(1<<JP_FIRE0)|(1<<JP_FIRE1)|(1<<JP_FIRE2),
+		0},
+	{1<<JP_FIRE0,
+		(1<<JP_FIRE2)|(1<<JP_FIRE0),
+		(1<<JP_FIRE0)|(1<<JP_OPTION)|(1<<JP_FIRE2),
+		(1<<JP_FIRE1)|(1<<JP_FIRE2)},
+	{1<<JP_FIRE1,
+		(1<<JP_FIRE0),
+		(1<<JP_OPTION)|(1<<JP_FIRE0)|(1<<JP_FIRE1),
+		(1<<JP_FIRE0)|(1<<JP_FIRE2)},
+	{1<<JP_FIRE2,
+		(1<<JP_OPTION)|(1<<JP_FIRE0)|(1<<JP_FIRE1)|(1<<JP_FIRE2),
+		(1<<JP_OPTION),
+		(1<<JP_FIRE0)|(1<<JP_FIRE1)},
+	{1<<JP_KP1,
+		(1<<JP_RIGHT)|(1<<JP_KP1),
+		(1<<JP_RIGHT)|(1<<JP_KP1)|(1<<JP_KP3),
+		(1<<JP_RIGHT)|(1<<JP_KP2)},
+	{1<<JP_KP2,
+		(1<<JP_RIGHT)|(1<<JP_KP1)|(1<<JP_KP2)|(1<<JP_KP3),
+		(1<<JP_KP3),
+		(1<<JP_RIGHT)|(1<<JP_KP1)},
+	{1<<JP_KP3,
+		(1<<JP_RIGHT)|(1<<JP_KP1)|(1<<JP_KP2)|(1<<JP_KP3),
+		(1<<JP_RIGHT)|(1<<JP_KP1)|(1<<JP_KP2),
+		0},
+	{1<<JP_KP4,
+		(1<<JP_LEFT)|(1<<JP_KP4),
+		(1<<JP_LEFT)|(1<<JP_KP4)|(1<<JP_KP6),
+		(1<<JP_LEFT)|(1<<JP_KP5)},
+	{1<<JP_KP5,
+		(1<<JP_LEFT)|(1<<JP_KP4)|(1<<JP_KP5)|(1<<JP_KP6),
+		(1<<JP_KP6),
+		(1<<JP_LEFT)|(1<<JP_KP4)},
+	{1<<JP_KP6,
+		(1<<JP_LEFT)|(1<<JP_KP4)|(1<<JP_KP5)|(1<<JP_KP6),
+		(1<<JP_LEFT)|(1<<JP_KP4)|(1<<JP_KP5),
+		0},
+	{1<<JP_KP7,
+		(1<<JP_DOWN)|(1<<JP_KP7),
+		(1<<JP_DOWN)|(1<<JP_KP7)|(1<<JP_KP9),
+		(1<<JP_DOWN)|(1<<JP_KP8)},
+	{1<<JP_KP8,
+		(1<<JP_DOWN)|(1<<JP_KP7)|(1<<JP_KP8)|(1<<JP_KP9),
+		(1<<JP_KP9),
+		(1<<JP_DOWN)|(1<<JP_KP7)},
+	{1<<JP_KP9,
+		(1<<JP_DOWN)|(1<<JP_KP7)|(1<<JP_KP8)|(1<<JP_KP9),
+		(1<<JP_DOWN)|(1<<JP_KP7)|(1<<JP_KP8),
+		0},
+	{1<<JP_KPMULT,
+		(1<<JP_UP)|(1<<JP_KPMULT),
+		(1<<JP_UP)|(1<<JP_KPNUM),
+		(1<<JP_UP)|(1<<JP_KP0)},
+	{1<<JP_KP0,
+		(1<<JP_UP)|(1<<JP_KPNUM)|(1<<JP_KPMULT)|(1<<JP_KP0),
+		1<<JP_KPNUM,
+		(1<<JP_UP)|(1<<JP_KPMULT)},
+	{1<<JP_KPNUM,
+		(1<<JP_UP)|(1<<JP_KPNUM)|(1<<JP_KPMULT)|(1<<JP_KP0),
+		(1<<JP_UP)|(1<<JP_KPMULT)|(1<<JP_KP0),
+		0},
+};
+
 /*--- Types ---*/
 
 typedef struct {
@@ -124,8 +215,14 @@ typedef struct {
 static atarijoy_t atarijoysticks[MAX_JOYSTICKS]={
 	{SDL_FALSE,"IKBD joystick port 1",0},
 	{SDL_FALSE,"Xbios joystick port 1",0},
-	{SDL_FALSE,"Joypad port A",0},
-	{SDL_FALSE,"Joypad port B",0},
+	{SDL_FALSE,"Joypad 0 port A",0},
+	{SDL_FALSE,"Joypad 1 port A",0},
+	{SDL_FALSE,"Joypad 2 port A",0},
+	{SDL_FALSE,"Joypad 3 port A",0},
+	{SDL_FALSE,"Joypad 0 port B",0},
+	{SDL_FALSE,"Joypad 1 port B",0},
+	{SDL_FALSE,"Joypad 2 port B",0},
+	{SDL_FALSE,"Joypad 3 port B",0},
 	{SDL_FALSE,"Joystick 0 port A",0},
 	{SDL_FALSE,"Joystick 1 port A",0},
 	{SDL_FALSE,"Joystick 0 port B",0},
@@ -148,13 +245,14 @@ static const int jp_buttons[JP_NUM_BUTTONS]={
 };
 
 static SDL_bool joypad_ports_enabled=SDL_FALSE;
+static int has_teamtap[2]={TEAMTAP_MAYBE,TEAMTAP_MAYBE};
 
 /* Updated joypad ports */
 static Uint16 jp_paddles[4];
 static Uint16 jp_lightpens[2];
 static Uint16 jp_directions;
 static Uint16 jp_fires;
-static Uint32 jp_joypads[2];
+static Uint32 jp_joypads[8];
 
 /*--- Functions prototypes ---*/
 
@@ -167,13 +265,13 @@ int SDL_SYS_JoystickInit(void)
 {
 	int i;
 	unsigned long cookie_mch;
-	const char *envr=getenv("SDL_JOYSTICK_ATARI");
+	const char *envr=SDL_getenv("SDL_JOYSTICK_ATARI");
 	
 #define TEST_JOY_ENABLED(env,idstring,num) \
-	if (strstr(env,idstring"-off")) { \
+	if (SDL_strstr(env,idstring"-off")) { \
 		atarijoysticks[num].enabled=SDL_FALSE; \
 	} \
-	if (strstr(env,idstring"-on")) { \
+	if (SDL_strstr(env,idstring"-on")) { \
 		atarijoysticks[num].enabled=SDL_TRUE; \
 	}
 
@@ -184,13 +282,22 @@ int SDL_SYS_JoystickInit(void)
 
 	/* Enable some default joysticks */
 	if ((cookie_mch == MCH_ST<<16) || ((cookie_mch>>16) == MCH_STE) ||
-		(cookie_mch == MCH_TT<<16) || (cookie_mch == MCH_F30<<16) ||
-		(cookie_mch == MCH_ARANYM<<16)) {
+	    (cookie_mch == MCH_TT<<16) || (cookie_mch == MCH_F30<<16) ||
+	    (cookie_mch == MCH_ARANYM<<16))
+	{
 		atarijoysticks[IKBD_JOY1].enabled=(SDL_AtariIkbd_enabled!=0);
 	}
-	if ((cookie_mch == MCH_STE<<16) || (cookie_mch == MCH_F30<<16)) {
-		atarijoysticks[PORTA_PAD].enabled=SDL_TRUE;
-		atarijoysticks[PORTB_PAD].enabled=SDL_TRUE;
+	if ((cookie_mch == MCH_STE<<16) || (cookie_mch == MCH_F30<<16) ||
+	    (cookie_mch == MCH_ARANYM<<16))
+	{
+		atarijoysticks[PORTA_PAD0].enabled = 
+			atarijoysticks[PORTA_PAD1].enabled =
+			atarijoysticks[PORTA_PAD2].enabled =
+			atarijoysticks[PORTA_PAD3].enabled =
+			atarijoysticks[PORTB_PAD0].enabled =
+			atarijoysticks[PORTB_PAD1].enabled =
+			atarijoysticks[PORTB_PAD2].enabled =
+			atarijoysticks[PORTB_PAD3].enabled = SDL_TRUE;
 	}
 	if (!atarijoysticks[IKBD_JOY1].enabled) {
 		atarijoysticks[XBIOS_JOY1].enabled=(SDL_AtariXbios_enabled!=0);
@@ -206,10 +313,11 @@ int SDL_SYS_JoystickInit(void)
 				TEST_JOY_ENABLED(envr, "ikbd-joy1", IKBD_JOY1);
 			}
 		}
-		/* Joypads ports only on STE and Falcon */
-		if ((cookie_mch == MCH_STE<<16) || (cookie_mch == MCH_F30<<16)) {
-			TEST_JOY_ENABLED(envr, "porta-pad", PORTA_PAD);
-			if (!atarijoysticks[PORTA_PAD].enabled) {
+		/* Joypads ports on STE, Falcon and maybe others */
+		if ((cookie_mch == MCH_STE<<16) || (cookie_mch == MCH_F30<<16) ||
+			(cookie_mch == MCH_ARANYM<<16)) {
+			TEST_JOY_ENABLED(envr, "porta-pad", PORTA_PAD0);
+			if (!atarijoysticks[PORTA_PAD0].enabled) {
 				TEST_JOY_ENABLED(envr, "porta-joy0", PORTA_JOY0);
 				TEST_JOY_ENABLED(envr, "porta-joy1", PORTA_JOY1);
 				if (!(atarijoysticks[PORTA_JOY0].enabled) && !(atarijoysticks[PORTA_JOY1].enabled)) {
@@ -220,8 +328,8 @@ int SDL_SYS_JoystickInit(void)
 				}
 			}
 
-			TEST_JOY_ENABLED(envr, "portb-pad", PORTB_PAD);
-			if (!atarijoysticks[PORTB_PAD].enabled) {
+			TEST_JOY_ENABLED(envr, "portb-pad", PORTB_PAD0);
+			if (!atarijoysticks[PORTB_PAD0].enabled) {
 				TEST_JOY_ENABLED(envr, "portb-joy0", PORTB_JOY0);
 				TEST_JOY_ENABLED(envr, "portb-joy1", PORTB_JOY1);
 				if (!(atarijoysticks[PORTB_JOY0].enabled) && !(atarijoysticks[PORTB_JOY1].enabled)) {
@@ -247,7 +355,7 @@ int SDL_SYS_JoystickInit(void)
 
 	/* Need to update joypad ports ? */
 	joypad_ports_enabled=SDL_FALSE;
-	for (i=PORTA_PAD;i<=PORTB_ANPAD;i++) {
+	for (i=PORTA_PAD0;i<=PORTB_ANPAD;i++) {
 		if (atarijoysticks[i].enabled) {
 			joypad_ports_enabled=SDL_TRUE;
 			break;
@@ -311,8 +419,14 @@ int SDL_SYS_JoystickOpen(SDL_Joystick *joystick)
 	joystick->nballs=0;
 
 	switch(numjoystick) {
-		case PORTA_PAD:
-		case PORTB_PAD:
+		case PORTA_PAD0:
+		case PORTA_PAD1:
+		case PORTA_PAD2:
+		case PORTA_PAD3:
+		case PORTB_PAD0:
+		case PORTB_PAD1:
+		case PORTB_PAD2:
+		case PORTB_PAD3:
 			joystick->nhats=1;
 			joystick->nbuttons=JP_NUM_BUTTONS;
 			break;
@@ -329,6 +443,42 @@ int SDL_SYS_JoystickOpen(SDL_Joystick *joystick)
 	}
 
 	return(0);
+}
+
+/* Detect Teamtap using ghost events */
+static void detect_teamtap(int num_port)
+{
+	int i,j;
+
+	/* Check if joypad 1,2,3 triggered but not 0 */
+	for (i=1; i<4; i++) {
+		if (jp_joypads[num_port*4+i] && (jp_joypads[num_port*4]==0)) {
+			has_teamtap[num_port] = TEAMTAP_YES;
+			return;
+		}
+	}
+
+	/* Check if joypad 0 on a given port triggered ghost events for
+	 * other joypads
+	 */
+	for (i=0; i<20; i++) {
+		int with_teamtap=1;
+
+		if (jp_joypads[num_port*4]!=teamtap_ghosts[i][0])
+			continue;
+
+		/* If any button on first joypad pressed, check other pads */
+		for (j=1; j<4; j++) {
+			if ((jp_joypads[num_port*4+j] & teamtap_ghosts[i][j])
+			    ==teamtap_ghosts[i][j])
+			{
+				with_teamtap = 0;
+			}	
+		}
+
+		has_teamtap[num_port] = (with_teamtap ? TEAMTAP_YES : TEAMTAP_NO);
+		break;
+	}
 }
 
 void SDL_SYS_JoystickUpdate(SDL_Joystick *joystick)
@@ -387,14 +537,49 @@ void SDL_SYS_JoystickUpdate(SDL_Joystick *joystick)
 				atarijoysticks[numjoystick].prevstate = curstate;
 			}
 			break;
-		case PORTA_PAD:
-		case PORTB_PAD:
+		case PORTA_PAD0:
+		case PORTA_PAD1:
+		case PORTA_PAD2:
+		case PORTA_PAD3:
+		case PORTB_PAD0:
+		case PORTB_PAD1:
+		case PORTB_PAD2:
+		case PORTB_PAD3:
 			{
-				int numjoypad,i;
+				int numjoypad,i,numport;
 				
-				numjoypad=0;
-				if (numjoystick==PORTB_PAD) numjoypad=1;
+				numjoypad = numport = 0;
+				switch(numjoystick) {
+					case PORTA_PAD0:
+						numjoypad = 0;	break;
+					case PORTA_PAD1:
+						numjoypad = 1;	break;
+					case PORTA_PAD2:
+						numjoypad = 2;	break;
+					case PORTA_PAD3:
+						numjoypad = 3;	break;
+					case PORTB_PAD0:
+						numjoypad = 4;	numport = 1; break;
+					case PORTB_PAD1:
+						numjoypad = 5;	numport = 1; break;
+					case PORTB_PAD2:
+						numjoypad = 6;	numport = 1; break;
+					case PORTB_PAD3:
+						numjoypad = 7;	numport = 1; break;
+				}				
 				
+				jp_joypads[numjoypad] &= 0xabffff;
+
+				if (has_teamtap[numport]==TEAMTAP_MAYBE) {
+					detect_teamtap(numport);
+				}
+				/* No events for PORTX_PAD[1,2,3] if no teamtap detected */
+				if (has_teamtap[numport] == TEAMTAP_NO) {
+					if ((numjoypad & 3)!=0) {
+						return;
+					}
+				}
+
 				curstate=jp_joypads[numjoypad];
 				if (curstate!=prevstate) {
 					hatstate = SDL_HAT_CENTERED;
@@ -569,9 +754,21 @@ struct JOYPAD_IO_S {
 };
 #define JOYPAD_IO ((*(volatile struct JOYPAD_IO_S *)JOYPAD_IO_BASE))
 
+static const Uint16 joypad_masks[8*4]={
+	0xfffe, 0xfffd, 0xfffb, 0xfff7,
+	0xfff0, 0xfff1, 0xfff2, 0xfff3,
+	0xfff4, 0xfff5, 0xfff6, 0xfff8,
+	0xfff9, 0xfffa, 0xfffc, 0xffff,
+	0xffef, 0xffdf, 0xffbf, 0xff7f,
+	0xff0f, 0xff1f, 0xff2f, 0xff3f,
+	0xff4f, 0xff5f, 0xff6f, 0xff8f,
+	0xff9f, 0xffaf, 0xffcf, 0xffff
+};
+
 static void UpdateJoypads(void)
 {
-	Uint16 tmp;
+	Uint16 tmp, i, j;
+	Uint32 cur_fire, cur_dir;
 
 	/*--- This function is called in supervisor mode ---*/
 
@@ -595,45 +792,35 @@ static void UpdateJoypads(void)
 	tmp = (JOYPAD_IO.paddles[3] & 255);
 	jp_paddles[3] = (tmp<<8) | tmp;
 
-	/* Update joypad 0 */	
-	JOYPAD_IO.directions=0xfffe;
-	jp_joypads[0]=((~(JOYPAD_IO.fires)) & 3)<<(16);
-	JOYPAD_IO.directions=0xfffe;
-	jp_joypads[0] |= ((~(JOYPAD_IO.directions))>>8) & 15;
+	/* Update joypads on teamtap port A */	
+	for (i=0; i<4; i++) {
+		jp_joypads[i] = 0;
+		for (j=0; j<4; j++) {
+			JOYPAD_IO.directions = joypad_masks[(i*4)+j];
 
-	JOYPAD_IO.directions=0xfffd;
-	jp_joypads[0] |= ((~(JOYPAD_IO.fires)) & 3)<<(16+2);
-	JOYPAD_IO.directions=0xfffd;
-	jp_joypads[0] |= (((~(JOYPAD_IO.directions))>>8) & 15)<<4;
+			cur_fire = (~(JOYPAD_IO.fires) & 3)<<16;
+			cur_dir = (~(JOYPAD_IO.directions)>>8) & 15;
 
-	JOYPAD_IO.directions=0xfffb;
-	jp_joypads[0] |= ((~(JOYPAD_IO.fires)) & 3)<<(16+4);
-	JOYPAD_IO.directions=0xfffb;
-	jp_joypads[0] |= (((~(JOYPAD_IO.directions))>>8) & 15)<<8;
+			jp_joypads[i] |= cur_fire<<(j*2);
+			jp_joypads[i] |= cur_dir<<(j*4);
+		}
+	}
 
-	JOYPAD_IO.directions=0xfff7;
-	jp_joypads[0] |= ((~(JOYPAD_IO.fires)) & 3)<<(16+6);
-	JOYPAD_IO.directions=0xfff7;
-	jp_joypads[0] |= (((~(JOYPAD_IO.directions))>>8) & 15)<<12;
+	/* Update joypads on teamtap port B */	
+	for (i=4; i<8; i++) {
+		jp_joypads[i] = 0;
+		for (j=0; j<4; j++) {
+			JOYPAD_IO.directions = joypad_masks[(i*4)+j];
 
-	/* Update joypad 1 */	
-	JOYPAD_IO.directions=0xffef;
-	jp_joypads[1]=((~(JOYPAD_IO.fires)) & (3<<2))<<(16-2);
-	JOYPAD_IO.directions=0xffef;
-	jp_joypads[1] |= ((~(JOYPAD_IO.directions))>>12) & 15;
+			cur_fire = (~(JOYPAD_IO.fires) & 0xc)<<14;
+			cur_dir = (~(JOYPAD_IO.directions)>>12) & 15;
 
-	JOYPAD_IO.directions=0xffdf;
-	jp_joypads[1] |= ((~(JOYPAD_IO.fires)) & (3<<2))<<(16);
-	JOYPAD_IO.directions=0xffdf;
-	jp_joypads[1] |= (((~(JOYPAD_IO.directions))>>12) & 15)<<4;
+			jp_joypads[i] |= cur_fire<<(j*2);
+			jp_joypads[i] |= cur_dir<<(j*4);
+		}
+	}
 
-	JOYPAD_IO.directions=0xffbf;
-	jp_joypads[1] |= ((~(JOYPAD_IO.fires)) & (3<<2))<<(16+2);
-	JOYPAD_IO.directions=0xffbf;
-	jp_joypads[1] |= (((~(JOYPAD_IO.directions))>>12) & 15)<<8;
-
-	JOYPAD_IO.directions=0xff7f;
-	jp_joypads[1] |= ((~(JOYPAD_IO.fires)) & (3<<2))<<(16+4);
-	JOYPAD_IO.directions=0xff7f;
-	jp_joypads[1] |= (((~(JOYPAD_IO.directions))>>12) & 15)<<12;
+	JOYPAD_IO.directions=0xffff;
 }
+
+#endif /* SDL_JOYSTICK_MINT */

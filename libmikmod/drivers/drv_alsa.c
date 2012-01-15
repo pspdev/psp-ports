@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_alsa.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: drv_alsa.c,v 1.2 2004/01/31 22:39:40 raph Exp $
 
   Driver for Advanced Linux Sound Architecture (ALSA)
 
@@ -427,7 +427,9 @@ MIKMODAPI MDRIVER drv_alsa={
 	"Advanced Linux Sound Architecture (ALSA) driver v0.4",
 	0,255,
 	"alsa",
-
+	"card:r:0,31,0:Soundcard number\n"
+        "pcm:r:0,3,0:PCM device number\n"
+        "buffer:r:2,16,4:Number of buffer fragments\n",	
 	ALSA_CommandLine,
 	ALSA_IsThere,
 	VC_SampleLoad,

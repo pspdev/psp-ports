@@ -20,7 +20,7 @@
   
 /*==============================================================================
 
-  $Id: drv_sgi.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: drv_sgi.c,v 1.2 2004/01/31 22:39:40 raph Exp $
 
   Driver for output on SGI audio system (needs libaudio from the dmedia
   package).
@@ -190,7 +190,8 @@ MIKMODAPI MDRIVER drv_sgi={
 	"SGI Audio System driver v0.5",
 	0,255,
 	"sgi",
-
+	"fragsize:r:0,99999,20000:Sound buffer fragment size\n"
+        "bufsize:r:0,199999,40000:Sound buffer total size\n",
 	SGI_CommandLine,
 	SGI_IsThere,
 	VC_SampleLoad,

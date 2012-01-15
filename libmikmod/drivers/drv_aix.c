@@ -20,7 +20,7 @@
   
 /*==============================================================================
 
-  $Id: drv_aix.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: drv_aix.c,v 1.2 2004/01/31 22:39:40 raph Exp $
 
   Driver for output to AIX series audio device
 
@@ -170,7 +170,7 @@ MIKMODAPI MDRIVER drv_aix={
 	"AIX Audio driver v1.2",
 	0,255,
 	"AIX",
-
+	"buffer:r:12,19,15:Audio buffer log2 size\n",
 	AIX_CommandLine,
 	AIX_IsThere,
 	VC_SampleLoad,

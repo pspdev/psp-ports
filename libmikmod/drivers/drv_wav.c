@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_wav.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: drv_wav.c,v 1.3 2004/01/31 22:39:40 raph Exp $
 
   Driver for output to a file called MUSIC.WAV
 
@@ -158,7 +158,7 @@ MIKMODAPI MDRIVER drv_wav={
 	"Wav disk writer (music.wav) v1.2",
 	0,255,
 	"wav",
-
+	"file:t:music.wav:Output file name\n",
 	WAV_CommandLine,
 	WAV_IsThere,
 	VC_SampleLoad,

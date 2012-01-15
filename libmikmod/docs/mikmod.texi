@@ -7,7 +7,7 @@
 
   MikMod Sound Library Documentation
 
-  $Id: mikmod.texi,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id: mikmod.texi,v 1.2 2004/01/27 18:59:23 raph Exp $
 
 @end ignore
 @c comment this during modifications
@@ -18,8 +18,8 @@
 
 @syncodeindex tp vr
 @set documentation-version 1.3
-@set documentation-date January 2002
-@set library-version 3.1.10
+@set documentation-date February 2004
+@set library-version 3.1.12
 @set authorname Miodrag Vallat
 @set authoraddress miod@@mikmod.org
 

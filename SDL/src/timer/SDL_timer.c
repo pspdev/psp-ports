@@ -1,36 +1,26 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997, 1998  Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
-    5635-34 Springhouse Dr.
-    Pleasanton, CA 94588 (USA)
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_timer.c,v 1.5 2005/01/13 23:24:56 slouken Exp $";
-#endif
-
-#include <stdlib.h>
-#include <stdio.h>			/* For the definition of NULL */
-
-#include "SDL_error.h"
 #include "SDL_timer.h"
 #include "SDL_timer_c.h"
 #include "SDL_mutex.h"
@@ -105,6 +95,7 @@ void SDL_TimerQuit(void)
 	}
 	if ( SDL_timer_threaded ) {
 		SDL_DestroyMutex(SDL_timer_mutex);
+		SDL_timer_mutex = NULL;
 	}
 	SDL_timer_started = 0;
 	SDL_timer_threaded = 0;
@@ -157,7 +148,7 @@ void SDL_ThreadedTimerCheck(void)
 					} else {
 						SDL_timers = next;
 					}
-					free(t);
+					SDL_free(t);
 					--SDL_timer_running;
 					removed = SDL_TRUE;
 				}
@@ -174,7 +165,7 @@ void SDL_ThreadedTimerCheck(void)
 static SDL_TimerID SDL_AddTimerInternal(Uint32 interval, SDL_NewTimerCallback callback, void *param)
 {
 	SDL_TimerID t;
-	t = (SDL_TimerID) malloc(sizeof(struct _SDL_TimerID));
+	t = (SDL_TimerID) SDL_malloc(sizeof(struct _SDL_TimerID));
 	if ( t ) {
 		t->interval = ROUND_RESOLUTION(interval);
 		t->cb = callback;
@@ -227,7 +218,7 @@ SDL_bool SDL_RemoveTimer(SDL_TimerID id)
 			} else {
 				SDL_timers = t->next;
 			}
-			free(t);
+			SDL_free(t);
 			--SDL_timer_running;
 			removed = SDL_TRUE;
 			list_changed = SDL_TRUE;
@@ -242,7 +233,7 @@ SDL_bool SDL_RemoveTimer(SDL_TimerID id)
 }
 
 /* Old style callback functions are wrapped through this */
-static Uint32 callback_wrapper(Uint32 ms, void *param)
+static Uint32 SDLCALL callback_wrapper(Uint32 ms, void *param)
 {
 	SDL_TimerCallback func = (SDL_TimerCallback) param;
 	return (*func)(ms);
@@ -265,7 +256,7 @@ int SDL_SetTimer(Uint32 ms, SDL_TimerCallback callback)
 			while ( SDL_timers ) {
 				SDL_TimerID freeme = SDL_timers;
 				SDL_timers = SDL_timers->next;
-				free(freeme);
+				SDL_free(freeme);
 			}
 			SDL_timer_running = 0;
 			list_changed = SDL_TRUE;

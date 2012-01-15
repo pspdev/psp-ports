@@ -18,6 +18,8 @@ HEADERS = \
 	../../../../include/SDL_loadso.h \
 	../../../../include/SDL_mouse.h \
 	../../../../include/SDL_mutex.h \
+	../../../../include/SDL_name.h \
+	../../../../include/SDL_platform.h \
 	../../../../include/SDL_quit.h \
 	../../../../include/SDL_rwops.h \
 	../../../../include/SDL_syswm.h \
@@ -30,7 +32,7 @@ HEADERS = \
 
 all: $(EXPORTS)
 
-$(EXPORTS): $(HEADERS)
+$(EXPORTS): Makefile gendef.pl $(HEADERS)
 	perl gendef.pl $(HEADERS) >$@ || rm $@
 
 clean:

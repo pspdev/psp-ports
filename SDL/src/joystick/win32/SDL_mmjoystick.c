@@ -1,43 +1,39 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
+    modify it under the terms of the GNU Lesser General Public
     License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    version 2.1 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifdef SAVE_RCSID
-static char rcsid =
- "@(#) $Id: SDL_mmjoystick.c,v 1.11 2004/08/21 03:55:12 slouken Exp $";
-#endif
+#ifdef SDL_JOYSTICK_WINMM
 
 /* Win32 MultiMedia Joystick driver, contributed by Andrei de A. Formiga */
 
-#include <stdlib.h>
-#include <stdio.h>		/* For the definition of NULL */
-
-#include "SDL_error.h"
-#include "SDL_joystick.h"
-#include "SDL_sysjoystick.h"
-#include "SDL_joystick_c.h"
-
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <mmsystem.h>
 #include <regstr.h>
+
+#include "SDL_events.h"
+#include "SDL_joystick.h"
+#include "../SDL_sysjoystick.h"
+#include "../SDL_joystick_c.h"
 
 #define MAX_JOYSTICKS	16
 #define MAX_AXES	6	/* each joystick can have up to 6 axes */
@@ -80,67 +76,58 @@ static char *GetJoystickName(int index, const char *szRegKey)
 		index (1-16) listed in the registry
 	*/
 	char *name = NULL;
+	HKEY hTopKey;
 	HKEY hKey;
 	DWORD regsize;
 	LONG regresult;
-	unsigned char regkey[256];
-	unsigned char regvalue[256];
-	unsigned char regname[256];
+	char regkey[256];
+	char regvalue[256];
+	char regname[256];
 
-	sprintf(regkey, "%s\\%s\\%s",
-		REGSTR_PATH_JOYCONFIG,
-		szRegKey,
-		REGSTR_KEY_JOYCURR);
-	regresult = RegOpenKeyExA(HKEY_LOCAL_MACHINE,
-		(LPTSTR) &regkey, 0, KEY_READ, &hKey);
-	if (regresult == ERROR_SUCCESS)
-	{
-		/*
-			find the registry key name for the
-			joystick's properties
-		*/
-		regsize = sizeof(regname);
-		sprintf(regvalue,
-			"Joystick%d%s", index+1,
-			REGSTR_VAL_JOYOEMNAME);
-		regresult = RegQueryValueExA(hKey,
-			regvalue, 0, 0, (LPBYTE) &regname,
-			(LPDWORD) &regsize);
-		RegCloseKey(hKey);
-		if (regresult == ERROR_SUCCESS)
-		{
-			/* open that registry key */
-			sprintf(regkey, "%s\\%s",
-				REGSTR_PATH_JOYOEM, regname);
-			regresult = RegOpenKeyExA(HKEY_LOCAL_MACHINE,
-				regkey, 0, KEY_READ, &hKey);
-			if (regresult == ERROR_SUCCESS)
-			{
-				/* find the size for the OEM name text */
-				regsize = sizeof(regvalue);
-				regresult =
-					RegQueryValueExA(hKey,
-					REGSTR_VAL_JOYOEMNAME,
-					0, 0, NULL,
-					(LPDWORD) &regsize);
-				if (regresult == ERROR_SUCCESS)
-				{
-					/*
-						allocate enough memory
-						for the OEM name text ...
-					*/
-					name = (char *) malloc(regsize);
-					/* ... and read it from the registry */
-					regresult =
-						RegQueryValueExA(hKey,
-						REGSTR_VAL_JOYOEMNAME, 0, 0,
-						(LPBYTE) name,
-						(LPDWORD) &regsize);
-					RegCloseKey(hKey);
-				}
-			}
+	SDL_snprintf(regkey, SDL_arraysize(regkey), "%s\\%s\\%s",
+		REGSTR_PATH_JOYCONFIG, szRegKey, REGSTR_KEY_JOYCURR);
+	hTopKey = HKEY_LOCAL_MACHINE;
+	regresult = RegOpenKeyExA(hTopKey, regkey, 0, KEY_READ, &hKey);
+	if (regresult != ERROR_SUCCESS) {
+		hTopKey = HKEY_CURRENT_USER;
+		regresult = RegOpenKeyExA(hTopKey, regkey, 0, KEY_READ, &hKey);
+	}
+	if (regresult != ERROR_SUCCESS) {
+		return NULL;
+	}
+
+	/* find the registry key name for the joystick's properties */
+	regsize = sizeof(regname);
+	SDL_snprintf(regvalue, SDL_arraysize(regvalue), "Joystick%d%s", index+1, REGSTR_VAL_JOYOEMNAME);
+	regresult = RegQueryValueExA(hKey, regvalue, 0, 0, (LPBYTE)regname, &regsize);
+	RegCloseKey(hKey);
+
+	if (regresult != ERROR_SUCCESS) {
+		return NULL;
+	}
+
+	/* open that registry key */
+	SDL_snprintf(regkey, SDL_arraysize(regkey), "%s\\%s", REGSTR_PATH_JOYOEM, regname);
+	regresult = RegOpenKeyExA(hTopKey, regkey, 0, KEY_READ, &hKey);
+	if (regresult != ERROR_SUCCESS) {
+		return NULL;
+	}
+
+	/* find the size for the OEM name text */
+	regsize = sizeof(regvalue);
+	regresult = RegQueryValueExA(hKey, REGSTR_VAL_JOYOEMNAME, 0, 0, NULL, &regsize);
+	if (regresult == ERROR_SUCCESS) {
+		/* allocate enough memory for the OEM name text ... */
+		name = (char *) SDL_malloc(regsize);
+		if ( name ) {
+			/* ... and read it from the registry */
+			regresult = RegQueryValueExA(hKey,
+				REGSTR_VAL_JOYOEMNAME, 0, 0,
+				(LPBYTE) name, &regsize);
 		}
 	}
+	RegCloseKey(hKey);
+
 	return(name);
 }
 
@@ -158,34 +145,26 @@ int SDL_SYS_JoystickInit(void)
 	JOYCAPS	joycaps;
 	MMRESULT result;
 
-	numdevs = 0;
-	maxdevs = joyGetNumDevs();
-
-	if ( maxdevs > MAX_JOYSTICKS ) {
-		maxdevs = MAX_JOYSTICKS;
-	}
-
-
-	for ( i = 0; i < MAX_JOYSTICKS; i++ ) {
-		SYS_JoystickID[i] = JOYSTICKID1 + i;
+	/* Reset the joystick ID & name mapping tables */
+	for ( i = 0; i < MAX_JOYSTICKS; ++i ) {
+		SYS_JoystickID[i] = 0;
 		SYS_JoystickName[i] = NULL;
 	}
 
-
-	for ( i = 0; (i < maxdevs); ++i ) {
+	/* Loop over all potential joystick devices */
+	numdevs = 0;
+	maxdevs = joyGetNumDevs();
+	for ( i = JOYSTICKID1; i < maxdevs && numdevs < MAX_JOYSTICKS; ++i ) {
 		
-		/* added 8/31/2001 By Vitaliy Mikitchenko */
 		joyinfo.dwSize = sizeof(joyinfo);
 		joyinfo.dwFlags = JOY_RETURNALL;
-		/* end addition */
-
-		result = joyGetPosEx(SYS_JoystickID[i], &joyinfo);
+		result = joyGetPosEx(i, &joyinfo);
 		if ( result == JOYERR_NOERROR ) {
-			result = joyGetDevCaps(SYS_JoystickID[i], &joycaps, sizeof(joycaps));
+			result = joyGetDevCaps(i, &joycaps, sizeof(joycaps));
 			if ( result == JOYERR_NOERROR ) {
-				SYS_JoystickID[numdevs] = SYS_JoystickID[i];
+				SYS_JoystickID[numdevs] = i;
 				SYS_Joystick[numdevs] = joycaps;
-				SYS_JoystickName[numdevs] = GetJoystickName(numdevs, joycaps.szRegKey);
+				SYS_JoystickName[numdevs] = GetJoystickName(i, joycaps.szRegKey);
 				numdevs++;
 			}
 		}
@@ -232,13 +211,13 @@ int SDL_SYS_JoystickOpen(SDL_Joystick *joystick)
 	axis_max[5] = SYS_Joystick[index].wVmax;
 
 	/* allocate memory for system specific hardware data */
-	joystick->hwdata = (struct joystick_hwdata *) malloc(sizeof(*joystick->hwdata));
+	joystick->hwdata = (struct joystick_hwdata *) SDL_malloc(sizeof(*joystick->hwdata));
 	if (joystick->hwdata == NULL)
 	{
 		SDL_OutOfMemory();
 		return(-1);
 	}
-	memset(joystick->hwdata, 0, sizeof(*joystick->hwdata));
+	SDL_memset(joystick->hwdata, 0, sizeof(*joystick->hwdata));
 
 	/* set hardware data */
 	joystick->hwdata->id = SYS_JoystickID[index];
@@ -364,7 +343,8 @@ void SDL_SYS_JoystickClose(SDL_Joystick *joystick)
 {
 	if (joystick->hwdata != NULL) {
 		/* free system specific hardware data */
-		free(joystick->hwdata);
+		SDL_free(joystick->hwdata);
+		joystick->hwdata = NULL;
 	}
 }
 
@@ -374,7 +354,8 @@ void SDL_SYS_JoystickQuit(void)
 	int i;
 	for (i = 0; i < MAX_JOYSTICKS; i++) {
 		if ( SYS_JoystickName[i] != NULL ) {
-			free(SYS_JoystickName[i]);
+			SDL_free(SYS_JoystickName[i]);
+			SYS_JoystickName[i] = NULL;
 		}
 	}
 }
@@ -384,7 +365,7 @@ void SDL_SYS_JoystickQuit(void)
 void SetMMerror(char *function, int code)
 {
 	static char *error;
-	static char  errbuf[BUFSIZ];
+	static char  errbuf[1024];
 
 	errbuf[0] = 0;
 	switch (code) 
@@ -411,13 +392,16 @@ void SetMMerror(char *function, int code)
 		break;
 
 		default:
-			sprintf(errbuf, "%s: Unknown Multimedia system error: 0x%x",
+			SDL_snprintf(errbuf, SDL_arraysize(errbuf),
+			         "%s: Unknown Multimedia system error: 0x%x",
 								function, code);
 		break;
 	}
 
 	if ( ! errbuf[0] ) {
-		sprintf(errbuf, "%s: %s", function, error);
+		SDL_snprintf(errbuf, SDL_arraysize(errbuf), "%s: %s", function, error);
 	}
 	SDL_SetError("%s", errbuf);
 }
+
+#endif /* SDL_JOYSTICK_WINMM */

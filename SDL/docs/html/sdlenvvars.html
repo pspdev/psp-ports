@@ -397,7 +397,7 @@ CLASS="LITERAL"
 ALIGN="LEFT"
 VALIGN="TOP"
 ><P
->(MacOS X)</P
+>(Mac OS X)</P
 ></TD
 ></TR
 ><TR
@@ -428,21 +428,6 @@ ALIGN="LEFT"
 VALIGN="TOP"
 ><P
 >(QNX)</P
-></TD
-></TR
-><TR
-><TD
-ALIGN="LEFT"
-VALIGN="TOP"
-><TT
-CLASS="LITERAL"
->epoc</TT
-></TD
-><TD
-ALIGN="LEFT"
-VALIGN="TOP"
-><P
->(Epoc)</P
 ></TD
 ></TR
 ><TR
@@ -685,6 +670,21 @@ CLASS="LITERAL"
 ><P
 >If set, the linux fbcon driver will not use a mouse at all.</P
 ></DD
+><DT
+><TT
+CLASS="LITERAL"
+>SDL_NO_LOCK_KEYS</TT
+></DT
+><DD
+><P
+>Disable CAPS-LOCK and NUM-LOCK suppression of down+up key events,
+suitable for games where the player needs these keys to do more than just toggle.
+A value of 1 will effect both CAPS-LOCK and NUM-LOCK.
+A value of 2 will effect only CAPS-LOCK.
+A value of 3 will effect only NUM-LOCK.
+All other values have no effect.
+</P
+></DD
 ></DL
 ></DIV
 ></DIV
@@ -775,6 +775,21 @@ ALIGN="LEFT"
 VALIGN="TOP"
 ><P
 >(Linux)</P
+></TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+><TT
+CLASS="LITERAL"
+>pulse</TT
+></TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+><P
+>(PulseAudio daemon)</P
 ></TD
 ></TR
 ><TR

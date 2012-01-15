@@ -19,9 +19,20 @@
 
 #include "SDL.h"
 
+#ifdef __MACOS__
+#define HAVE_OPENGL
+#endif
+
 #ifdef HAVE_OPENGL
 
 #include "SDL_opengl.h"
+
+/* Call this instead of exit(), so we can clean up SDL: atexit() is evil. */
+static void quit(int rc)
+{
+	SDL_Quit();
+	exit(rc);
+}
 
 void* get_funcaddr(const char* p)
 {
@@ -33,8 +44,9 @@ void* get_funcaddr(const char* p)
 	else
 	{
 		printf("Unable to get function pointer for %s\n",p);
-		exit(1);
+		quit(1);
 	}
+	return NULL;
 }
 
 typedef struct
@@ -89,14 +101,8 @@ int main(int argc,char *argv[])
 	SDL_Event event;
 	int done=0;
 	GLfloat pixels[NB_PIXELS*3];
-#if defined(_WIN32)
-	char *gl_library = "OpenGL32.DLL";
-#elif defined(__QNXNTO__)
-	char *gl_library = "libGL.so.3";
-#else
-	char *gl_library = "libGL.so.1";
-#endif
-	
+	const char *gl_library = NULL; /* Use the default GL library */
+
 	if (argv[1]) {
 		gl_library = argv[1];
 	}
@@ -104,27 +110,25 @@ int main(int argc,char *argv[])
 	if (SDL_Init(SDL_INIT_VIDEO)<0)
 	{
 		printf("Unable to init SDL : %s\n",SDL_GetError());
-		exit(1);
+		return(1);
 	}
 
-	atexit(SDL_Quit);
-	
 	if (SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER,1)<0)
 	{
 		printf("Unable to set GL attribute : %s\n",SDL_GetError());
-		exit(1);
+		quit(1);
 	}
 	
 	if (SDL_GL_LoadLibrary(gl_library)<0)
 	{
 		printf("Unable to dynamically open GL lib : %s\n",SDL_GetError());
-		exit(1);
+		quit(1);
 	}
 
 	if (SDL_SetVideoMode(640,480,0,SDL_OPENGL)==NULL)
 	{
 		printf("Unable to open video mode : %s\n",SDL_GetError());
-		exit(1);
+		quit(1);
 	}
 
 	/* Set the window manager title bar */

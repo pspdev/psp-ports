@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_oss.c,v 1.2 2004/01/21 01:41:53 raph Exp $
+  $Id: drv_oss.c,v 1.4 2004/01/31 22:39:40 raph Exp $
 
   Driver for output on Linux and FreeBSD Open Sound System (OSS) (/dev/dsp) 
 
@@ -360,8 +360,17 @@ MIKMODAPI MDRIVER drv_oss={
 	"Open Sound System driver v1.7",
 	0,255,
 	"oss",
-
+#ifdef SNDCTL_DSP_SETFRAGMENT
+        "buffer:r:7,17,14:Audio buffer log2 size\n"
+        "count:r:2,255,16:Audio buffer count\n",
+#else
+        NULL,
+#endif	
+#ifdef SNDCTL_DSP_SETFRAGMENT
 	OSS_CommandLine,
+#else
+	NULL,
+#endif
 	OSS_IsThere,
 	VC_SampleLoad,
 	VC_SampleUnload,
