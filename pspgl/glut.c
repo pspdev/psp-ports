@@ -218,11 +218,12 @@ void glutMainLoop (void)
 
 	sceCtrlSetSamplingCycle(0);
 	sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
+	
+	SceCtrlData pad;
+	sceCtrlPeekBufferPositive(&pad, 1);
 
 	do {
 		if (glut_joystick_func) {
-			struct SceCtrlData pad;
-			sceCtrlReadBufferPositive(&pad, 1);
 			glut_joystick_func(pad.Buttons,
 					   (pad.Lx * 2000L) / 256 - 1000,
 					   (pad.Ly * 2000L) / 256 - 1000, 0);
@@ -248,11 +249,8 @@ void glutMainLoop (void)
 */
 // @@@ new part from Edorul : permit to repeat special key 
 // @@@ and mouse key but not normal keys
-		SceCtrlData pad;
 		static unsigned int oldbuttons = 0;
 		int i;
-		
-		sceCtrlReadBufferPositive(&pad, 1);
 		
 		for (i=0; i<sizeof(keycode)/sizeof(keycode[0]); i++) {
 			// key repeat only for those we want (default = Special and mouse)
