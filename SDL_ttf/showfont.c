@@ -1,6 +1,6 @@
 /*
     showfont:  An example of using the SDL_ttf library with 2D graphics.
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -20,7 +20,7 @@
     slouken@libsdl.org
 */
 
-/* $Id: showfont.c,v 1.9 2004/01/04 17:41:55 slouken Exp $ */
+/* $Id: showfont.c 5141 2009-10-18 20:47:04Z slouken $ */
 
 /* A simple program to test the text rendering feature of the TTF library */
 
@@ -40,7 +40,14 @@
 #define NUM_COLORS      256
 
 static char *Usage =
-"Usage: %s [-solid] [-utf8|-unicode] [-b] [-i] [-u] [-fgcol r,g,b] [-bgcol r,g,b] <font>.ttf [ptsize] [text]\n";
+"Usage: %s [-solid] [-utf8|-unicode] [-b] [-i] [-u] [-s] [-outline size] [-hintlight|-hintmono|-hintnone] [-nokerning] [-fgcol r,g,b] [-bgcol r,g,b] <font>.ttf [ptsize] [text]\n";
+
+static void cleanup(int exitcode)
+{
+	TTF_Quit();
+	SDL_Quit();
+	exit(exitcode);
+}
 
 int main(int argc, char *argv[])
 {
@@ -60,6 +67,9 @@ int main(int argc, char *argv[])
 	SDL_Event event;
 	int rendersolid;
 	int renderstyle;
+	int outline;
+	int hinting;
+	int kerning;
 	int dump;
 	enum {
 		RENDER_LATIN1,
@@ -74,6 +84,9 @@ int main(int argc, char *argv[])
 	rendersolid = 0;
 	renderstyle = TTF_STYLE_NORMAL;
 	rendertype = RENDER_LATIN1;
+	outline = 0;
+	hinting = TTF_HINTING_NORMAL;
+	kerning = 1;
 	/* Default is black and white */
 	forecol = &black;
 	backcol = &white;
@@ -95,6 +108,27 @@ int main(int argc, char *argv[])
 		} else
 		if ( strcmp(argv[i], "-u") == 0 ) {
 			renderstyle |= TTF_STYLE_UNDERLINE;
+		} else
+		if ( strcmp(argv[i], "-s") == 0 ) {
+			renderstyle |= TTF_STYLE_STRIKETHROUGH;
+		} else
+		if ( strcmp(argv[i], "-outline") == 0 ) {
+			if ( sscanf (argv[++i], "%d", &outline) != 1 ) {
+				fprintf(stderr, Usage, argv0);
+				return(1);
+			}
+		} else
+		if ( strcmp(argv[i], "-hintlight") == 0 ) {
+			kerning = TTF_HINTING_LIGHT;
+		} else
+		if ( strcmp(argv[i], "-hintmono") == 0 ) {
+			kerning = TTF_HINTING_MONO;
+		} else
+		if ( strcmp(argv[i], "-hintnone") == 0 ) {
+			kerning = TTF_HINTING_NONE;
+		} else
+		if ( strcmp(argv[i], "-nokerning") == 0 ) {
+			kerning = 0;
 		} else
 		if ( strcmp(argv[i], "-dump") == 0 ) {
 			dump = 1;
@@ -137,14 +171,13 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Couldn't initialize SDL: %s\n",SDL_GetError());
 		return(2);
 	}
-	atexit(SDL_Quit);
 
 	/* Initialize the TTF library */
 	if ( TTF_Init() < 0 ) {
 		fprintf(stderr, "Couldn't initialize TTF: %s\n",SDL_GetError());
+		SDL_Quit();
 		return(2);
 	}
-	atexit(TTF_Quit);
 
 	/* Open the font file with the requested point size */
 	ptsize = 0;
@@ -161,12 +194,13 @@ int main(int argc, char *argv[])
 	if ( font == NULL ) {
 		fprintf(stderr, "Couldn't load %d pt font from %s: %s\n",
 					ptsize, argv[0], SDL_GetError());
-		return(2);
+		cleanup(2);
 	}
 	TTF_SetFontStyle(font, renderstyle);
+	TTF_SetFontOutline(font, outline);
+	TTF_SetFontKerning(font, kerning);
 
 	if( dump ) {
-
 		for( i = 48; i < 123; i++ ) {
 			SDL_Surface* glyph = NULL;
 
@@ -179,8 +213,7 @@ int main(int argc, char *argv[])
 			}
 
 		}
-
-		return( 0 );
+		cleanup(0);
 	}
 
 	/* Set a 640x480x8 video mode */
@@ -188,7 +221,7 @@ int main(int argc, char *argv[])
 	if ( screen == NULL ) {
 		fprintf(stderr, "Couldn't set 640x480x8 video mode: %s\n",
 							SDL_GetError());
-		return(2);
+		cleanup(2);
 	}
 
 	/* Set a palette that is good for the foreground colored text */
@@ -254,7 +287,7 @@ int main(int argc, char *argv[])
 			/* Use iconv to convert the message into utf-16.
 			 * "char" and "" are aliases for the local 8-bit encoding */
 			iconv_t cd;
-			ICONV_CONST char *from_str = message;
+			/*ICONV_CONST*/ char *from_str = message;
 			char *to_str = (char*)unicode_text;
 			size_t from_sz = strlen(message) + 1;
 			size_t to_sz = sizeof(unicode_text);
@@ -300,7 +333,7 @@ int main(int argc, char *argv[])
 	if ( text == NULL ) {
 		fprintf(stderr, "Couldn't render text: %s\n", SDL_GetError());
 		TTF_CloseFont(font);
-		return(2);
+		cleanup(2);
 	}
 	dstrect.x = (screen->w - text->w)/2;
 	dstrect.y = (screen->h - text->h)/2;
@@ -314,7 +347,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Couldn't blit text to display: %s\n", 
 								SDL_GetError());
 		TTF_CloseFont(font);
-		return(2);
+		cleanup(2);
 	}
 	SDL_UpdateRect(screen, 0, 0, 0, 0);
 
@@ -364,5 +397,8 @@ int main(int argc, char *argv[])
 	}
 	SDL_FreeSurface(text);
 	TTF_CloseFont(font);
-	return(0);
+	cleanup(0);
+
+	/* Not reached, but fixes compiler warnings */
+	return 0;
 }

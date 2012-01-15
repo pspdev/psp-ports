@@ -13,9 +13,9 @@ dnl Set various version strings - taken gratefully from the GTk sources
 
 MAJOR_VERSION=2
 MINOR_VERSION=0
-MICRO_VERSION=7
-INTERFACE_AGE=1
-BINARY_AGE=7
+MICRO_VERSION=10
+INTERFACE_AGE=0
+BINARY_AGE=10
 VERSION=$MAJOR_VERSION.$MINOR_VERSION.$MICRO_VERSION
 
 AC_SUBST(MAJOR_VERSION)
@@ -26,6 +26,8 @@ AC_SUBST(BINARY_AGE)
 AC_SUBST(VERSION)
 
 # libtool versioning
+LT_INIT([win32-dll])
+
 LT_RELEASE=$MAJOR_VERSION.$MINOR_VERSION
 LT_CURRENT=`expr $MICRO_VERSION - $INTERFACE_AGE`
 LT_REVISION=$INTERFACE_AGE
@@ -36,43 +38,60 @@ AC_SUBST(LT_CURRENT)
 AC_SUBST(LT_REVISION)
 AC_SUBST(LT_AGE)
 
-dnl Detect the canonical host and target build environment
+dnl Detect the canonical build and host environments
 AC_CANONICAL_HOST
-AC_CANONICAL_TARGET
 
 dnl Setup for automake
 AM_INIT_AUTOMAKE(SDL_ttf, $VERSION)
 
 dnl Check for tools
-
-AC_LIBTOOL_WIN32_DLL
-AM_PROG_LIBTOOL
-AC_PROG_MAKE_SET
+AC_PROG_LIBTOOL
 AC_PROG_CC
 AC_PROG_INSTALL
-AC_FUNC_ALLOCA
+AC_PROG_MAKE_SET
+if test -z "$host_alias"; then
+    hostaliaswindres=
+else
+    hostaliaswindres="$host_alias-windres"
+fi
+AC_CHECK_PROGS(WINDRES, [windres $hostaliaswindres $host_os-windres])
+
+case "$host" in
+    *-*-cygwin* | *-*-mingw32*)
+	;;
+    *)
+	AC_FUNC_ALLOCA
+	;;
+esac
+
 
 dnl Check for iconv (character conversion library; see iconv.m4)
 dnl This isn't available on many systems
 dnl AM_ICONV
 
-dnl The alpha architecture needs special flags for binary portability
-case "$target" in
-    alpha*-*-linux*)
-        CFLAGS="$CFLAGS -mcpu=ev4 -Wa,-mall"
-        ;;
+case "$host" in
     *-*-beos*)
         ac_default_prefix=/boot/develop/tools/gnupro
         ;;
     *-*-cygwin* | *-*-mingw32*)
-        if test "$build" != "$target"; then # cross-compiling
-            ac_default_prefix=/usr/local/cross-tools/i386-mingw32msvc
+        if test "$build" != "$host"; then # cross-compiling
+            # Default cross-compile location
+            ac_default_prefix=/usr/local/cross-tools/i386-mingw32
+        else
+            # Look for the location of the tools and install there
+            if test "$BUILD_PREFIX" != ""; then
+                ac_default_prefix=$BUILD_PREFIX
+            fi
+        fi
+        if test x$WINDRES != x; then
+            use_version_rc=true
         fi
         ;;
     *-psp-*)
         CFLAGS="$CFLAGS -G0"
-	;;
+    ;;
 esac
+AM_CONDITIONAL(USE_VERSION_RC, test x$use_version_rc = xtrue)
 
 dnl Check for the FreeType 2 library
 dnl
@@ -110,6 +129,7 @@ fi
 
 dnl Check for SDL
 SDL_VERSION=1.2.4
+AC_SUBST(SDL_VERSION)
 AM_PATH_SDL($SDL_VERSION,
             :,
 	    AC_MSG_ERROR([*** SDL version $SDL_VERSION not found!])
@@ -118,7 +138,7 @@ CFLAGS="$CFLAGS $SDL_CFLAGS"
 LIBS="$LIBS $SDL_LIBS"
 
 dnl Check for OpenGL
-case "$target" in
+case "$host" in
     *-*-cygwin* | *-*-mingw32*)
         MATHLIB=""
         SYS_GL_LIBS="-lopengl32"
@@ -129,7 +149,7 @@ case "$target" in
         ;;
     *-*-darwin*)
         MATHLIB=""
-        SYS_GL_LIBS=""
+        SYS_GL_LIBS="-Wl,-framework,OpenGL"
         ;;
     *-*-aix*)
         if test x$ac_cv_prog_gcc = xyes; then
@@ -153,20 +173,29 @@ case "$target" in
         fi
         ;;
 esac
-
+AC_MSG_CHECKING(for OpenGL support)
 have_opengl=no
-AC_CHECK_LIB(GL, [glPushAttrib, glPopAttrib, glColor3fv], [have_opengl=yes])
+AC_TRY_COMPILE([
+ #include "SDL_opengl.h"
+],[
+ GLuint texture;
+],[
+have_opengl=yes
+])
+AC_MSG_RESULT($have_opengl)
 if test x$have_opengl = xyes; then
     CFLAGS="$CFLAGS -DHAVE_OPENGL"
     GL_LIBS="$SYS_GL_LIBS"
 else
     GL_LIBS=""
 fi
-AC_SUBST(GL_LIBS)
-AC_SUBST(MATHLIB)
+AC_SUBST([GL_LIBS])
+AC_SUBST([MATHLIB])
+AC_SUBST([WINDRES])
 
 # Finally create all the generated files
 AC_OUTPUT([
 Makefile
 SDL_ttf.spec
+SDL_ttf.pc
 ])

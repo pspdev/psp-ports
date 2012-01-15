@@ -1,6 +1,6 @@
 /*
     glfont:  An example of using the SDL_ttf library with OpenGL.
-    Copyright (C) 1997-2004 Sam Lantinga
+    Copyright (C) 1997-2009 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -22,7 +22,7 @@
     slouken@libsdl.org
 */
 
-/* $Id: glfont.c,v 1.6 2004/01/04 17:41:55 slouken Exp $ */
+/* $Id: glfont.c 4463 2009-03-22 06:54:13Z slouken $ */
 
 /* A simple program to test the text rendering feature of the TTF library */
 
@@ -137,10 +137,15 @@ GLuint SDL_GL_LoadTexture(SDL_Surface *surface, GLfloat *texcoord)
 
 	/* Save the alpha blending attributes */
 	saved_flags = surface->flags&(SDL_SRCALPHA|SDL_RLEACCELOK);
+#if SDL_VERSION_ATLEAST(1, 3, 0)
+	SDL_GetSurfaceAlphaMod(surface, &saved_alpha);
+	SDL_SetSurfaceAlphaMod(surface, 0xFF);
+#else
 	saved_alpha = surface->format->alpha;
 	if ( (saved_flags & SDL_SRCALPHA) == SDL_SRCALPHA ) {
 		SDL_SetAlpha(surface, 0, 0);
 	}
+#endif
 
 	/* Copy the surface into the GL texture image */
 	area.x = 0;
@@ -150,9 +155,13 @@ GLuint SDL_GL_LoadTexture(SDL_Surface *surface, GLfloat *texcoord)
 	SDL_BlitSurface(surface, &area, image, &area);
 
 	/* Restore the alpha blending attributes */
+#if SDL_VERSION_ATLEAST(1, 3, 0)
+	SDL_SetSurfaceAlphaMod(surface, saved_alpha);
+#else
 	if ( (saved_flags & SDL_SRCALPHA) == SDL_SRCALPHA ) {
 		SDL_SetAlpha(surface, saved_flags, saved_alpha);
 	}
+#endif
 
 	/* Create an OpenGL texture for the image */
 	glGenTextures(1, &texture);
@@ -170,6 +179,13 @@ GLuint SDL_GL_LoadTexture(SDL_Surface *surface, GLfloat *texcoord)
 	SDL_FreeSurface(image); /* No longer needed */
 
 	return texture;
+}
+
+static void cleanup(int exitcode)
+{
+	TTF_Quit();
+	SDL_Quit();
+	exit(exitcode);
 }
 
 int main(int argc, char *argv[])
@@ -281,14 +297,13 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Couldn't initialize SDL: %s\n",SDL_GetError());
 		return(2);
 	}
-	atexit(SDL_Quit);
 
 	/* Initialize the TTF library */
 	if ( TTF_Init() < 0 ) {
 		fprintf(stderr, "Couldn't initialize TTF: %s\n",SDL_GetError());
+		SDL_Quit();
 		return(2);
 	}
-	atexit(TTF_Quit);
 
 	/* Open the font file with the requested point size */
 	ptsize = 0;
@@ -305,12 +320,11 @@ int main(int argc, char *argv[])
 	if ( font == NULL ) {
 		fprintf(stderr, "Couldn't load %d pt font from %s: %s\n",
 					ptsize, argv[0], SDL_GetError());
-		return(2);
+		cleanup(2);
 	}
 	TTF_SetFontStyle(font, renderstyle);
 
 	if( dump ) {
-
 		for( i = 48; i < 123; i++ ) {
 			SDL_Surface* glyph = NULL;
 
@@ -323,8 +337,7 @@ int main(int argc, char *argv[])
 			}
 
 		}
-
-		return( 0 );
+		cleanup(0);
 	}
 
 	/* Set a 640x480 video mode */
@@ -332,7 +345,7 @@ int main(int argc, char *argv[])
 	if ( screen == NULL ) {
 		fprintf(stderr, "Couldn't set 640x480 OpenGL mode: %s\n",
 							SDL_GetError());
-		return(2);
+		cleanup(2);
 	}
 
 	/* Render and center the message */
@@ -374,7 +387,7 @@ int main(int argc, char *argv[])
 	if ( text == NULL ) {
 		fprintf(stderr, "Couldn't render text: %s\n", SDL_GetError());
 		TTF_CloseFont(font);
-		return(2);
+		cleanup(2);
 	}
 	x = (screen->w - text->w)/2;
 	y = (screen->h - text->h)/2;
@@ -516,7 +529,10 @@ int main(int argc, char *argv[])
 		SDL_GL_SwapBuffers( );
 	}
 	TTF_CloseFont(font);
-	return(0);
+	cleanup(0);
+
+	/* Not reached, but fixes compiler warnings */
+	return 0;
 }
 
 #else /* HAVE_OPENGL */
