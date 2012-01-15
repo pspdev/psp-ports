@@ -2298,10 +2298,11 @@ CheckPSPSDK()
         AC_MSG_ERROR(Couldn't locate PSPSDK.)
     fi
     AC_MSG_RESULT($pspsdk_path)
+    psp_prefix=`$psp_config --psp-prefix`
 
     # Compile SDL with -G0 to disable the $gp register.
     EXTRA_CFLAGS="$EXTRA_CFLAGS -G0 -I\"${pspsdk_path}/include\""
-    EXTRA_LDFLAGS="$EXTRA_LDFLAGS -L${pspsdk_path}/lib -lpspdebug -lpspgu -lpspctrl"
+    EXTRA_LDFLAGS="$EXTRA_LDFLAGS -L${pspsdk_path}/lib -L${psp_prefix} -lpspdebug -lpspgu -lpspctrl"
     EXTRA_LDFLAGS="$EXTRA_LDFLAGS -lpspge -lpspdisplay -lpsphprm -lpspsdk -lpsprtc"
     EXTRA_LDFLAGS="$EXTRA_LDFLAGS -lpspaudio -lpsputility -lpspkernel -lpspnet_inet"
 

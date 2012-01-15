@@ -38,8 +38,6 @@
 #include "SDL_config_win32.h"
 #elif defined(__OS2__)
 #include "SDL_config_os2.h"
-#elif defined(ENABLE_PSP)
-#include "SDL_config_psp.h"
 #else
 #include "SDL_config_minimal.h"
 #endif /* platform config */
