@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 
-aclocal
+aclocal -I $(psp-config --psp-prefix)/share/aclocal
 automake --foreign
 autoconf
 
