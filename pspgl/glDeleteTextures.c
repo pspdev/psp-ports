@@ -16,7 +16,7 @@ void glDeleteTextures (GLsizei n, const GLuint *textures)
 			if (tobj) {
 				if (tobj == pspgl_curctx->texture.bound)
 					glBindTexture(tobj->target, 0);
-				free(tobj);
+				__pspgl_texobj_free(tobj);
 			}
 		}
 	}
