@@ -278,7 +278,7 @@ case "$host_os" in
     RESOLVES=' '
   ;;
   *)
-    ZZIPLIB_LDFLAGS="--export-dynamic"
+    ZZIPLIB_LDFLAGS="-Wl,--export-dynamic"
     RESOLVES=' # '
   ;;
 esac
