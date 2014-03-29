@@ -10,9 +10,10 @@ CFLAGS = -O2 -G0
 include $(PSPSDK)/lib/build.mak
 
 install: $(TARGET_LIB)
-	@echo "Installing libz into $(PSPDIR)"
-	@mkdir -p $(PSPDIR)/include $(PSPDIR)/lib
-	@cp zlib.h zconf.h $(PSPDIR)/include
-	@cp libz.a  $(PSPDIR)/lib
+	@echo "Installing libz into $(DESTDIR)$(PSPDIR)"
+	@install -d $(DESTDIR)$(PSPDIR)/include
+	@install -d $(DESTDIR)$(PSPDIR)/lib
+	@install -m644 zlib.h zconf.h $(DESTDIR)$(PSPDIR)/include
+	@install -m644 libz.a $(DESTDIR)$(PSPDIR)/lib
 	@echo "Done"
 

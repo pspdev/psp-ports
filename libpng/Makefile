@@ -10,8 +10,9 @@ CFLAGS = -O2 -G0
 include $(PSPSDK)/lib/build.mak
 
 install: $(TARGET_LIB)
-	@echo "Installing libpng into $(PSPDIR)"
-	@mkdir -p $(PSPDIR)/include $(PSPDIR)/lib
-	@cp png.h pngconf.h pnglibconf.h $(PSPDIR)/include
-	@cp libpng.a  $(PSPDIR)/lib
+	@echo "Installing libpng into $(DESTDIR)$(PSPDIR)"
+	@install -d $(DESTDIR)$(PSPDIR)/include
+	@install -d $(DESTDIR)$(PSPDIR)/lib
+	@install -m644 png.h pngconf.h pnglibconf.h $(DESTDIR)$(PSPDIR)/include
+	@install -m644 libpng.a $(DESTDIR)$(PSPDIR)/lib
 	@echo "Done"

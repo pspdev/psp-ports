@@ -13,11 +13,13 @@ PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build.mak
 
 install: all
-	cp libpspirkeyb.a $(PSPSDK)/lib
-	cp include/pspirkeyb.h $(PSPSDK)/include
-	cp include/pspirkeyb_rawkeys.h $(PSPSDK)/include
+	install -d $(DESTDIR)$(PSPSDK)/lib
+	cp libpspirkeyb.a $(DESTDIR)$(PSPSDK)/lib
+	install -d $(DESTDIR)$(PSPSDK)/include
+	cp include/pspirkeyb.h $(DESTDIR)$(PSPSDK)/include
+	cp include/pspirkeyb_rawkeys.h $(DESTDIR)$(PSPSDK)/include
 
 uninstall:
-	rm -f $(PSPSDK)/lib/libpspirkeyb.a
-	rm -f $(PSPSDK)/include/pspirkeyb.h
-	rm -f $(PSPSDK)/include/pspirkeyb_rawkeys.h
+	rm -f $(DESTDIR)$(PSPSDK)/lib/libpspirkeyb.a
+	rm -f $(DESTDIR)$(PSPSDK)/include/pspirkeyb.h
+	rm -f $(DESTDIR)$(PSPSDK)/include/pspirkeyb_rawkeys.h

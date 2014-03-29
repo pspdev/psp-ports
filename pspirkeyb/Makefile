@@ -32,13 +32,13 @@ PSPSDK=$(shell psp-config --pspsdk-path)
 
 install: all
 	$(MAKE) -C libpspirkeyb install
-	mkdir -p $(PSPSDK)/samples/irkeyb
-	mkdir -p $(PSPSDK)/samples/irkeyb/keymap
-	cp libpspirkeyb/keymap/*.ini $(PSPSDK)/samples/irkeyb/keymap
-	cp libpspirkeyb/keymap/README.txt $(PSPSDK)/samples/irkeyb/keymap
-	cp libpspirkeyb/config/pspirkeyb.ini $(PSPSDK)/samples/irkeyb
-	cp asciidemo/main.c $(PSPSDK)/samples/irkeyb
-	cp asciidemo/Makefile.sdk $(PSPSDK)/samples/irkeyb/Makefile
+	install -d $(DESTDIR)$(PSPSDK)/samples/irkeyb
+	install -d $(DESTDIR)$(PSPSDK)/samples/irkeyb/keymap
+	cp libpspirkeyb/keymap/*.ini $(DESTDIR)$(PSPSDK)/samples/irkeyb/keymap
+	cp libpspirkeyb/keymap/README.txt $(DESTDIR)$(PSPSDK)/samples/irkeyb/keymap
+	cp libpspirkeyb/config/pspirkeyb.ini $(DESTDIR)$(PSPSDK)/samples/irkeyb
+	cp asciidemo/main.c $(DESTDIR)$(PSPSDK)/samples/irkeyb
+	cp asciidemo/Makefile.sdk $(DESTDIR)$(PSPSDK)/samples/irkeyb/Makefile
 
 uninstall:
 	$(MAKE) -C libpspirkeyb install

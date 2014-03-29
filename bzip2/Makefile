@@ -24,7 +24,7 @@ BIGFILES=-D_FILE_OFFSET_BITS=64
 CFLAGS=-Wall -Winline -O2 -G0 $(BIGFILES)
 
 # Where you want it installed when you do 'make install'
-PREFIX=$(shell psp-config --psp-prefix)
+PREFIX=$(DESTDIR)$(shell psp-config --psp-prefix)
 
 
 OBJS= blocksort.o  \

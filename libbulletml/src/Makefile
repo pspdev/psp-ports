@@ -31,12 +31,13 @@ doxy:
 distdir:
 
 install: all
-	mkdir -p $(PSPDIR)/include/bulletml $(PSPDIR)/lib
-	mkdir -p $(PSPDIR)/include/boost/config
-	mkdir -p $(PSPDIR)/include/boost/config/stdlib
-	mkdir -p $(PSPDIR)/include/boost/config/compiler
-	mkdir -p $(PSPDIR)/include/boost/config/platform
-	mkdir -p $(PSPDIR)/include/boost/detail
-	cp bulletml*.h formula.h tree.h tinyxml/tinyxml.h $(PSPDIR)/include/bulletml
-	find boost -name *.hpp -exec cp -R {} $(PSPDIR)/include/{} \;
-	cp libbulletml.a $(PSPDIR)/lib
+	install -d $(DESTDIR)$(PSPDIR)/include/bulletml
+	install -d $(DESTDIR)$(PSPDIR)/lib
+	install -d $(DESTDIR)$(PSPDIR)/include/boost/config
+	install -d $(DESTDIR)$(PSPDIR)/include/boost/config/stdlib
+	install -d $(DESTDIR)$(PSPDIR)/include/boost/config/compiler
+	install -d $(DESTDIR)$(PSPDIR)/include/boost/config/platform
+	install -d $(DESTDIR)$(PSPDIR)/include/boost/detail
+	install -m644 bulletml*.h formula.h tree.h tinyxml/tinyxml.h $(DESTDIR)$(PSPDIR)/include/bulletml
+	find boost -name *.hpp -exec cp -R {} $(DESTDIR)$(PSPDIR)/include/{} \;
+	install -m644 libbulletml.a $(DESTDIR)$(PSPDIR)/lib
