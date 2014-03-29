@@ -11,10 +11,11 @@ CFLAGS += -DHAVE_CONFIG_H -DHAVE_SYS_TYPES_H -DHAVE_ERRNO_H -DHAVE_UNISTD_H \
 include $(PSPSDK)/lib/build.mak
 
 install: $(PSP_LIB)
-	@echo "Installing libmad into $(PSPLIBSDIR)/libmad"
-	@mkdir -p $(PSPDIR)/include $(PSPDIR)/lib
-	@cp ../include/mad.h $(PSPDIR)/include
-	@cp ../lib/libmad.a  $(PSPDIR)/lib
+	@echo "Installing libmad into $(DESTDIR)$(PSPLIBSDIR)/libmad"
+	@install -d $(DESTDIR)$(PSPDIR)/include
+	@install -d $(DESTDIR)$(PSPDIR)/lib
+	@install -m644 ../include/mad.h $(DESTDIR)$(PSPDIR)/include
+	@install -m644 ../lib/libmad.a $(DESTDIR)$(PSPDIR)/lib
 	@echo "Done."
 	
 

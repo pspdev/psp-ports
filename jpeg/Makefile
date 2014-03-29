@@ -15,8 +15,9 @@ CFLAGS = -O2 -G0
 include $(PSPSDK)/lib/build.mak
 
 install: $(TARGET_LIB)
-	@echo "Installing libjpeg into $(PSPDIR)"
-	@mkdir -p $(PSPDIR)/include $(PSPDIR)/lib
-	@cp jconfig.h jpeglib.h jmorecfg.h jerror.h $(PSPDIR)/include
-	@cp libjpeg.a  $(PSPDIR)/lib
+	@echo "Installing libjpeg into $(DESTDIR)$(PSPDIR)"
+	@install -d $(DESTDIR)$(PSPDIR)/include
+	@install -m644 jconfig.h jpeglib.h jmorecfg.h jerror.h $(DESTDIR)$(PSPDIR)/include
+	@install -d $(DESTDIR)$(PSPDIR)/lib
+	@install -m644 libjpeg.a $(DESTDIR)$(PSPDIR)/lib
 	@echo "Done"
