@@ -29,17 +29,18 @@ release: all
 	cp asciidemoprx/EBOOT.PBP release/psp/game/asciidemoprx
 
 PSPSDK=$(shell psp-config --pspsdk-path)
+PSPDIR = $(shell psp-config --psp-prefix)
 
 install: all
 	$(MAKE) -C libpspirkeyb install
-	mkdir -p $(PSPSDK)/samples/irkeyb
-	mkdir -p $(PSPSDK)/samples/irkeyb/keymap
-	cp libpspirkeyb/keymap/*.ini $(PSPSDK)/samples/irkeyb/keymap
-	cp libpspirkeyb/keymap/README.txt $(PSPSDK)/samples/irkeyb/keymap
-	cp libpspirkeyb/config/pspirkeyb.ini $(PSPSDK)/samples/irkeyb
-	cp asciidemo/main.c $(PSPSDK)/samples/irkeyb
-	cp asciidemo/Makefile.sdk $(PSPSDK)/samples/irkeyb/Makefile
+	mkdir -p $(PSPDIR)/samples/irkeyb
+	mkdir -p $(PSPDIR)/samples/irkeyb/keymap
+	cp libpspirkeyb/keymap/*.ini $(PSPDIR)/samples/irkeyb/keymap
+	cp libpspirkeyb/keymap/README.txt $(PSPDIR)/samples/irkeyb/keymap
+	cp libpspirkeyb/config/pspirkeyb.ini $(PSPDIR)/samples/irkeyb
+	cp asciidemo/main.c $(PSPDIR)/samples/irkeyb
+	cp asciidemo/Makefile.sdk $(PSPDIR)/samples/irkeyb/Makefile
 
 uninstall:
 	$(MAKE) -C libpspirkeyb install
-	rm -rf $(PSPSDK)/samples/irkeyb
+	rm -rf $(PSPDIR)/samples/irkeyb
