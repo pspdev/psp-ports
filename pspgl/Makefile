@@ -1,4 +1,4 @@
-PSPPATH := $(shell psp-config --psp-prefix)
+PSPDIR := $(shell psp-config --psp-prefix)
 PSPSDK := $(shell psp-config --pspsdk-path)
 ARCH = psp-
 
@@ -6,8 +6,8 @@ CC = $(ARCH)gcc -std=gnu99
 AR = $(ARCH)ar
 RANLIB = $(ARCH)ranlib
 RM = rm -f
-CFLAGS = -g -Wall -Wmissing-prototypes -Os -G0 -fsingle-precision-constant -I. -I $(PSPPATH)/include -I $(PSPSDK)/include -funit-at-a-time
-LFLAGS = -g -Wall -Os -G0 -L$(PSPPATH)/lib
+CFLAGS = -g -Wall -Wmissing-prototypes -Os -G0 -fsingle-precision-constant -I. -I $(PSPDIR)/include -I $(PSPSDK)/include -funit-at-a-time
+LFLAGS = -g -Wall -Os -G0 -L$(PSPDIR)/lib
 
 DEPDIR = .deps
 
@@ -216,13 +216,13 @@ clean:
 	make -C test-vfpu clean
 
 install: all
-	mkdir -p $(PSPPATH)/include $(PSPPATH)/lib
-	mkdir -p $(PSPPATH)/include/GL $(PSPPATH)/include/GLES
-	cp GL/*.h $(PSPPATH)/include/GL
-	cp GLES/*.h $(PSPPATH)/include/GLES
-	cp libGL.a $(PSPPATH)/lib
-	cp libGLU.a $(PSPPATH)/lib
-	cp libglut.a $(PSPPATH)/lib
+	mkdir -p $(PSPDIR)/include $(PSPDIR)/lib
+	mkdir -p $(PSPDIR)/include/GL $(PSPDIR)/include/GLES
+	cp GL/*.h $(PSPDIR)/include/GL
+	cp GLES/*.h $(PSPDIR)/include/GLES
+	cp libGL.a $(PSPDIR)/lib
+	cp libGLU.a $(PSPDIR)/lib
+	cp libglut.a $(PSPDIR)/lib
 
 -include $(wildcard $(DEPDIR)/*.d) dummy
 
