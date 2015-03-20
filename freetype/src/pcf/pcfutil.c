@@ -2,7 +2,11 @@
 
 Copyright 1990, 1994, 1998  The Open Group
 
-All Rights Reserved.
+Permission to use, copy, modify, distribute, and sell this software and its
+documentation for any purpose is hereby granted without fee, provided that
+the above copyright notice appear in all copies and that both that
+copyright notice and this permission notice appear in supporting
+documentation.
 
 The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
@@ -38,17 +42,17 @@ in this Software without prior written authorization from The Open Group.
 
   FT_LOCAL_DEF( void )
   BitOrderInvert( unsigned char*  buf,
-                  int             nbytes )
+                  size_t          nbytes )
   {
-    for ( ; --nbytes >= 0; buf++ )
+    for ( ; nbytes > 0; nbytes--, buf++ )
     {
       unsigned int  val = *buf;
-      
+
 
       val = ( ( val >> 1 ) & 0x55 ) | ( ( val << 1 ) & 0xAA );
       val = ( ( val >> 2 ) & 0x33 ) | ( ( val << 2 ) & 0xCC );
       val = ( ( val >> 4 ) & 0x0F ) | ( ( val << 4 ) & 0xF0 );
-      
+
       *buf = (unsigned char)val;
     }
   }
@@ -60,7 +64,7 @@ in this Software without prior written authorization from The Open Group.
 
   FT_LOCAL_DEF( void )
   TwoByteSwap( unsigned char*  buf,
-               int             nbytes )
+               size_t          nbytes )
   {
     unsigned char  c;
 
@@ -79,7 +83,7 @@ in this Software without prior written authorization from The Open Group.
 
   FT_LOCAL_DEF( void )
   FourByteSwap( unsigned char*  buf,
-                int             nbytes )
+                size_t          nbytes )
   {
     unsigned char  c;
 

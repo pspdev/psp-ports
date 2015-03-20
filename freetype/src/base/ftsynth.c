@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType synthesizing code for emboldening and slanting (body).      */
 /*                                                                         */
-/*  Copyright 2000-2001, 2002, 2003, 2004, 2005 by                         */
+/*  Copyright 2000-2006, 2010, 2012 by                                     */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -18,9 +18,20 @@
 
 #include <ft2build.h>
 #include FT_SYNTHESIS_H
+#include FT_INTERNAL_DEBUG_H
 #include FT_INTERNAL_OBJECTS_H
 #include FT_OUTLINE_H
 #include FT_BITMAP_H
+
+
+  /*************************************************************************/
+  /*                                                                       */
+  /* The macro FT_COMPONENT is used in trace mode.  It is an implicit      */
+  /* parameter of the FT_TRACE() and FT_ERROR() macros, used to print/log  */
+  /* messages during execution.                                            */
+  /*                                                                       */
+#undef  FT_COMPONENT
+#define FT_COMPONENT  trace_synth
 
 
   /*************************************************************************/
@@ -52,7 +63,7 @@
     transform.xx = 0x10000L;
     transform.yx = 0x00000L;
 
-    transform.xy = 0x06000L;
+    transform.xy = 0x0366AL;
     transform.yy = 0x10000L;
 
     FT_Outline_Transform( outline, &transform );
@@ -62,7 +73,7 @@
   /*************************************************************************/
   /*************************************************************************/
   /****                                                                 ****/
-  /****   EXPERIMENTAL EMBOLDENING/OUTLINING SUPPORT                    ****/
+  /****   EXPERIMENTAL EMBOLDENING SUPPORT                              ****/
   /****                                                                 ****/
   /*************************************************************************/
   /*************************************************************************/
@@ -74,68 +85,68 @@
   FT_GlyphSlot_Embolden( FT_GlyphSlot  slot )
   {
     FT_Library  library = slot->library;
-    FT_Face     face    = FT_SLOT_FACE( slot );
-    FT_Error    error   = FT_Err_Ok;
+    FT_Face     face    = slot->face;
+    FT_Error    error;
     FT_Pos      xstr, ystr;
 
 
+    if ( slot->format != FT_GLYPH_FORMAT_OUTLINE &&
+         slot->format != FT_GLYPH_FORMAT_BITMAP  )
+      return;
+
     /* some reasonable strength */
     xstr = FT_MulFix( face->units_per_EM,
-                      face->size->metrics.y_scale ) / 42;
+                      face->size->metrics.y_scale ) / 24;
     ystr = xstr;
 
     if ( slot->format == FT_GLYPH_FORMAT_OUTLINE )
     {
-      error = FT_Outline_Embolden( &slot->outline, xstr );
-      xstr = xstr * 4;  /* according to the documentation */
-      ystr = xstr;
+      /* ignore error */
+      (void)FT_Outline_EmboldenXY( &slot->outline, xstr, ystr );
     }
-    else if ( slot->format == FT_GLYPH_FORMAT_BITMAP )
+    else /* slot->format == FT_GLYPH_FORMAT_BITMAP */
     {
-      xstr = FT_PIX_FLOOR( xstr );
+      /* round to full pixels */
+      xstr &= ~63;
       if ( xstr == 0 )
         xstr = 1 << 6;
-      ystr = FT_PIX_FLOOR( ystr );
+      ystr &= ~63;
 
-      /* slot must be bitmap-owner */
-      if ( !( slot->internal->flags & FT_GLYPH_OWN_BITMAP ) )
+      /*
+       * XXX: overflow check for 16-bit system, for compatibility
+       *      with FT_GlyphSlot_Embolden() since freetype-2.1.10.
+       *      unfortunately, this function return no informations
+       *      about the cause of error.
+       */
+      if ( ( ystr >> 6 ) > FT_INT_MAX || ( ystr >> 6 ) < FT_INT_MIN )
       {
-        FT_Bitmap  bitmap;
-
-
-        FT_Bitmap_New( &bitmap );
-        error = FT_Bitmap_Copy( library, &slot->bitmap, &bitmap );
-
-        if ( !error )
-        {
-          slot->bitmap = bitmap;
-          slot->internal->flags |= FT_GLYPH_OWN_BITMAP;
-        }
+        FT_TRACE1(( "FT_GlyphSlot_Embolden:" ));
+        FT_TRACE1(( "too strong embolding parameter ystr=%d\n", ystr ));
+        return;
       }
+      error = FT_GlyphSlot_Own_Bitmap( slot );
+      if ( error )
+        return;
 
-      if ( !error )
-        error = FT_Bitmap_Embolden( library, &slot->bitmap, xstr, ystr );
+      error = FT_Bitmap_Embolden( library, &slot->bitmap, xstr, ystr );
+      if ( error )
+        return;
     }
-    else
-      error = FT_Err_Invalid_Argument;
 
-    /* modify the metrics accordingly */
-    if ( !error )
-    {
+    if ( slot->advance.x )
       slot->advance.x += xstr;
+
+    if ( slot->advance.y )
       slot->advance.y += ystr;
 
-      slot->metrics.width        += xstr;
-      slot->metrics.height       += ystr;
-      slot->metrics.horiBearingY += ystr;
-      slot->metrics.horiAdvance  += xstr;
-      slot->metrics.vertBearingX -= xstr / 2;
-      slot->metrics.vertBearingY += ystr;
-      slot->metrics.vertAdvance  += ystr;
+    slot->metrics.width       += xstr;
+    slot->metrics.height      += ystr;
+    slot->metrics.horiAdvance += xstr;
+    slot->metrics.vertAdvance += ystr;
 
-      if ( slot->format == FT_GLYPH_FORMAT_BITMAP )
-        slot->bitmap_top += ystr >> 6;
-    }
+    /* XXX: 16-bit overflow case must be excluded before here */
+    if ( slot->format == FT_GLYPH_FORMAT_BITMAP )
+      slot->bitmap_top += (FT_Int)( ystr >> 6 );
   }
 
 

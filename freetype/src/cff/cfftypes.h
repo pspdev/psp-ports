@@ -5,7 +5,7 @@
 /*    Basic OpenType/CFF type definitions and interface (specification     */
 /*    only).                                                               */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003 by                                     */
+/*  Copyright 1996-2003, 2006-2008, 2010-2011, 2013 by                     */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -23,6 +23,10 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_TYPE1_TABLES_H
+#include FT_INTERNAL_SERVICE_H
+#include FT_SERVICE_POSTSCRIPT_CMAPS_H
+#include FT_INTERNAL_POSTSCRIPT_HINTS_H
 
 
 FT_BEGIN_HEADER
@@ -39,6 +43,9 @@ FT_BEGIN_HEADER
   /* <Fields>                                                              */
   /*    stream      :: The source input stream.                            */
   /*                                                                       */
+  /*    start       :: The position of the first index byte in the         */
+  /*                   input stream.                                       */
+  /*                                                                       */
   /*    count       :: The number of elements in the index.                */
   /*                                                                       */
   /*    off_size    :: The size in bytes of object offsets in index.       */
@@ -46,16 +53,21 @@ FT_BEGIN_HEADER
   /*    data_offset :: The position of first data byte in the index's      */
   /*                   bytes.                                              */
   /*                                                                       */
-  /*    offsets     :: A table of element offsets in the index.            */
+  /*    data_size   :: The size of the data table in this index.           */
+  /*                                                                       */
+  /*    offsets     :: A table of element offsets in the index.  Must be   */
+  /*                   loaded explicitly.                                  */
   /*                                                                       */
   /*    bytes       :: If the index is loaded in memory, its bytes.        */
   /*                                                                       */
   typedef struct  CFF_IndexRec_
   {
     FT_Stream  stream;
+    FT_ULong   start;
     FT_UInt    count;
     FT_Byte    off_size;
     FT_ULong   data_offset;
+    FT_ULong   data_size;
 
     FT_ULong*  offsets;
     FT_Byte*   bytes;
@@ -84,6 +96,9 @@ FT_BEGIN_HEADER
     FT_UShort*  sids;
     FT_UShort*  cids;       /* the inverse mapping of `sids'; only needed */
                             /* for CID-keyed fonts                        */
+    FT_UInt     max_cid;
+    FT_UInt     num_glyphs;
+
   } CFF_CharsetRec, *CFF_Charset;
 
 
@@ -102,7 +117,8 @@ FT_BEGIN_HEADER
     FT_Int     paint_type;
     FT_Int     charstring_type;
     FT_Matrix  font_matrix;
-    FT_UShort  units_per_em;
+    FT_Bool    has_font_matrix;
+    FT_ULong   units_per_em;  /* temporarily used as scaling value also */
     FT_Vector  font_offset;
     FT_ULong   unique_id;
     FT_BBox    font_bbox;
@@ -118,7 +134,7 @@ FT_BEGIN_HEADER
     /* these should only be used for the top-level font dictionary */
     FT_UInt    cid_registry;
     FT_UInt    cid_ordering;
-    FT_ULong   cid_supplement;
+    FT_Long    cid_supplement;
 
     FT_Long    cid_font_version;
     FT_Long    cid_font_revision;
@@ -192,14 +208,12 @@ FT_BEGIN_HEADER
     CFF_PrivateRec      private_dict;
 
     CFF_IndexRec        local_subrs_index;
-    FT_UInt             num_local_subrs;
-    FT_Byte**           local_subrs;
+    FT_Byte**           local_subrs; /* array of pointers into Local Subrs INDEX data */
 
   } CFF_SubFontRec, *CFF_SubFont;
 
 
-  /* maximum number of sub-fonts in a CID-keyed file */
-#define CFF_MAX_CID_FONTS  32
+#define CFF_MAX_CID_FONTS  256
 
 
   typedef struct  CFF_FontRec_
@@ -217,7 +231,6 @@ FT_BEGIN_HEADER
 
     CFF_IndexRec     name_index;
     CFF_IndexRec     top_dict_index;
-    CFF_IndexRec     string_index;
     CFF_IndexRec     global_subrs_index;
 
     CFF_EncodingRec  encoding;
@@ -229,8 +242,14 @@ FT_BEGIN_HEADER
     CFF_IndexRec     local_subrs_index;
 
     FT_String*       font_name;
-    FT_UInt          num_global_subrs;
+
+    /* array of pointers into Global Subrs INDEX data */
     FT_Byte**        global_subrs;
+
+    /* array of pointers into String INDEX data stored at string_pool */
+    FT_UInt          num_strings;
+    FT_Byte**        strings;
+    FT_Byte*         string_pool;
 
     CFF_SubFontRec   top_font;
     FT_UInt          num_subfonts;
@@ -239,10 +258,20 @@ FT_BEGIN_HEADER
     CFF_FDSelectRec  fd_select;
 
     /* interface to PostScript hinter */
-    void*            pshinter;
+    PSHinter_Service  pshinter;
 
     /* interface to Postscript Names service */
-    void*            psnames;
+    FT_Service_PsCMaps  psnames;
+
+    /* since version 2.3.0 */
+    PS_FontInfoRec*  font_info;   /* font info dictionary */
+
+    /* since version 2.3.6 */
+    FT_String*       registry;
+    FT_String*       ordering;
+
+    /* since version 2.4.12 */
+    FT_Generic       cf2_instance;
 
   } CFF_FontRec, *CFF_Font;
 

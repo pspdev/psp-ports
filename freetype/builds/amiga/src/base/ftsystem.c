@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Amiga-specific FreeType low-level system interface (body).           */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2005 by                                     */
+/*  Copyright 1996-2001, 2002, 2005, 2006, 2007, 2010 by                   */
 /*  David Turner, Robert Wilhelm, Werner Lemberg and Detlef Würkner.       */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -33,7 +33,7 @@
   /* malloc(), realloc(), and free().                                      */
   /*                                                                       */
   /* Those C library functions are often not thread-safe or cant be        */
-  /* used in a shared Amiga library. If thats not a problem for you,       */
+  /* used in a shared Amiga library. If that's not a problem for you,       */
   /* you can of course use the default ftsystem.c with C library calls     */
   /* instead.                                                              */
   /*                                                                       */
@@ -115,8 +115,8 @@ Free_VecPooled( APTR  poolHeader,
   /*************************************************************************/
   /*                                                                       */
   /* It is not necessary to do any error checking for the                  */
-  /* allocation-related functions.  This will be done by the higher level  */
-  /* routines like FT_Alloc() or FT_Realloc().                             */
+  /* allocation-related functions.  This is done by the higher level       */
+  /* routines like ft_mem_alloc() or ft_mem_realloc().                     */
   /*                                                                       */
   /*************************************************************************/
 
@@ -305,7 +305,7 @@ Free_VecPooled( APTR  poolHeader,
       if ( (offset < sysfile->iobuf_start) || (offset + count > sysfile->iobuf_end) )
       {
         /* requested offset implies we need a buffer refill */
-        if ( !sysfile->iobuf_end || offset != (sysfile->iobuf_end + 1) )
+        if ( !sysfile->iobuf_end || offset != sysfile->iobuf_end )
         {
           /* a physical seek is necessary */
           Seek( sysfile->file, offset, OFFSET_BEGINNING );
@@ -377,7 +377,7 @@ Free_VecPooled( APTR  poolHeader,
 
   /* documentation is in ftobjs.h */
 
-  FT_EXPORT_DEF( FT_Error )
+  FT_BASE_DEF( FT_Error )
   FT_Stream_Open( FT_Stream    stream,
                   const char*  filepathname )
   {
@@ -442,6 +442,14 @@ Free_VecPooled( APTR  poolHeader,
     stream->read  = ft_amiga_stream_io;
     stream->close = ft_amiga_stream_close;
 
+    if ( !stream->size )
+    {
+      ft_amiga_stream_close( stream );
+      FT_ERROR(( "FT_Stream_Open:" ));
+      FT_ERROR(( " opened `%s' but zero-sized\n", filepathname ));
+      return FT_Err_Cannot_Open_Stream;;
+    }
+
     FT_TRACE1(( "FT_Stream_Open:" ));
     FT_TRACE1(( " opened `%s' (%ld bytes) successfully\n",
                 filepathname, stream->size ));
@@ -457,13 +465,13 @@ Free_VecPooled( APTR  poolHeader,
 
   extern void
   ft_mem_debug_done( FT_Memory  memory );
-  
+
 #endif
 
 
   /* documentation is in ftobjs.h */
 
-  FT_EXPORT_DEF( FT_Memory )
+  FT_BASE_DEF( FT_Memory )
   FT_New_Memory( void )
   {
     FT_Memory  memory;
@@ -493,7 +501,7 @@ Free_VecPooled( APTR  poolHeader,
         memory->free    = ft_free;
 #ifdef FT_DEBUG_MEMORY
         ft_mem_debug_init( memory );
-#endif    
+#endif
       }
     }
 
@@ -503,12 +511,12 @@ Free_VecPooled( APTR  poolHeader,
 
   /* documentation is in ftobjs.h */
 
-  FT_EXPORT_DEF( void )
+  FT_BASE_DEF( void )
   FT_Done_Memory( FT_Memory  memory )
   {
 #ifdef FT_DEBUG_MEMORY
     ft_mem_debug_done( memory );
-#endif  
+#endif
 
     DeletePool( memory->user );
     FreeVec( memory );

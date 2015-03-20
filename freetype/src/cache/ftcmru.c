@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType MRU support (body).                                         */
 /*                                                                         */
-/*  Copyright 2003, 2004 by                                                */
+/*  Copyright 2003, 2004, 2006, 2009 by                                    */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -18,14 +18,14 @@
 
 #include <ft2build.h>
 #include FT_CACHE_H
-#include FT_CACHE_INTERNAL_MRU_H
+#include "ftcmru.h"
 #include FT_INTERNAL_OBJECTS_H
 #include FT_INTERNAL_DEBUG_H
 
 #include "ftcerror.h"
 
 
-  FT_EXPORT_DEF( void )
+  FT_LOCAL_DEF( void )
   FTC_MruNode_Prepend( FTC_MruNode  *plist,
                        FTC_MruNode   node )
   {
@@ -46,7 +46,7 @@
         {
           if ( cnode == node )
           {
-            fprintf( stderr, "FTC_MruNode_Prepend: invalid action!\n" );
+            fprintf( stderr, "FTC_MruNode_Prepend: invalid action\n" );
             exit( 2 );
           }
           cnode = cnode->next;
@@ -69,7 +69,7 @@
   }
 
 
-  FT_EXPORT_DEF( void )
+  FT_LOCAL_DEF( void )
   FTC_MruNode_Up( FTC_MruNode  *plist,
                   FTC_MruNode   node )
   {
@@ -94,7 +94,7 @@
 
         } while ( cnode != first );
 
-        fprintf( stderr, "FTC_MruNode_Up: invalid action!\n" );
+        fprintf( stderr, "FTC_MruNode_Up: invalid action\n" );
         exit( 2 );
       Ok:
       }
@@ -118,7 +118,7 @@
   }
 
 
-  FT_EXPORT_DEF( void )
+  FT_LOCAL_DEF( void )
   FTC_MruNode_Remove( FTC_MruNode  *plist,
                       FTC_MruNode   node )
   {
@@ -141,7 +141,7 @@
 
         } while ( cnode != first );
 
-        fprintf( stderr, "FTC_MruNode_Remove: invalid action!\n" );
+        fprintf( stderr, "FTC_MruNode_Remove: invalid action\n" );
         exit( 2 );
       Ok:
       }
@@ -161,11 +161,11 @@
       *plist = NULL;
     }
     else if ( node == first )
-        *plist = next;
+      *plist = next;
   }
 
 
-  FT_EXPORT_DEF( void )
+  FT_LOCAL_DEF( void )
   FTC_MruList_Init( FTC_MruList       list,
                     FTC_MruListClass  clazz,
                     FT_UInt           max_nodes,
@@ -181,7 +181,7 @@
   }
 
 
-  FT_EXPORT( void )
+  FT_LOCAL_DEF( void )
   FTC_MruList_Reset( FTC_MruList  list )
   {
     while ( list->nodes )
@@ -191,14 +191,15 @@
   }
 
 
-  FT_EXPORT( void )
+  FT_LOCAL_DEF( void )
   FTC_MruList_Done( FTC_MruList  list )
   {
     FTC_MruList_Reset( list );
   }
 
 
-  FT_EXPORT_DEF( FTC_MruNode )
+#ifndef FTC_INLINE
+  FT_LOCAL_DEF( FTC_MruNode )
   FTC_MruList_Find( FTC_MruList  list,
                     FT_Pointer   key )
   {
@@ -229,15 +230,15 @@
 
     return NULL;
   }
+#endif
 
-
-  FT_EXPORT_DEF( FT_Error )
+  FT_LOCAL_DEF( FT_Error )
   FTC_MruList_New( FTC_MruList   list,
                    FT_Pointer    key,
                    FTC_MruNode  *anode )
   {
     FT_Error     error;
-    FTC_MruNode  node;
+    FTC_MruNode  node = NULL;
     FT_Memory    memory = list->memory;
 
 
@@ -263,14 +264,14 @@
         list->clazz.node_done( node, list->data );
     }
     else if ( FT_ALLOC( node, list->clazz.node_size ) )
-        goto Exit;
+      goto Exit;
 
     error = list->clazz.node_init( node, key, list->data );
     if ( error )
       goto Fail;
 
-      FTC_MruNode_Prepend( &list->nodes, node );
-      list->num_nodes++;
+    FTC_MruNode_Prepend( &list->nodes, node );
+    list->num_nodes++;
 
   Exit:
     *anode = node;
@@ -285,7 +286,8 @@
   }
 
 
-  FT_EXPORT( FT_Error )
+#ifndef FTC_INLINE
+  FT_LOCAL_DEF( FT_Error )
   FTC_MruList_Lookup( FTC_MruList   list,
                       FT_Pointer    key,
                       FTC_MruNode  *anode )
@@ -300,9 +302,9 @@
     *anode = node;
     return 0;
   }
+#endif /* FTC_INLINE */
 
-
-  FT_EXPORT_DEF( void )
+  FT_LOCAL_DEF( void )
   FTC_MruList_Remove( FTC_MruList  list,
                       FTC_MruNode  node )
   {
@@ -314,14 +316,14 @@
 
 
       if ( list->clazz.node_done )
-       list->clazz.node_done( node, list->data );
+        list->clazz.node_done( node, list->data );
 
       FT_FREE( node );
     }
   }
 
 
-  FT_EXPORT_DEF( void )
+  FT_LOCAL_DEF( void )
   FTC_MruList_RemoveSelection( FTC_MruList              list,
                                FTC_MruNode_CompareFunc  selection,
                                FT_Pointer               key )
