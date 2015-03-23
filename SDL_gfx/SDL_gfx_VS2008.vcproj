@@ -41,7 +41,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;..\SDL-1.2.14\include&quot;"
+				AdditionalIncludeDirectories="&quot;..\SDL-1.2.15\include&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;DLL_EXPORT;USE_MMX"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -63,7 +63,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="SDL.lib"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="..\SDL-1.2.14\VisualC\SDL\Debug"
+				AdditionalLibraryDirectories="..\SDL-1.2.15\VisualC\SDL\Debug"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				RandomizedBaseAddress="1"
@@ -91,7 +91,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="copy &quot;$(TargetPath)&quot; &quot;$(SolutionDir)\Test\$(ConfigurationName)&quot;&#x0D;&#x0A;copy &quot;$(ProjectDir)\..\SDL-1.2.14\VisualC\SDL\Debug\SDL.dll&quot; &quot;$(SolutionDir)\Test\$(ConfigurationName)&quot;&#x0D;&#x0A;"
+				CommandLine="copy &quot;$(TargetPath)&quot; &quot;$(SolutionDir)\Test\$(ConfigurationName)&quot;&#x0D;&#x0A;copy &quot;$(ProjectDir)\..\SDL-1.2.15\VisualC\SDL\Debug\SDL.dll&quot; &quot;$(SolutionDir)\Test\$(ConfigurationName)&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration

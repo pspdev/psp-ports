@@ -21,12 +21,12 @@ TestGfxPrimitives.c: test graphics primitive routines for
 #include "SDL/SDL_gfxPrimitives.h"
 #endif
 
-#ifndef PSP
-#define WIDTH	640
-#define HEIGHT	480
+#ifdef PSP
+#	define WIDTH	480
+#	define HEIGHT	272
 #else
-#define WIDTH	480
-#define HEIGHT	272
+#	define WIDTH	640
+#	define HEIGHT	480
 #endif
 
 #define NUM_RANDOM	512
@@ -1092,6 +1092,63 @@ void BenchmarkThickLine(SDL_Surface *screen)
 
 }
 
+void TestThickLineAccuracy(SDL_Surface *screen)
+{
+	int i;
+	char r,g,b;
+	int cx, cy;
+
+	/* Create random points */
+	srand((int)time(NULL));
+	InitRandomPoints();
+
+	/* Draw A=255 */
+	SetClip(screen,0,60,WIDTH/2,60+(HEIGHT-80)/2);
+	cx = WIDTH/4;
+	cy = 60+(HEIGHT-80)/4;
+	for (i=0; i<NUM_RANDOM; i += 10) {
+		thickLineRGBA(screen, cx, cy, rx1[i], ry1[i], lw[i], rr[i], rg[i], rb[i], 255);
+		pixelRGBA(screen, rx1[i], ry1[i], 255, 255, 255, 255);
+	}
+	pixelRGBA(screen, cx, cy, 255, 255, 255, 255);
+
+	/* Draw A=various */
+	SetClip(screen,WIDTH/2,60,WIDTH,60+(HEIGHT-80)/2);
+	cx = WIDTH/2 + WIDTH/4;
+	cy = 60+(HEIGHT-80)/4;
+	for (i=0; i<NUM_RANDOM; i += 10) {
+		thickLineRGBA(screen, cx, cy, rx2[i], ry1[i], lw[i], rr[i], rg[i], rb[i], ra[i]);
+		pixelRGBA(screen, rx2[i], ry1[i], 255, 255, 255, 255);
+	}
+	pixelRGBA(screen, cx, cy, 255, 255, 255, 255);
+
+	/* Draw A=various */
+	SetClip(screen,WIDTH/2,80+(HEIGHT-80)/2,WIDTH,HEIGHT);
+	cx = WIDTH/2 + WIDTH/4;
+	cy = 80 + (HEIGHT-80)/2 + (HEIGHT-80)/4;
+	for (i=0; i<NUM_RANDOM; i += 10) {
+		thickLineRGBA(screen, cx, cy, rx2[i], ry2[i], lw[i], rr[i], rg[i], rb[i], ra[i]);
+		pixelRGBA(screen, rx2[i], ry2[i], 255, 255, 255, 255);
+	}
+	pixelRGBA(screen, cx, cy, 255, 255, 255, 255);
+
+	/* Draw Colortest */
+	SetClip(screen,0,80+(HEIGHT-80)/2,WIDTH/2,HEIGHT);
+	cx = WIDTH/4;
+	cy = 80 + (HEIGHT-80)/2 + (HEIGHT-80)/4;
+	for (i=0; i<NUM_RANDOM; i += 10) {
+		if (rx1[i] < (WIDTH/6))  {
+			r=255; g=0; b=0; 
+		} else if (rx1[i] < (WIDTH/3) ) {
+			r=0; g=255; b=0; 
+		} else {
+			r=0; g=0; b=255; 
+		}
+		thickLineRGBA(screen, cx, cy, rx1[i], ry2[i], lw[i], r, g, b, 255);
+		pixelRGBA(screen, rx1[i], ry2[i], 255, 255, 255, 255);
+	}
+	pixelRGBA(screen, cx, cy, 255, 255, 255, 255);
+}
 
 void TestCircle(SDL_Surface *screen)
 {
@@ -1920,14 +1977,14 @@ void TestTexturedTrigon(SDL_Surface *screen)
 	}
 
 	/* Draw A=various */
-	boxRGBA(texture,0,0,1,1,255,255,255,ra[i]); 
+	boxRGBA(texture,0,0,1,1,255,255,255,ra[NUM_RANDOM-1]);
 	SetClip(screen,WIDTH/2,60,WIDTH,60+(HEIGHT-80)/2);
 	for (i=0; i<NUM_RANDOM; i++) {
 		texturedPolygon(screen, &tx2[i][0], &ty1[i][0], 3, texture, 0, 0);
 	}
 
 	/* Draw A=various */
-	boxRGBA(texture,0,0,1,1,255,255,255,ra[i]); 
+	boxRGBA(texture,0,0,1,1,255,255,255,ra[NUM_RANDOM-1]);
 	SetClip(screen,WIDTH/2,80+(HEIGHT-80)/2,WIDTH,HEIGHT);
 	for (i=0; i<NUM_RANDOM; i++) {
 		texturedPolygon(screen, &tx2[i][0], &ty2[i][0], 3, texture, 0, 0);
@@ -2758,30 +2815,32 @@ int main(int argc, char *argv[])
 	SDL_Event event;
 	int oldprim, curprim;
 	char title[64];
+	Uint32 sdlflags;
 
 	/* Generate title string */
 	sprintf (title,"TestGfxPrimitives - v%i.%i.%i",SDL_GFXPRIMITIVES_MAJOR, SDL_GFXPRIMITIVES_MINOR, SDL_GFXPRIMITIVES_MICRO);
 
 	/* Initialize SDL */
-#ifndef PSP
-	if ( SDL_Init(SDL_INIT_VIDEO) < 0 ) {
+#ifdef PSP
+	sdlflags = (SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
 #else
-	if ( SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0 ) {
+	sdlflags = SDL_INIT_VIDEO;
 #endif
+	if ( SDL_Init(sdlflags) < 0 ) {
+
 		fprintf(stderr, "Couldn't initialize SDL: %s\n",SDL_GetError());
 		exit(1);
 	}
 	atexit(SDL_Quit);
 
 #ifdef PSP
-    
-    if (!SDL_JoystickOpen(0))
-    {   
-        fprintf(stderr,
-                      "\nWarning: Could not open joystick 1.\n"
-                      "The Simple DirectMedia error that occured was:\n"
-                      "%s\n\n", SDL_GetError());
-    }
+	if (!SDL_JoystickOpen(0))
+	{   
+		fprintf(stderr,
+				"\nWarning: Could not open joystick 1.\n"
+				"The Simple DirectMedia error that occured was:\n"
+				"%s\n\n", SDL_GetError());
+	}
 #endif
 
 	/* Alpha blending doesn't work well at 8-bit color */
@@ -3110,10 +3169,18 @@ int main(int argc, char *argv[])
 				 oldprim=curprim; 
 				 break;
 
+				 /* ---- Thick Line (accuracy) */ 
+			 case 31:
+				 ClearScreen(screen, "Thick Line (Accuracy)");
+				 TestThickLineAccuracy(screen);
+				 /* Next primitive */ 			  
+				 oldprim=curprim; 
+				 break;
+
 				 /* --- Wrap start*/
 			 case 0:
 				 oldprim=0;
-				 curprim=30;
+				 curprim=31;
 				 break;
 
 				 /* --- Wrap end */ 
@@ -3143,6 +3210,17 @@ int main(int argc, char *argv[])
 						curprim--;
 					}
 					break;
+#ifdef PSP
+				case SDL_JOYBUTTONDOWN:
+					if ( event.jbutton.button == 7 /* LEFT */) {
+						curprim++;
+					} else if ( event.jbutton.button == 9 /* RIGHT */ ) {
+						curprim--;
+					} else if ( event.jbutton.button == 11 /* START */ ) {
+						done = 1;
+					}
+					break;
+#endif
 				case SDL_KEYDOWN:
 					/* Any keypress quits the app... */
 				case SDL_QUIT:

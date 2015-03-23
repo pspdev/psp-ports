@@ -2,7 +2,7 @@
 
 SDL_rotozoom.c: rotozoomer, zoomer and shrinker for 32bit or 8bit surfaces
 
-Copyright (C) 2001-2011  Andreas Schiffler
+Copyright (C) 2001-2012  Andreas Schiffler
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -12,16 +12,16 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it
 freely, subject to the following restrictions:
 
-   1. The origin of this software must not be misrepresented; you must not
-   claim that you wrote the original software. If you use this software
-   in a product, an acknowledgment in the product documentation would be
-   appreciated but is not required.
+1. The origin of this software must not be misrepresented; you must not
+claim that you wrote the original software. If you use this software
+in a product, an acknowledgment in the product documentation would be
+appreciated but is not required.
 
-   2. Altered source versions must be plainly marked as such, and must not be
-   misrepresented as being the original software.
+2. Altered source versions must be plainly marked as such, and must not be
+misrepresented as being the original software.
 
-   3. This notice may not be removed or altered from any source
-   distribution.
+3. This notice may not be removed or altered from any source
+distribution.
 
 Andreas Schiffler -- aschiffler at ferzkopp dot net
 
@@ -84,14 +84,14 @@ Uint32 _colorkey(SDL_Surface *src)
 {
 	Uint32 key = 0; 
 #if (SDL_MINOR_VERSION == 3)
- 	SDL_GetColorKey(src, &key);
+	SDL_GetColorKey(src, &key);
 #else
- 	if (src) 
- 	{
- 		key = src->format->colorkey;
+	if (src) 
+	{
+		key = src->format->colorkey;
 	}
 #endif
- 	return key;
+	return key;
 }
 
 
@@ -313,11 +313,11 @@ int _zoomSurfaceRGBA(SDL_Surface * src, SDL_Surface * dst, int flipx, int flipy,
 		sx = (int) (65536.0 * (float) (src->w) / (float) (dst->w));
 		sy = (int) (65536.0 * (float) (src->h) / (float) (dst->h));
 	}
-	
+
 	/* Maximum scaled source size */
 	ssx = (src->w << 16) - 1;
 	ssy = (src->h << 16) - 1;
-	
+
 	/* Precalculate horizontal row increments */
 	csx = 0;
 	csax = sax;
@@ -325,13 +325,13 @@ int _zoomSurfaceRGBA(SDL_Surface * src, SDL_Surface * dst, int flipx, int flipy,
 		*csax = csx;
 		csax++;
 		csx += sx;
-		
+
 		/* Guard from overflows */
 		if (csx > ssx) { 
 			csx = ssx; 
 		}
 	}
-	 
+
 	/* Precalculate vertical row increments */
 	csy = 0;
 	csay = say;
@@ -339,7 +339,7 @@ int _zoomSurfaceRGBA(SDL_Surface * src, SDL_Surface * dst, int flipx, int flipy,
 		*csay = csy;
 		csay++;
 		csy += sy;
-		
+
 		/* Guard from overflows */
 		if (csy > ssy) {
 			csy = ssy;
@@ -352,7 +352,7 @@ int _zoomSurfaceRGBA(SDL_Surface * src, SDL_Surface * dst, int flipx, int flipy,
 	spixelgap = src->pitch/4;
 
 	if (flipx) sp += spixelw;
-    if (flipy) sp += (spixelgap * spixelh);
+	if (flipy) sp += (spixelgap * spixelh);
 
 	/*
 	* Switch between interpolating and non-interpolating code 
@@ -380,38 +380,38 @@ int _zoomSurfaceRGBA(SDL_Surface * src, SDL_Surface * dst, int flipx, int flipy,
 				c01 = sp;
 				c10 = sp;
 				if (sstepy) {
-				  if (flipy) {
- 				   c10 -= spixelgap;
- 				  } else {
-  				   c10 += spixelgap;
- 				  }
- 				}
+					if (flipy) {
+						c10 -= spixelgap;
+					} else {
+						c10 += spixelgap;
+					}
+				}
 				c11 = c10;
 				if (sstepx) {
-				 if (flipx) {
-				  c01--;
-				  c11--;
-				 } else {
-				  c01++;
-				  c11++;
-				 }
+					if (flipx) {
+						c01--;
+						c11--;
+					} else {
+						c01++;
+						c11++;
+					}
 				}
 
 				/*
 				* Draw and interpolate colors 
 				*/
 				t1 = ((((c01->r - c00->r) * ex) >> 16) + c00->r) & 0xff;
-                t2 = ((((c11->r - c10->r) * ex) >> 16) + c10->r) & 0xff;
-                dp->r = (((t2 - t1) * ey) >> 16) + t1;
-                t1 = ((((c01->g - c00->g) * ex) >> 16) + c00->g) & 0xff;
-                t2 = ((((c11->g - c10->g) * ex) >> 16) + c10->g) & 0xff;
-                dp->g = (((t2 - t1) * ey) >> 16) + t1;
-                t1 = ((((c01->b - c00->b) * ex) >> 16) + c00->b) & 0xff;
-                t2 = ((((c11->b - c10->b) * ex) >> 16) + c10->b) & 0xff;
-                dp->b = (((t2 - t1) * ey) >> 16) + t1;
-                t1 = ((((c01->a - c00->a) * ex) >> 16) + c00->a) & 0xff;
-                t2 = ((((c11->a - c10->a) * ex) >> 16) + c10->a) & 0xff;
-                dp->a = (((t2 - t1) * ey) >> 16) + t1;				
+				t2 = ((((c11->r - c10->r) * ex) >> 16) + c10->r) & 0xff;
+				dp->r = (((t2 - t1) * ey) >> 16) + t1;
+				t1 = ((((c01->g - c00->g) * ex) >> 16) + c00->g) & 0xff;
+				t2 = ((((c11->g - c10->g) * ex) >> 16) + c10->g) & 0xff;
+				dp->g = (((t2 - t1) * ey) >> 16) + t1;
+				t1 = ((((c01->b - c00->b) * ex) >> 16) + c00->b) & 0xff;
+				t2 = ((((c11->b - c10->b) * ex) >> 16) + c10->b) & 0xff;
+				dp->b = (((t2 - t1) * ey) >> 16) + t1;
+				t1 = ((((c01->a - c00->a) * ex) >> 16) + c00->a) & 0xff;
+				t2 = ((((c11->a - c10->a) * ex) >> 16) + c10->a) & 0xff;
+				dp->a = (((t2 - t1) * ey) >> 16) + t1;				
 				/*
 				* Advance source pointer x
 				*/
@@ -419,11 +419,11 @@ int _zoomSurfaceRGBA(SDL_Surface * src, SDL_Surface * dst, int flipx, int flipy,
 				csax++;				
 				sstep = (*csax >> 16) - (*salast >> 16);
 				if (flipx) {
-				 sp -= sstep;
+					sp -= sstep;
 				} else {
-				 sp += sstep;
+					sp += sstep;
 				}
-				
+
 				/*
 				* Advance destination pointer x
 				*/
@@ -437,9 +437,9 @@ int _zoomSurfaceRGBA(SDL_Surface * src, SDL_Surface * dst, int flipx, int flipy,
 			sstep = (*csay >> 16) - (*salast >> 16);
 			sstep *= spixelgap;
 			if (flipy) { 
-			 sp = csp - sstep;
+				sp = csp - sstep;
 			} else {
-			 sp = csp + sstep;
+				sp = csp + sstep;
 			}
 
 			/*
@@ -460,7 +460,7 @@ int _zoomSurfaceRGBA(SDL_Surface * src, SDL_Surface * dst, int flipx, int flipy,
 				* Draw 
 				*/
 				*dp = *sp;
-				
+
 				/*
 				* Advance source pointer x
 				*/
@@ -469,7 +469,7 @@ int _zoomSurfaceRGBA(SDL_Surface * src, SDL_Surface * dst, int flipx, int flipy,
 				sstep = (*csax >> 16) - (*salast >> 16);
 				if (flipx) sstep = -sstep;
 				sp += sstep;
-				
+
 				/*
 				* Advance destination pointer x
 				*/
@@ -851,73 +851,73 @@ SDL_Surface* rotateSurface90Degrees(SDL_Surface* src, int numClockwiseTurns)
 	dst_ipr = dst->pitch / bpp;
 
 	switch(numClockwiseTurns) {
-		case 0: /* Make a copy of the surface */
-			{
-				/* Unfortunately SDL_BlitSurface cannot be used to make a copy of the surface
-				   since it does not preserve alpha. */
+	case 0: /* Make a copy of the surface */
+		{
+			/* Unfortunately SDL_BlitSurface cannot be used to make a copy of the surface
+			since it does not preserve alpha. */
 
-				if (src->pitch == dst->pitch) {
-					/* If the pitch is the same for both surfaces, the memory can be copied all at once. */
-					memcpy(dst->pixels, src->pixels, (src->h * src->pitch));
-				}
-				else
-				{
-					/* If the pitch differs, copy each row separately */
-					srcBuf = (Uint32*)(src->pixels); 
-					dstBuf = (Uint32*)(dst->pixels);
-					for (row = 0; row < src->h; row++) {
-						memcpy(dstBuf, srcBuf, dst->w * bpp);
-						srcBuf += src_ipr;
-						dstBuf += dst_ipr;
-					} /* end for(col) */
-				} /* end for(row) */
+			if (src->pitch == dst->pitch) {
+				/* If the pitch is the same for both surfaces, the memory can be copied all at once. */
+				memcpy(dst->pixels, src->pixels, (src->h * src->pitch));
 			}
-			break;
+			else
+			{
+				/* If the pitch differs, copy each row separately */
+				srcBuf = (Uint32*)(src->pixels); 
+				dstBuf = (Uint32*)(dst->pixels);
+				for (row = 0; row < src->h; row++) {
+					memcpy(dstBuf, srcBuf, dst->w * bpp);
+					srcBuf += src_ipr;
+					dstBuf += dst_ipr;
+				} /* end for(col) */
+			} /* end for(row) */
+		}
+		break;
 
-			/* rotate clockwise */
-		case 1: /* rotated 90 degrees clockwise */
-		 {
-			 for (row = 0; row < src->h; ++row) {
-				 srcBuf = (Uint32*)(src->pixels) + (row * src_ipr);
-				 dstBuf = (Uint32*)(dst->pixels) + (dst->w - row - 1);
-				 for (col = 0; col < src->w; ++col) {
-					 *dstBuf = *srcBuf;
-					 ++srcBuf;
-					 dstBuf += dst_ipr;
-				 } 
-				 /* end for(col) */
-			 } 
-			 /* end for(row) */
-		 }
-		 break;
+		/* rotate clockwise */
+	case 1: /* rotated 90 degrees clockwise */
+		{
+			for (row = 0; row < src->h; ++row) {
+				srcBuf = (Uint32*)(src->pixels) + (row * src_ipr);
+				dstBuf = (Uint32*)(dst->pixels) + (dst->w - row - 1);
+				for (col = 0; col < src->w; ++col) {
+					*dstBuf = *srcBuf;
+					++srcBuf;
+					dstBuf += dst_ipr;
+				} 
+				/* end for(col) */
+			} 
+			/* end for(row) */
+		}
+		break;
 
-		case 2: /* rotated 180 degrees clockwise */
-		 {
-			 for (row = 0; row < src->h; ++row) {
-				 srcBuf = (Uint32*)(src->pixels) + (row * src_ipr);
-				 dstBuf = (Uint32*)(dst->pixels) + ((dst->h - row - 1) * dst_ipr) + (dst->w - 1);
-				 for (col = 0; col < src->w; ++col) {
-					 *dstBuf = *srcBuf;
-					 ++srcBuf;
-					 --dstBuf;
-				 } 
-			 } 
-		 }
-		 break;
+	case 2: /* rotated 180 degrees clockwise */
+		{
+			for (row = 0; row < src->h; ++row) {
+				srcBuf = (Uint32*)(src->pixels) + (row * src_ipr);
+				dstBuf = (Uint32*)(dst->pixels) + ((dst->h - row - 1) * dst_ipr) + (dst->w - 1);
+				for (col = 0; col < src->w; ++col) {
+					*dstBuf = *srcBuf;
+					++srcBuf;
+					--dstBuf;
+				} 
+			} 
+		}
+		break;
 
-		case 3:
-		 {
-			 for (row = 0; row < src->h; ++row) {
-				 srcBuf = (Uint32*)(src->pixels) + (row * src_ipr);
-				 dstBuf = (Uint32*)(dst->pixels) + row + ((dst->h - 1) * dst_ipr);
-				 for (col = 0; col < src->w; ++col) {
-					 *dstBuf = *srcBuf;
-					 ++srcBuf;
-					 dstBuf -= dst_ipr;
-				 } 
-			 } 
-		 }
-		 break;
+	case 3:
+		{
+			for (row = 0; row < src->h; ++row) {
+				srcBuf = (Uint32*)(src->pixels) + (row * src_ipr);
+				dstBuf = (Uint32*)(dst->pixels) + row + ((dst->h - 1) * dst_ipr);
+				for (col = 0; col < src->w; ++col) {
+					*dstBuf = *srcBuf;
+					++srcBuf;
+					dstBuf -= dst_ipr;
+				} 
+			} 
+		}
+		break;
 	} 
 	/* end switch */
 
@@ -947,8 +947,8 @@ SDL_Surface* rotateSurface90Degrees(SDL_Surface* src, int numClockwiseTurns)
 
 */
 void _rotozoomSurfaceSizeTrig(int width, int height, double angle, double zoomx, double zoomy, 
-							  int *dstwidth, int *dstheight, 
-							  double *canglezoom, double *sanglezoom)
+	int *dstwidth, int *dstheight, 
+	double *canglezoom, double *sanglezoom)
 {
 	double x, y, cx, cy, sx, sy;
 	double radangle;
@@ -1587,7 +1587,7 @@ SDL_Surface *shrinkSurface(SDL_Surface *src, int factorx, int factory)
 			haveError = 1;
 			goto exitShrinkSurface;
 		}
-		
+
 		SDL_BlitSurface(src, NULL, rz_src, NULL);
 		src_converted = 1;
 		is32bit = 1;
@@ -1627,7 +1627,7 @@ SDL_Surface *shrinkSurface(SDL_Surface *src, int factorx, int factory)
 		*/
 		rz_dst = SDL_CreateRGBSurface(SDL_SWSURFACE, dstwidth, dstheight + GUARD_ROWS, 8, 0, 0, 0, 0);
 	}
-	
+
 	/* Check target */
 	if (rz_dst == NULL) {
 		haveError = 1;
@@ -1649,7 +1649,7 @@ SDL_Surface *shrinkSurface(SDL_Surface *src, int factorx, int factory)
 			haveError = 1;
 			goto exitShrinkSurface;
 		}
-		
+
 		/*
 		* Turn on source-alpha support 
 		*/
@@ -1674,7 +1674,7 @@ SDL_Surface *shrinkSurface(SDL_Surface *src, int factorx, int factory)
 			haveError = 1;
 			goto exitShrinkSurface;
 		}
-		
+
 		/*
 		* Set colorkey on target
 		*/
@@ -1701,7 +1701,7 @@ exitShrinkSurface:
 			SDL_FreeSurface(rz_src);
 		}
 	}
-	
+
 	/* Check error state; maybe need to cleanup destination */
 	if (haveError==1) {
 		if (rz_dst!=NULL) {
@@ -1709,7 +1709,7 @@ exitShrinkSurface:
 		}
 		rz_dst=NULL;
 	} 
-	
+
 	/*
 	* Return destination surface 
 	*/

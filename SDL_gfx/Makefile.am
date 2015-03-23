@@ -31,4 +31,5 @@ DISTCLEANFILES = *~ *~c *~h *.cross.cache inc
 
 distclean-local:
 	-rm -rf autom4te.cache
+	-rm -f *.suo *.sdf
 	

@@ -2,7 +2,7 @@
 
 SDL_gfxBlitFunc.c: custom blitters
 
-Copyright (C) 2001-2011  Andreas Schiffler
+Copyright (C) 2001-2012  Andreas Schiffler
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -12,16 +12,16 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it
 freely, subject to the following restrictions:
 
-   1. The origin of this software must not be misrepresented; you must not
-   claim that you wrote the original software. If you use this software
-   in a product, an acknowledgment in the product documentation would be
-   appreciated but is not required.
+1. The origin of this software must not be misrepresented; you must not
+claim that you wrote the original software. If you use this software
+in a product, an acknowledgment in the product documentation would be
+appreciated but is not required.
 
-   2. Altered source versions must be plainly marked as such, and must not be
-   misrepresented as being the original software.
+2. Altered source versions must be plainly marked as such, and must not be
+misrepresented as being the original software.
 
-   3. This notice may not be removed or altered from any source
-   distribution.
+3. This notice may not be removed or altered from any source
+distribution.
 
 Andreas Schiffler -- aschiffler at ferzkopp dot net
 
@@ -36,7 +36,7 @@ The table provides values for a modified, non-linear
 transfer function which maintain brightness.
 
 */
-static unsigned int GFX_ALPHA_ADJUST_ARRAY[256] = {
+const unsigned int GFX_ALPHA_ADJUST_ARRAY[256] = {
 	0,  /* 0 */
 	15,  /* 1 */
 	22,  /* 2 */
@@ -530,14 +530,14 @@ int SDL_gfxSetAlpha(SDL_Surface *src, Uint8 a)
 #endif
 	int i, j, row_skip;
 	Uint8 *pixels;
-	
+
 	/* Check if we have a 32bit surface */
 	if ( (src==NULL) || 
-	     (src->format==NULL) || 
-	     (src->format->BytesPerPixel!=4) ) {
-          SDL_SetError("SDL_gfxSetAlpha: Invalid input surface.");
-	  return -1;
-        }
+		(src->format==NULL) || 
+		(src->format->BytesPerPixel!=4) ) {
+			SDL_SetError("SDL_gfxSetAlpha: Invalid input surface.");
+			return -1;
+	}
 
 	/*
 	* Lock the surface 
@@ -547,18 +547,18 @@ int SDL_gfxSetAlpha(SDL_Surface *src, Uint8 a)
 			return (-1);
 		}
 	}
-        
-        /* Process */
-        pixels = (Uint8 *)src->pixels;
-        row_skip = (src->pitch - (4*src->w));
-        pixels += alpha_offset;
-        for ( i=0; i<src->h; i++ ) {
-          for ( j=0; j<src->w; j++  ) {
-            *pixels = a; 
-            pixels += 4;
-          }
-          pixels += row_skip;
-        }
+
+	/* Process */
+	pixels = (Uint8 *)src->pixels;
+	row_skip = (src->pitch - (4*src->w));
+	pixels += alpha_offset;
+	for ( i=0; i<src->h; i++ ) {
+		for ( j=0; j<src->w; j++  ) {
+			*pixels = a; 
+			pixels += 4;
+		}
+		pixels += row_skip;
+	}
 
 	/*
 	* Unlock surface 
@@ -566,8 +566,8 @@ int SDL_gfxSetAlpha(SDL_Surface *src, Uint8 a)
 	if (SDL_MUSTLOCK(src)) {
 		SDL_UnlockSurface(src);
 	}
-        
-        return 1; 
+
+	return 1; 
 }
 
 /*!
@@ -593,19 +593,19 @@ int SDL_gfxMultiplyAlpha(SDL_Surface *src, Uint8 a)
 #endif
 	int i, j, row_skip;
 	Uint8 *pixels;
-        
+
 	/* Check if we have a 32bit surface */
 	if ( (src==NULL) || 
-	     (src->format==NULL) || 
-	     (src->format->BytesPerPixel!=4) ) {
-          SDL_SetError("SDL_gfxMultiplyAlpha: Invalid input surface.");
-	  return -1;
-        }
-        
-        /* Check if multiplication is needed */
-        if (a==255) {
-          return 0;
-        }
+		(src->format==NULL) || 
+		(src->format->BytesPerPixel!=4) ) {
+			SDL_SetError("SDL_gfxMultiplyAlpha: Invalid input surface.");
+			return -1;
+	}
+
+	/* Check if multiplication is needed */
+	if (a==255) {
+		return 0;
+	}
 
 	/*
 	* Lock the surface 
@@ -615,18 +615,18 @@ int SDL_gfxMultiplyAlpha(SDL_Surface *src, Uint8 a)
 			return (-1);
 		}
 	}
-        
-        /* Process */
-        pixels = (Uint8 *)src->pixels;
-        row_skip = (src->pitch - (4*src->w));
-        pixels += alpha_offset;
-        for ( i=0; i<src->h; i++ ) {
-  	  for ( j=0; j<src->w; j++  ) {
-            *pixels = (Uint8)(((int)(*pixels)*a)>>8);
-            pixels += 4;
-          }
-          pixels += row_skip;
-        }
+
+	/* Process */
+	pixels = (Uint8 *)src->pixels;
+	row_skip = (src->pitch - (4*src->w));
+	pixels += alpha_offset;
+	for ( i=0; i<src->h; i++ ) {
+		for ( j=0; j<src->w; j++  ) {
+			*pixels = (Uint8)(((int)(*pixels)*a)>>8);
+			pixels += 4;
+		}
+		pixels += row_skip;
+	}
 
 	/*
 	* Unlock surface 
@@ -634,6 +634,6 @@ int SDL_gfxMultiplyAlpha(SDL_Surface *src, Uint8 a)
 	if (SDL_MUSTLOCK(src)) {
 		SDL_UnlockSurface(src);
 	}
-		
-        return 1;
+
+	return 1;
 }
