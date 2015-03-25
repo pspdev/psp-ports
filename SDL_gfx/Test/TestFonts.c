@@ -22,11 +22,11 @@ TestFonts.c: test dynamic font loading code
 #endif
 
 #ifdef PSP
-# define WIDTH 480
-# define HEIGHT 272
+#	define WIDTH	480
+#	define HEIGHT	272
 #else
-# define WIDTH	1024
-# define HEIGHT	768
+#	define WIDTH	1024
+#	define HEIGHT	768
 #endif
 
 void WaitForEvent()

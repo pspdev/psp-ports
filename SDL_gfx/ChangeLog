@@ -1,6 +1,28 @@
 CHANGES/VERSION
 ===============
 
+Ver 2.0.25 - Sun, Oct 27, 2013  3:08:15 PM
+* Added patch for 32- and 64-bit GCC-compiled MMX support
+  (contributed by Sylvain Beucler, backported from SDL2_gfx)
+* Fixed bug in _aaline when x1>x2 and dy==0 (found by Yannick 
+  Guesnet - thanks!)
+* Updated documentation.
+* Fixed header in SDL_gfxBlitFunc.h (reported by Jaders77 on
+  sourceforge - thanks!)
+
+Ver 2.0.24 - Sun, Jul 22, 2012  9:27:29 AM
+* Removed some missed LGPL references
+* Fixed thick line swap bug (patch contributed by Thien-Thi)
+  and added accuracy test for thick line
+* Improved interface to SDL_framerateDelay (idea contributed by
+  Neil)
+* Fixed dramerate modules dependency on SDL_GetTicks returning a 
+  value >0 (issue report contributed by Douglas)
+* Fixed 32bpp blending function for BGRA (thanks for the test code
+  and contributing a fix sabbetts/Jay)
+* Updated VS2010 solution file to use SDL-1.2 sources
+* Fix for pixel blend routine (patch contributes by Mitjia)
+
 Ver 2.0.23 - Sat Dec  3 22:55:04 PST 2011
 * Updated sources to resolve some splint (static code analysis)
   issues

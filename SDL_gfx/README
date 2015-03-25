@@ -1,7 +1,7 @@
 /*!
 
 
-\mainpage SDL_gfx - SDL graphics drawing primitives, rotozoom and other supporting functions
+\mainpage SDL_gfx - SDL-1.2 graphics drawing primitives, rotozoom and other supporting functions
 
 
 \section contact_sec Contact and License
@@ -19,6 +19,8 @@ The SDL_gfx library evolved out of the SDL_gfxPrimitives code which
 provided basic drawing routines such as lines, circles or polygons for 
 SDL Surfaces and adding a couple other useful functions for zooming 
 images for example and doing basic image processing on byte arrays.
+
+Note that SDL_gfx is compatible with SDL version 1.2 (not SDL2).
 
 The current components of the SDL_gfx library are:
 - Graphic Primitives (SDL_gfxPrimitives.h, SDL_gfxPrimitives.c)
@@ -131,8 +133,8 @@ the usual configure;make;make install sequence.
 \subsubsection platformwindows Windows
  
 A Win32 target is available (VisualC6/7/8/9, mingw32, xmingw32 cross-compiler).
-The SDL_gfx.sln will open VS2010 (the old VS2008 .sln is also still included) 
-including express versions. 
+The SDL_gfx_VS2010.sln will open VS2010 (the old VS2008 .sln is also still included)
+including express versions.
 
 See "Other Builds" for additional makefiles (may be out of date).
 
@@ -236,7 +238,7 @@ i.e. to build on MacOSX 10.3+ use:
 
 \subsection vs9 Windows (VC9, VS2010)
 
-Open SDL_gfx.sln solution file and review README.
+Open SDL_gfx_VS2010.sln solution file and review README.
 
 \subsection vs8 Windows (VC8, VS2008)
 
@@ -329,6 +331,7 @@ SDL_gfx has been integrated with the following language interfaces:
 - Python: http://www.pygame.org
 - C#: http://cs-sdl.sourceforge.net
 - Lua: http://www.egsl.retrogamecoding.org/
+- Oberon: http://sourceforge.net/projects/sdl-for-oberon/
 
 \section test_sec Test Programs
 
@@ -486,6 +489,14 @@ See the source code .c files for some sample code and implementation hints.
   Lairson Costa - thanks Wander.
 
 - Suggestions for speed improvements contributed by inkyankes - thanks.
+
+- Pixel blend routine patches contributed by mitja at lxnav dot com -
+  thanks Mitja.
+
+- ImageFilter patches contributed by beuc at beuc dot net - thanks Sylvain.
+
+- Bug reports contributed by Yannick dot Guesnet at univ-rouen dot fr -
+- thanks Yannick.
 
 \section changelog_sec Change Log
 

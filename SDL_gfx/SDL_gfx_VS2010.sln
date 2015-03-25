@@ -3,27 +3,27 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{0E209CE5-31A3-4039-9437-7F74DC13D8C8}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SDL_gfx", "SDL_gfx.vcxproj", "{AE22EFD3-6E6D-48C0-AF3D-EF190406BEDC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SDL_gfx", "SDL_gfx_VS2010.vcxproj", "{AE22EFD3-6E6D-48C0-AF3D-EF190406BEDC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestGfxPrimitives", "Test\TestGfxPrimitives.vcxproj", "{AE22EFD3-6F6D-48C0-AF3D-EF190406BEDC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestGfxPrimitives", "Test\TestGfxPrimitives_VS2010.vcxproj", "{AE22EFD3-6F6D-48C0-AF3D-EF190406BEDC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestABGR", "Test\TestABGR.vcxproj", "{AE22EFD3-7F7D-48C0-AF3D-EF190406BEDC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestABGR", "Test\TestABGR_VS2010.vcxproj", "{AE22EFD3-7F7D-48C0-AF3D-EF190406BEDC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestFonts", "Test\TestFonts.vcxproj", "{AE33EFD3-6F6D-48C0-AF3D-EF190406BEDC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestFonts", "Test\TestFonts_VS2010.vcxproj", "{AE33EFD3-6F6D-48C0-AF3D-EF190406BEDC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestFramerate", "Test\TestFramerate.vcxproj", "{AE22EFD3-6F6D-21C0-AF2D-EF190406BEDC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestFramerate", "Test\TestFramerate_VS2010.vcxproj", "{AE22EFD3-6F6D-21C0-AF2D-EF190406BEDC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestGfxBlit", "Test\TestGfxBlit.vcxproj", "{AE22EFD3-6F6D-48C0-AF3D-EF112306BEDC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestGfxBlit", "Test\TestGfxBlit_VS2010.vcxproj", "{AE22EFD3-6F6D-48C0-AF3D-EF112306BEDC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestGfxTexture", "Test\TestGfxTexture.vcxproj", "{AE22EFD3-6F6D-32C0-AA3D-EF190406BEDC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestGfxTexture", "Test\TestGfxTexture_VS2010.vcxproj", "{AE22EFD3-6F6D-32C0-AA3D-EF190406BEDC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestImageFilter", "Test\TestImageFilter.vcxproj", "{AE22AFD3-6F6D-48C0-AF3D-EF190406AAAA}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestImageFilter", "Test\TestImageFilter_VS2010.vcxproj", "{AE22AFD3-6F6D-48C0-AF3D-EF190406AAAA}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestRotozoom", "Test\TestRotozoom.vcxproj", "{AE98EFD3-6F6D-48C0-AF3D-EF560406BEDC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestRotozoom", "Test\TestRotozoom_VS2010.vcxproj", "{AE98EFD3-6F6D-48C0-AF3D-EF560406BEDC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestShrink", "Test\TestShrink.vcxproj", "{AE22EFD3-6161-48C0-123D-EF190406BEDC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestShrink", "Test\TestShrink_VS2010.vcxproj", "{AE22EFD3-6161-48C0-123D-EF190406BEDC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LaplaceRelaxation", "Test\LaplaceRelaxation.vcxproj", "{AE9876D3-6F6D-48C0-3DAF-EF578406BEDC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LaplaceRelaxation", "Test\LaplaceRelaxation_VS2010.vcxproj", "{AE9876D3-6F6D-48C0-3DAF-EF578406BEDC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
