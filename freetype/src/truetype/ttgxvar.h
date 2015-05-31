@@ -32,7 +32,7 @@ FT_BEGIN_HEADER
   /* <Struct>                                                              */
   /*    GX_AVarCorrespondenceRec                                           */
   /*                                                                       */
-  /* <Description>                                                         */  
+  /* <Description>                                                         */
   /*    A data structure representing `shortFracCorrespondence' in `avar'  */
   /*    table according to the specifications from Apple.                  */
   /*                                                                       */
@@ -84,7 +84,7 @@ FT_BEGIN_HEADER
     FT_Fixed*       normalizedcoords;
 
     FT_MM_Var*      mmvar;
-    FT_Int          mmvar_len;
+    FT_Offset       mmvar_len;
 
     FT_Bool         avar_checked;
     GX_AVarSegment  avar_segment;
@@ -94,7 +94,7 @@ FT_BEGIN_HEADER
 
     FT_UInt         gv_glyphcnt;
     FT_ULong*       glyphoffsets;
-    
+
   } GX_BlendRec;
 
 

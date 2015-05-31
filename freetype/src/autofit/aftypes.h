@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Auto-fitter types (specification only).                              */
 /*                                                                         */
-/*  Copyright 2003, 2004, 2005 by                                          */
+/*  Copyright 2003-2009, 2011-2012 by                                      */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -16,20 +16,20 @@
 /***************************************************************************/
 
 
-/***************************************************************************
- *
- *  The auto-fitter is a complete rewrite of the old auto-hinter.
- *  Its main feature is the ability to differentiate between different
- *  scripts in order to apply language-specific rules.
- *
- *  The code has also been compartimentized into several entities that
- *  should make algorithmic experimentation easier than with the old
- *  code.
- *
- *  Finally, we get rid of the Catharon license, since this code is
- *  released under the FreeType one.
- *
- ***************************************************************************/
+  /*************************************************************************
+   *
+   *  The auto-fitter is a complete rewrite of the old auto-hinter.
+   *  Its main feature is the ability to differentiate between different
+   *  scripts in order to apply language-specific rules.
+   *
+   *  The code has also been compartmentized into several entities that
+   *  should make algorithmic experimentation easier than with the old
+   *  code.
+   *
+   *  Finally, we get rid of the Catharon license, since this code is
+   *  released under the FreeType one.
+   *
+   *************************************************************************/
 
 
 #ifndef __AFTYPES_H__
@@ -53,19 +53,16 @@ FT_BEGIN_HEADER
   /*************************************************************************/
   /*************************************************************************/
 
-#define xxAF_DEBUG
+#ifdef FT_DEBUG_AUTOFIT
 
-#ifdef AF_DEBUG
+#include FT_CONFIG_STANDARD_LIBRARY_H
 
-#include <stdio.h>
+extern int    _af_debug_disable_horz_hints;
+extern int    _af_debug_disable_vert_hints;
+extern int    _af_debug_disable_blue_hints;
+extern void*  _af_debug_hints;
 
-#define AF_LOG( x )  printf x
-
-#else
-
-#define AF_LOG( x )  do ; while ( 0 )        /* nothing */
-
-#endif /* AF_DEBUG */
+#endif /* FT_DEBUG_AUTOFIT */
 
 
   /*************************************************************************/
@@ -90,8 +87,9 @@ FT_BEGIN_HEADER
                FT_Pos*  table );
 
   FT_LOCAL( void )
-  af_sort_widths( FT_UInt   count,
-                  AF_Width  widths );
+  af_sort_and_quantize_widths( FT_UInt*  count,
+                               AF_Width  widths,
+                               FT_Pos    threshold );
 
 
   /*************************************************************************/
@@ -117,6 +115,7 @@ FT_BEGIN_HEADER
 #define AF_ANGLE_PI4  ( AF_ANGLE_PI / 4 )
 
 
+#if 0
   /*
    *  compute the angle of a given 2-D vector
    */
@@ -132,37 +131,29 @@ FT_BEGIN_HEADER
   FT_LOCAL( AF_Angle )
   af_angle_diff( AF_Angle  angle1,
                  AF_Angle  angle2 );
+#endif /* 0 */
 
 
-  /*************************************************************************/
-  /*************************************************************************/
-  /*****                                                               *****/
-  /*****                    O U T L I N E S                            *****/
-  /*****                                                               *****/
-  /*************************************************************************/
-  /*************************************************************************/
+#define AF_ANGLE_DIFF( result, angle1, angle2 ) \
+  FT_BEGIN_STMNT                                \
+    AF_Angle  _delta = (angle2) - (angle1);     \
+                                                \
+                                                \
+    _delta %= AF_ANGLE_2PI;                     \
+    if ( _delta < 0 )                           \
+      _delta += AF_ANGLE_2PI;                   \
+                                                \
+    if ( _delta > AF_ANGLE_PI )                 \
+      _delta -= AF_ANGLE_2PI;                   \
+                                                \
+    result = _delta;                            \
+  FT_END_STMNT
+
 
   /*  opaque handle to glyph-specific hints -- see `afhints.h' for more
    *  details
    */
   typedef struct AF_GlyphHintsRec_*  AF_GlyphHints;
-
-  /*  This structure is used to model an input glyph outline to
-   *  the auto-hinter.  The latter will set the `hints' field
-   *  depending on the glyph's script.
-   */
-  typedef struct  AF_OutlineRec_
-  {
-    FT_Face        face;
-    FT_Outline     outline;
-    FT_UInt        outline_resolution;
-
-    FT_Int         advance;
-    FT_UInt        metrics_resolution;
-
-    AF_GlyphHints  hints;
-
-  } AF_OutlineRec;
 
 
   /*************************************************************************/
@@ -178,7 +169,7 @@ FT_BEGIN_HEADER
    *  auto-hinted glyph image.
    */
 
-  typedef enum
+  typedef enum  AF_ScalerFlags_
   {
     AF_SCALER_FLAG_NO_HORIZONTAL = 1,  /* disable horizontal hinting */
     AF_SCALER_FLAG_NO_VERTICAL   = 2,  /* disable vertical hinting   */
@@ -216,7 +207,7 @@ FT_BEGIN_HEADER
   /*************************************************************************/
 
   /*
-   *  The list of know scripts.  Each different script corresponds to the
+   *  The list of known scripts.  Each different script corresponds to the
    *  following information:
    *
    *   - A set of Unicode ranges to test whether the face supports the
@@ -236,10 +227,16 @@ FT_BEGIN_HEADER
    *  used by more than one script.
    */
 
-  typedef enum
+  typedef enum  AF_Script_
   {
-    AF_SCRIPT_NONE  = 0,
+    AF_SCRIPT_DUMMY = 0,
     AF_SCRIPT_LATIN = 1,
+    AF_SCRIPT_CJK   = 2,
+    AF_SCRIPT_INDIC = 3,
+#ifdef FT_OPTION_AUTOFIT2
+    AF_SCRIPT_LATIN2 = 4,
+#endif
+
     /* add new scripts here.  Don't forget to update the list in */
     /* `afglobal.c'.                                             */
 
@@ -249,11 +246,15 @@ FT_BEGIN_HEADER
 
 
   typedef struct AF_ScriptClassRec_ const*  AF_ScriptClass;
+  typedef struct AF_FaceGlobalsRec_*        AF_FaceGlobals;
 
   typedef struct  AF_ScriptMetricsRec_
   {
     AF_ScriptClass  clazz;
     AF_ScalerRec    scaler;
+    FT_Bool         digits_have_same_width;
+
+    AF_FaceGlobals  globals;    /* to access properties */
 
   } AF_ScriptMetricsRec, *AF_ScriptMetrics;
 
@@ -290,15 +291,18 @@ FT_BEGIN_HEADER
 
   } AF_Script_UniRangeRec;
 
+#define AF_UNIRANGE_REC( a, b ) { (FT_UInt32)(a), (FT_UInt32)(b) }
+
   typedef const AF_Script_UniRangeRec  *AF_Script_UniRange;
 
 
   typedef struct  AF_ScriptClassRec_
   {
-    AF_Script                   script;
-    AF_Script_UniRange          script_uni_ranges; /* last must be { 0, 0 } */
+    AF_Script           script;
+    AF_Script_UniRange  script_uni_ranges; /* last must be { 0, 0 }        */
+    FT_UInt32           standard_char;     /* for default width and height */
 
-    FT_UInt                     script_metrics_size;
+    FT_Offset                   script_metrics_size;
     AF_Script_InitMetricsFunc   script_metrics_init;
     AF_Script_ScaleMetricsFunc  script_metrics_scale;
     AF_Script_DoneMetricsFunc   script_metrics_done;
@@ -307,6 +311,61 @@ FT_BEGIN_HEADER
     AF_Script_ApplyHintsFunc    script_hints_apply;
 
   } AF_ScriptClassRec;
+
+
+  /* Declare and define vtables for classes */
+#ifndef FT_CONFIG_OPTION_PIC
+
+#define AF_DECLARE_SCRIPT_CLASS( script_class ) \
+  FT_CALLBACK_TABLE const AF_ScriptClassRec     \
+  script_class;
+
+#define AF_DEFINE_SCRIPT_CLASS( script_class, script_, ranges, def_char,   \
+                                m_size,                                    \
+                                m_init, m_scale, m_done, h_init, h_apply ) \
+  FT_CALLBACK_TABLE_DEF const AF_ScriptClassRec  script_class =            \
+  {                                                                        \
+    script_,                                                               \
+    ranges,                                                                \
+    def_char,                                                              \
+                                                                           \
+    m_size,                                                                \
+                                                                           \
+    m_init,                                                                \
+    m_scale,                                                               \
+    m_done,                                                                \
+                                                                           \
+    h_init,                                                                \
+    h_apply                                                                \
+  };
+
+#else /* FT_CONFIG_OPTION_PIC */
+
+#define AF_DECLARE_SCRIPT_CLASS( script_class )             \
+  FT_LOCAL( void )                                          \
+  FT_Init_Class_ ## script_class( AF_ScriptClassRec*  ac );
+
+#define AF_DEFINE_SCRIPT_CLASS( script_class, script_, ranges, def_char,   \
+                                m_size,                                    \
+                                m_init, m_scale, m_done, h_init, h_apply ) \
+  FT_LOCAL_DEF( void )                                                     \
+  FT_Init_Class_ ## script_class( AF_ScriptClassRec*  ac )                 \
+  {                                                                        \
+    ac->script               = script_;                                    \
+    ac->script_uni_ranges    = ranges;                                     \
+    ac->default_char         = def_char;                                   \
+                                                                           \
+    ac->script_metrics_size  = m_size;                                     \
+                                                                           \
+    ac->script_metrics_init  = m_init;                                     \
+    ac->script_metrics_scale = m_scale;                                    \
+    ac->script_metrics_done  = m_done;                                     \
+                                                                           \
+    ac->script_hints_init    = h_init;                                     \
+    ac->script_hints_apply   = h_apply;                                    \
+  }
+
+#endif /* FT_CONFIG_OPTION_PIC */
 
 
 /* */

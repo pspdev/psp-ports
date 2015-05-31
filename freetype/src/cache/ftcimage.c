@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType Image cache (body).                                         */
 /*                                                                         */
-/*  Copyright 2000-2001, 2003, 2004 by                                     */
+/*  Copyright 2000-2001, 2003, 2004, 2006, 2010 by                         */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -18,7 +18,7 @@
 
 #include <ft2build.h>
 #include FT_CACHE_H
-#include FT_CACHE_INTERNAL_IMAGE_H
+#include "ftcimage.h"
 #include FT_INTERNAL_MEMORY_H
 
 #include "ftccback.h"
@@ -45,7 +45,7 @@
   }
 
 
-  FT_EXPORT_DEF( void )
+  FT_LOCAL_DEF( void )
   FTC_INode_Free( FTC_INode  inode,
                   FTC_Cache  cache )
   {
@@ -54,14 +54,14 @@
 
 
   /* initialize a new glyph image node */
-  FT_EXPORT_DEF( FT_Error )
+  FT_LOCAL_DEF( FT_Error )
   FTC_INode_New( FTC_INode   *pinode,
                  FTC_GQuery   gquery,
                  FTC_Cache    cache )
   {
     FT_Memory  memory = cache->memory;
     FT_Error   error;
-    FTC_INode  inode;
+    FTC_INode  inode  = NULL;
 
 
     if ( !FT_NEW( inode ) )
@@ -78,6 +78,11 @@
       /* we will now load the glyph image */
       error = clazz->family_load_glyph( family, gindex, cache,
                                         &inode->glyph );
+      if ( error )
+      {
+        FTC_INode_Free( inode, cache );
+        inode = NULL;
+      }
     }
 
     *pinode = inode;
@@ -98,12 +103,12 @@
   }
 
 
-  FT_LOCAL_DEF( FT_ULong )
+  FT_LOCAL_DEF( FT_Offset )
   ftc_inode_weight( FTC_Node   ftcinode,
                     FTC_Cache  ftccache )
   {
     FTC_INode  inode = (FTC_INode)ftcinode;
-    FT_ULong   size  = 0;
+    FT_Offset  size  = 0;
     FT_Glyph   glyph = inode->glyph;
 
     FT_UNUSED( ftccache );
@@ -117,7 +122,7 @@
 
 
         bitg = (FT_BitmapGlyph)glyph;
-        size = bitg->bitmap.rows * labs( bitg->bitmap.pitch ) +
+        size = bitg->bitmap.rows * ft_labs( bitg->bitmap.pitch ) +
                sizeof ( *bitg );
       }
       break;
@@ -144,11 +149,15 @@
   }
 
 
-  FT_EXPORT_DEF( FT_ULong )
+#if 0
+
+  FT_LOCAL_DEF( FT_Offset )
   FTC_INode_Weight( FTC_INode  inode )
   {
     return ftc_inode_weight( FTC_NODE( inode ), NULL );
   }
+
+#endif /* 0 */
 
 
 /* END */
