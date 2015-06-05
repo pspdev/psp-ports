@@ -14,7 +14,7 @@
 
 # Compiler command line name
 #
-CC       := psp-gcc.exe
+CC       := psp-gcc
 
 # The object file extension (for standard and static libraries).  This can be
 # .o, .tco, .obj, etc., depending on the platform.
@@ -67,6 +67,6 @@ ANSIFLAGS := -ansi -pedantic
 ifndef CLEAN_LIBRARY
   CLEAN_LIBRARY = $(DELETE) $(subst $(SEP),$(HOSTSEP),$(PROJECT_LIBRARY))
 endif
-LINK_LIBRARY = psp-ar.exe -r $@ $(OBJECTS_LIST)
+LINK_LIBRARY = psp-ar -r $@ $(OBJECTS_LIST)
 
 # EOF
