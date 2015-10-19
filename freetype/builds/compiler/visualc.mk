@@ -3,7 +3,7 @@
 #
 
 
-# Copyright 1996-2000, 2003, 2005, 2006, 2008 by
+# Copyright 1996-2000, 2003 by
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -55,9 +55,6 @@ L := /Fl
 #
 T := /Fo
 
-# Target executable flag
-#
-TE := /Fe
 
 # C flags
 #
@@ -66,11 +63,13 @@ TE := /Fe
 #   Use the ANSIFLAGS variable to define the compiler flags used to enfore
 #   ANSI compliance.
 #
-CFLAGS ?= /nologo /c /Ox /W3 /WX
+ifndef CFLAGS
+  CFLAGS := /nologo /c /Ox /G5 /W3 /WX
+endif
 
 # ANSIFLAGS: Put there the flags used to make your compiler ANSI-compliant.
 #
-ANSIFLAGS := /Za /D_CRT_SECURE_NO_DEPRECATE
+ANSIFLAGS := /Za
 
 
 # Library linking

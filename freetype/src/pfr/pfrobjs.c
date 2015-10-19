@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType PFR object methods (body).                                  */
 /*                                                                         */
-/*  Copyright 2002-2008, 2010-2011, 2013 by                                */
+/*  Copyright 2002, 2003, 2004, 2005 by                                    */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -23,7 +23,6 @@
 #include "pfrsbit.h"
 #include FT_OUTLINE_H
 #include FT_INTERNAL_DEBUG_H
-#include FT_TRUETYPE_IDS_H
 
 #include "pfrerror.h"
 
@@ -42,14 +41,9 @@
   FT_LOCAL_DEF( void )
   pfr_face_done( FT_Face  pfrface )     /* PFR_Face */
   {
-    PFR_Face   face = (PFR_Face)pfrface;
-    FT_Memory  memory;
+    PFR_Face   face   = (PFR_Face)pfrface;
+    FT_Memory  memory = pfrface->driver->root.memory;
 
-
-    if ( !face )
-      return;
-
-    memory = pfrface->driver->root.memory;
 
     /* we don't want dangling pointers */
     pfrface->family_name = NULL;
@@ -77,8 +71,6 @@
     FT_UNUSED( params );
 
 
-    FT_TRACE2(( "PFR driver\n" ));
-
     /* load the header and check it */
     error = pfr_header_load( &face->header, stream );
     if ( error )
@@ -86,8 +78,8 @@
 
     if ( !pfr_header_check( &face->header ) )
     {
-      FT_TRACE2(( "  not a PFR font\n" ));
-      error = FT_THROW( Unknown_File_Format );
+      FT_TRACE4(( "pfr_face_init: not a valid PFR font\n" ));
+      error = PFR_Err_Unknown_File_Format;
       goto Exit;
     }
 
@@ -111,7 +103,7 @@
     if ( face_index >= pfrface->num_faces )
     {
       FT_ERROR(( "pfr_face_init: invalid face index\n" ));
-      error = FT_THROW( Invalid_Argument );
+      error = PFR_Err_Invalid_Argument;
       goto Exit;
     }
 
@@ -130,37 +122,14 @@
     if ( error )
       goto Exit;
 
-    /* now set up all root face fields */
+    /* now, set-up all root face fields */
     {
       PFR_PhyFont  phy_font = &face->phy_font;
 
 
       pfrface->face_index = face_index;
-      pfrface->num_glyphs = phy_font->num_chars + 1;
+      pfrface->num_glyphs = phy_font->num_chars;
       pfrface->face_flags = FT_FACE_FLAG_SCALABLE;
-
-      /* if all characters point to the same gps_offset 0, we */
-      /* assume that the font only contains bitmaps           */
-      {
-        FT_UInt  nn;
-
-
-        for ( nn = 0; nn < phy_font->num_chars; nn++ )
-          if ( phy_font->chars[nn].gps_offset != 0 )
-            break;
-
-        if ( nn == phy_font->num_chars )
-        {
-          if ( phy_font->num_strikes > 0 )
-            pfrface->face_flags = 0;        /* not scalable */
-          else
-          {
-            FT_ERROR(( "pfr_face_init: font doesn't contain glyphs\n" ));
-            error = FT_THROW( Invalid_File_Format );
-            goto Exit;
-          }
-        }
-      }
 
       if ( (phy_font->flags & PFR_PHY_PROPORTIONAL) == 0 )
         pfrface->face_flags |= FT_FACE_FLAG_FIXED_WIDTH;
@@ -196,10 +165,8 @@
       pfrface->units_per_EM = (FT_UShort)phy_font->outline_resolution;
       pfrface->ascender     = (FT_Short) phy_font->bbox.yMax;
       pfrface->descender    = (FT_Short) phy_font->bbox.yMin;
-
-      pfrface->height = (FT_Short)( ( pfrface->units_per_EM * 12 ) / 10 );
-      if ( pfrface->height < pfrface->ascender - pfrface->descender )
-        pfrface->height = (FT_Short)(pfrface->ascender - pfrface->descender);
+      pfrface->height       = (FT_Short)(
+        ( ( pfrface->ascender - pfrface->descender ) * 12 ) / 10 );
 
       if ( phy_font->num_strikes > 0 )
       {
@@ -218,9 +185,6 @@
         {
           size->height = (FT_UShort)strike->y_ppm;
           size->width  = (FT_UShort)strike->x_ppm;
-          size->size   = strike->y_ppm << 6;
-          size->x_ppem = strike->x_ppm << 6;
-          size->y_ppem = strike->y_ppm << 6;
         }
         pfrface->num_fixed_sizes = count;
       }
@@ -255,11 +219,11 @@
 
 
         charmap.face        = pfrface;
-        charmap.platform_id = TT_PLATFORM_MICROSOFT;
-        charmap.encoding_id = TT_MS_ID_UNICODE_CS;
+        charmap.platform_id = 3;
+        charmap.encoding_id = 1;
         charmap.encoding    = FT_ENCODING_UNICODE;
 
-        error = FT_CMap_New( &pfr_cmap_class_rec, NULL, &charmap, NULL );
+        FT_CMap_New( &pfr_cmap_class_rec, NULL, &charmap, NULL );
 
 #if 0
         /* Select default charmap */
@@ -327,11 +291,8 @@
     if ( gindex > 0 )
       gindex--;
 
-    if ( !face || gindex >= face->phy_font.num_chars )
-    {
-      error = FT_THROW( Invalid_Argument );
-      goto Exit;
-    }
+    /* check that the glyph index is correct */
+    FT_ASSERT( gindex < face->phy_font.num_chars );
 
     /* try to load an embedded bitmap */
     if ( ( load_flags & ( FT_LOAD_NO_SCALE | FT_LOAD_NO_BITMAP ) ) == 0 )
@@ -343,7 +304,7 @@
 
     if ( load_flags & FT_LOAD_SBITS_ONLY )
     {
-      error = FT_THROW( Invalid_Argument );
+      error = PFR_Err_Invalid_Argument;
       goto Exit;
     }
 
@@ -461,6 +422,8 @@
   /*************************************************************************/
   /*************************************************************************/
 
+#ifdef FT_OPTIMIZE_MEMORY
+
   FT_LOCAL_DEF( FT_Error )
   pfr_face_get_kerning( FT_Face     pfrface,        /* PFR_Face */
                         FT_UInt     glyph1,
@@ -468,7 +431,7 @@
                         FT_Vector*  kerning )
   {
     PFR_Face     face     = (PFR_Face)pfrface;
-    FT_Error     error    = FT_Err_Ok;
+    FT_Error     error    = PFR_Err_Ok;
     PFR_PhyFont  phy_font = &face->phy_font;
     FT_UInt32    code1, code2, pair;
 
@@ -510,14 +473,13 @@
         goto Exit;
 
       {
-        FT_UInt    count       = item->pair_count;
-        FT_UInt    size        = item->pair_size;
-        FT_UInt    power       = (FT_UInt)ft_highpow2( (FT_UInt32)count );
-        FT_UInt    probe       = power * size;
-        FT_UInt    extra       = count - power;
-        FT_Byte*   base        = stream->cursor;
-        FT_Bool    twobytes    = FT_BOOL( item->flags & 1 );
-        FT_Bool    twobyte_adj = FT_BOOL( item->flags & 2 );
+        FT_UInt    count    = item->pair_count;
+        FT_UInt    size     = item->pair_size;
+        FT_UInt    power    = (FT_UInt)ft_highpow2( (FT_UInt32)count );
+        FT_UInt    probe    = power * size;
+        FT_UInt    extra    = count - power;
+        FT_Byte*   base     = stream->cursor;
+        FT_Bool    twobytes = item->flags & 1;
         FT_Byte*   p;
         FT_UInt32  cpair;
 
@@ -535,13 +497,7 @@
             goto Found;
 
           if ( cpair < pair )
-          {
-            if ( twobyte_adj )
-              p += 2;
-            else
-              p++;
             base = p;
-          }
         }
 
         while ( probe > size )
@@ -574,7 +530,7 @@
 
 
         Found:
-          if ( twobyte_adj )
+          if ( item->flags & 2 )
             value = FT_PEEK_SHORT( p );
           else
             value = p[0];
@@ -589,5 +545,52 @@
   Exit:
     return error;
   }
+
+#else /* !FT_OPTIMIZE_MEMORY */
+
+  FT_LOCAL_DEF( FT_Error )
+  pfr_face_get_kerning( FT_Face     pfrface,        /* PFR_Face */
+                        FT_UInt     glyph1,
+                        FT_UInt     glyph2,
+                        FT_Vector*  kerning )
+  {
+    PFR_Face      face     = (PFR_Face)pfrface;
+    FT_Error      error    = PFR_Err_Ok;
+    PFR_PhyFont   phy_font = &face->phy_font;
+    PFR_KernPair  pairs    = phy_font->kern_pairs;
+    FT_UInt32     idx      = PFR_KERN_INDEX( glyph1, glyph2 );
+    FT_UInt       min, max;
+
+
+    kerning->x = 0;
+    kerning->y = 0;
+
+    min = 0;
+    max = phy_font->num_kern_pairs;
+
+    while ( min < max )
+    {
+      FT_UInt       mid  = ( min + max ) >> 1;
+      PFR_KernPair  pair = pairs + mid;
+      FT_UInt32     pidx = PFR_KERN_PAIR_INDEX( pair );
+
+
+      if ( pidx == idx )
+      {
+        kerning->x = pair->kerning;
+        break;
+      }
+
+      if ( pidx < idx )
+        min = mid + 1;
+      else
+        max = mid;
+    }
+
+    return error;
+  }
+
+#endif /* !FT_OPTIMIZE_MEMORY */
+
 
 /* END */

@@ -3,7 +3,7 @@
 #
 
 
-# Copyright 2004, 2006 by
+# Copyright 2004 by
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -13,11 +13,10 @@
 # fully.
 
 
-FTMODULE_H_COMMANDS += OTVALID_MODULE
+make_module_list: add_otvalid_module
 
-define OTVALID_MODULE
-$(OPEN_DRIVER) FT_Module_Class, otv_module_class $(CLOSE_DRIVER)
-$(ECHO_DRIVER)otvalid   $(ECHO_DRIVER_DESC)OpenType validation module$(ECHO_DRIVER_DONE)
-endef
+add_otvalid_module:
+	$(OPEN_DRIVER)otvalid_module_class$(CLOSE_DRIVER)
+	$(ECHO_DRIVER)otvalid     $(ECHO_DRIVER_DESC)OpenType validation module$(ECHO_DRIVER_DONE)
 
 # EOF

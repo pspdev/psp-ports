@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    OpenType GDEF table validation (body).                               */
 /*                                                                         */
-/*  Copyright 2004, 2005, 2007 by                                          */
+/*  Copyright 2004, 2005 by                                                */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -38,8 +38,8 @@
   /*************************************************************************/
   /*************************************************************************/
 
-#define AttachListFunc    otv_O_x_Ox
-#define LigCaretListFunc  otv_O_x_Ox
+#define AttachList    otv_O_x_Ox, "AttachList"
+#define LigCaretList  otv_O_x_Ox, "LigCaretList"
 
   /* sets valid->extra1 (0)           */
 
@@ -61,7 +61,7 @@
 
     OTV_TRACE(( " (GlyphCount = %d)\n", GlyphCount ));
 
-    otv_Coverage_validate( Coverage, valid, GlyphCount );
+    otv_Coverage_validate( Coverage, valid );
     if ( GlyphCount != otv_Coverage_get_count( Coverage ) )
       FT_INVALID_DATA;
 
@@ -88,7 +88,7 @@
   /*************************************************************************/
   /*************************************************************************/
 
-#define CaretValueFunc  otv_CaretValue_validate
+#define  CaretValue  otv_CaretValue_validate, "CaretValue"
 
   static void
   otv_CaretValue_validate( FT_Bytes       table,
@@ -126,7 +126,7 @@
       break;
 
     default:
-      FT_INVALID_FORMAT;
+      FT_INVALID_DATA;
     }
 
     OTV_EXIT;
@@ -141,13 +141,10 @@
   /*************************************************************************/
   /*************************************************************************/
 
-  /* sets valid->glyph_count */
-
   FT_LOCAL_DEF( void )
   otv_GDEF_validate( FT_Bytes      table,
                      FT_Bytes      gsub,
                      FT_Bytes      gpos,
-                     FT_UInt       glyph_count,
                      FT_Validator  ftvalid )
   {
     OTV_ValidatorRec  validrec;
@@ -185,8 +182,6 @@
       table_size = 12;              /* OpenType >= 1.2 */
     else
       table_size = 10;              /* OpenType < 1.2  */
-
-    valid->glyph_count = glyph_count;
 
     OTV_OPTIONAL_OFFSET( GlyphClassDef );
     OTV_SIZE_CHECK( GlyphClassDef );

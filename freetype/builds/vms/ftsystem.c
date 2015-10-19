@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    VMS-specific FreeType low-level system interface (body).             */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2005, 2010 by                               */
+/*  Copyright 1996-2001, 2002 by                                           */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -203,7 +203,7 @@
 
   /* documentation is in ftobjs.h */
 
-  FT_BASE_DEF( FT_Error )
+  FT_EXPORT_DEF( FT_Error )
   FT_Stream_Open( FT_Stream    stream,
                   const char*  filepathname )
   {
@@ -231,13 +231,6 @@
     }
 
     stream->size = stat_buf.st_size;
-    if ( !stream->size )
-    {
-      FT_ERROR(( "FT_Stream_Open:" ));
-      FT_ERROR(( " opened `%s' but zero-sized\n", filepathname ));
-      goto Fail_Map;
-    }
-
     stream->pos  = 0;
     stream->base = (unsigned char *)mmap( NULL,
                                           stream->size,
@@ -291,7 +284,7 @@
 
   /* documentation is in ftobjs.h */
 
-  FT_BASE_DEF( FT_Memory )
+  FT_EXPORT_DEF( FT_Memory )
   FT_New_Memory( void )
   {
     FT_Memory  memory;
@@ -315,7 +308,7 @@
 
   /* documentation is in ftobjs.h */
 
-  FT_BASE_DEF( void )
+  FT_EXPORT_DEF( void )
   FT_Done_Memory( FT_Memory  memory )
   {
 #ifdef FT_DEBUG_MEMORY

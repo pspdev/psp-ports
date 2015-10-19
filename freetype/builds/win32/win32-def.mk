@@ -3,7 +3,7 @@
 #
 
 
-# Copyright 1996-2000, 2003, 2005, 2006 by
+# Copyright 1996-2000, 2003 by
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -14,15 +14,23 @@
 
 
 DELETE    := del
-CAT       := type
 SEP       := $(strip \ )
 BUILD_DIR := $(TOP_DIR)/builds/win32
 PLATFORM  := win32
 
-# The executable file extension (for tools). NOTE: WE INCLUDE THE DOT HERE !!
+
+# The directory where all object files are placed.
 #
-E := .exe
-E_BUILD := .exe
+# This lets you build the library in your own directory with something like
+#
+#   set TOP_DIR=.../path/to/freetype2/top/dir...
+#   set OBJ_DIR=.../path/to/obj/dir
+#   make -f %TOP_DIR%/Makefile setup [options]
+#   make -f %TOP_DIR%/Makefile
+#
+ifndef OBJ_DIR
+  OBJ_DIR := $(TOP_DIR)/objs
+endif
 
 
 # The directory where all library files are placed.

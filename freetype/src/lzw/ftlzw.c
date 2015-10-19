@@ -8,7 +8,7 @@
 /*  be used to parse compressed PCF fonts, as found with many X11 server   */
 /*  distributions.                                                         */
 /*                                                                         */
-/*  Copyright 2004-2006, 2009, 2010, 2012, 2013 by                         */
+/*  Copyright 2004, 2005 by                                                */
 /*  Albert Chin-A-Young.                                                   */
 /*                                                                         */
 /*  Based on code in src/gzip/ftgzip.c, Copyright 2004 by                  */
@@ -26,15 +26,14 @@
 #include FT_INTERNAL_MEMORY_H
 #include FT_INTERNAL_STREAM_H
 #include FT_INTERNAL_DEBUG_H
-#include FT_LZW_H
-#include FT_CONFIG_STANDARD_LIBRARY_H
+#include <string.h>
+#include <stdio.h>
 
 
 #include FT_MODULE_ERRORS_H
 
 #undef __FTERRORS_H__
 
-#undef  FT_ERR_PREFIX
 #define FT_ERR_PREFIX  LZW_Err_
 #define FT_ERR_BASE    FT_Mod_Err_LZW
 
@@ -43,11 +42,7 @@
 
 #ifdef FT_CONFIG_OPTION_USE_LZW
 
-#ifdef FT_CONFIG_OPTION_PIC
-#error "lzw code does not support PIC yet"
-#endif
-
-#include "ftzopen.h"
+#include "zopen.h"
 
 
 /***************************************************************************/
@@ -66,19 +61,22 @@
 /***************************************************************************/
 /***************************************************************************/
 
-#define FT_LZW_BUFFER_SIZE  4096
+#define  FT_LZW_BUFFER_SIZE  4096
 
-  typedef struct  FT_LZWFileRec_
+  typedef struct FT_LZWFileRec_
   {
-    FT_Stream       source;         /* parent/source stream        */
-    FT_Stream       stream;         /* embedding stream            */
-    FT_Memory       memory;         /* memory allocator            */
-    FT_LzwStateRec  lzw;            /* lzw decompressor state      */
+    FT_Stream   source;         /* parent/source stream        */
+    FT_Stream   stream;         /* embedding stream            */
+    FT_Memory   memory;         /* memory allocator            */
+    s_zstate_t  zstream;        /* lzw input stream            */
 
-    FT_Byte         buffer[FT_LZW_BUFFER_SIZE]; /* output buffer      */
-    FT_ULong        pos;                        /* position in output */
-    FT_Byte*        cursor;
-    FT_Byte*        limit;
+    FT_ULong    start;          /* starting position, after .Z header */
+    FT_Byte     input[FT_LZW_BUFFER_SIZE];  /* input buffer */
+
+    FT_Byte     buffer[FT_LZW_BUFFER_SIZE]; /* output buffer */
+    FT_ULong    pos;            /* position in output          */
+    FT_Byte*    cursor;
+    FT_Byte*    limit;
 
   } FT_LZWFileRec, *FT_LZWFile;
 
@@ -95,10 +93,10 @@
          FT_STREAM_READ( head, 2 ) )
       goto Exit;
 
-    /* head[0] && head[1] are the magic numbers */
+    /* head[0] && head[1] are the magic numbers     */
     if ( head[0] != 0x1f ||
          head[1] != 0x9d )
-      error = FT_THROW( Invalid_File_Format );
+      error = LZW_Err_Invalid_File_Format;
 
   Exit:
     return error;
@@ -110,8 +108,8 @@
                     FT_Stream   stream,
                     FT_Stream   source )
   {
-    FT_LzwState  lzw   = &zip->lzw;
-    FT_Error     error = FT_Err_Ok;
+    s_zstate_t*  zstream = &zip->zstream;
+    FT_Error     error   = LZW_Err_Ok;
 
 
     zip->stream = stream;
@@ -123,12 +121,25 @@
     zip->pos    = 0;
 
     /* check and skip .Z header */
-    error = ft_lzw_check_header( source );
-    if ( error )
-      goto Exit;
+    {
+      stream = source;
+
+      error = ft_lzw_check_header( source );
+      if ( error )
+        goto Exit;
+
+      zip->start = FT_STREAM_POS();
+    }
 
     /* initialize internal lzw variable */
-    ft_lzwstate_init( lzw, source );
+    zinit( zstream );
+
+    zstream->avail_in    = 0;
+    zstream->next_in     = zip->buffer;
+    zstream->zs_in_count = source->size - 2;
+
+    if ( zstream->next_in == NULL )
+      error = LZW_Err_Invalid_File_Format;
 
   Exit:
     return error;
@@ -138,8 +149,16 @@
   static void
   ft_lzw_file_done( FT_LZWFile  zip )
   {
+    s_zstate_t*  zstream = &zip->zstream;
+
+
     /* clear the rest */
-    ft_lzwstate_done( &zip->lzw );
+    zstream->next_in   = NULL;
+    zstream->next_out  = NULL;
+    zstream->avail_in  = 0;
+    zstream->avail_out = 0;
+    zstream->total_in  = 0;
+    zstream->total_out = 0;
 
     zip->memory = NULL;
     zip->source = NULL;
@@ -154,9 +173,20 @@
     FT_Error   error;
 
 
-    if ( !FT_STREAM_SEEK( 0 ) )
+    if ( !FT_STREAM_SEEK( zip->start ) )
     {
-      ft_lzwstate_reset( &zip->lzw );
+      s_zstate_t*  zstream = &zip->zstream;
+
+
+      zinit( zstream );
+
+      zstream->avail_in    = 0;
+      zstream->next_in     = zip->input;
+      zstream->total_in    = 0;
+      zstream->avail_out   = 0;
+      zstream->next_out    = zip->buffer;
+      zstream->total_out   = 0;
+      zstream->zs_in_count = zip->source->size - 2;
 
       zip->limit  = zip->buffer + FT_LZW_BUFFER_SIZE;
       zip->cursor = zip->limit;
@@ -168,21 +198,78 @@
 
 
   static FT_Error
+  ft_lzw_file_fill_input( FT_LZWFile  zip )
+  {
+    s_zstate_t*  zstream = &zip->zstream;
+    FT_Stream    stream  = zip->source;
+    FT_ULong     size;
+
+
+    if ( stream->read )
+    {
+      size = stream->read( stream, stream->pos, zip->input,
+                           FT_LZW_BUFFER_SIZE );
+      if ( size == 0 )
+        return LZW_Err_Invalid_Stream_Operation;
+    }
+    else
+    {
+      size = stream->size - stream->pos;
+      if ( size > FT_LZW_BUFFER_SIZE )
+        size = FT_LZW_BUFFER_SIZE;
+
+      if ( size == 0 )
+        return LZW_Err_Invalid_Stream_Operation;
+
+      FT_MEM_COPY( zip->input, stream->base + stream->pos, size );
+    }
+    stream->pos += size;
+
+    zstream->next_in  = zip->input;
+    zstream->avail_in = size;
+
+    return LZW_Err_Ok;
+  }
+
+
+
+  static FT_Error
   ft_lzw_file_fill_output( FT_LZWFile  zip )
   {
-    FT_LzwState  lzw = &zip->lzw;
-    FT_ULong     count;
-    FT_Error     error = FT_Err_Ok;
+    s_zstate_t*  zstream = &zip->zstream;
+    FT_Error     error   = 0;
 
 
-    zip->cursor = zip->buffer;
+    zip->cursor        = zip->buffer;
+    zstream->next_out  = zip->cursor;
+    zstream->avail_out = FT_LZW_BUFFER_SIZE;
 
-    count = ft_lzwstate_io( lzw, zip->buffer, FT_LZW_BUFFER_SIZE );
+    while ( zstream->avail_out > 0 )
+    {
+      int  num_read = 0;
 
-    zip->limit = zip->cursor + count;
 
-    if ( count == 0 )
-      error = FT_THROW( Invalid_Stream_Operation );
+      if ( zstream->avail_in == 0 )
+      {
+        error = ft_lzw_file_fill_input( zip );
+        if ( error )
+          break;
+      }
+
+      num_read = zread( zstream );
+
+      if ( num_read == -1 && zstream->zs_in_count == 0 )
+      {
+        zip->limit = zstream->next_out;
+        if ( zip->limit == zip->cursor )
+          error = LZW_Err_Invalid_Stream_Operation;
+        break;
+      }
+      else if ( num_read == -1 )
+        break;
+      else
+        zstream->avail_out -= num_read;
+    }
 
     return error;
   }
@@ -193,14 +280,13 @@
   ft_lzw_file_skip_output( FT_LZWFile  zip,
                            FT_ULong    count )
   {
-    FT_Error  error = FT_Err_Ok;
+    FT_Error  error = LZW_Err_Ok;
+    FT_ULong  delta;
 
 
-    /* first, we skip what we can from the output buffer */
+    for (;;)
     {
-      FT_ULong  delta = (FT_ULong)( zip->limit - zip->cursor );
-
-
+      delta = (FT_ULong)( zip->limit - zip->cursor );
       if ( delta >= count )
         delta = count;
 
@@ -208,28 +294,12 @@
       zip->pos    += delta;
 
       count -= delta;
-    }
-
-    /* next, we skip as many bytes remaining as possible */
-    while ( count > 0 )
-    {
-      FT_ULong  delta = FT_LZW_BUFFER_SIZE;
-      FT_ULong  numread;
-
-
-      if ( delta > count )
-        delta = count;
-
-      numread = ft_lzwstate_io( &zip->lzw, NULL, delta );
-      if ( numread < delta )
-      {
-        /* not enough bytes */
-        error = FT_THROW( Invalid_Stream_Operation );
+      if ( count == 0 )
         break;
-      }
 
-      zip->pos += delta;
-      count    -= delta;
+      error = ft_lzw_file_fill_output( zip );
+      if ( error )
+        break;
     }
 
     return error;
@@ -246,22 +316,13 @@
     FT_Error  error;
 
 
-    /* seeking backwards. */
+    /* Teset inflate stream if we're seeking backwards.        */
+    /* Yes, that is not too efficient, but it saves memory :-) */
     if ( pos < zip->pos )
     {
-      /* If the new position is within the output buffer, simply       */
-      /* decrement pointers, otherwise we reset the stream completely! */
-      if ( ( zip->pos - pos ) <= (FT_ULong)( zip->cursor - zip->buffer ) )
-      {
-        zip->cursor -= zip->pos - pos;
-        zip->pos     = pos;
-      }
-      else
-      {
-        error = ft_lzw_file_reset( zip );
-        if ( error )
-          goto Exit;
-      }
+      error = ft_lzw_file_reset( zip );
+      if ( error )
+        goto Exit;
     }
 
     /* skip unwanted bytes */
@@ -285,7 +346,8 @@
       if ( delta >= count )
         delta = count;
 
-      FT_MEM_COPY( buffer + result, zip->cursor, delta );
+      FT_MEM_COPY( buffer, zip->cursor, delta );
+      buffer      += delta;
       result      += delta;
       zip->cursor += delta;
       zip->pos    += delta;
@@ -350,15 +412,15 @@
   {
     FT_Error    error;
     FT_Memory   memory = source->memory;
-    FT_LZWFile  zip = NULL;
+    FT_LZWFile  zip;
 
 
     /*
-     *  Check the header right now; this prevents allocation of a huge
+     *  Check the header right now; this prevents allocation a huge
      *  LZWFile object (400 KByte of heap memory) if not necessary.
      *
      *  Did I mention that you should never use .Z compressed font
-     *  files?
+     *  file?
      */
     error = ft_lzw_check_header( source );
     if ( error )
@@ -389,8 +451,7 @@
     return error;
   }
 
-
-#include "ftzopen.c"
+#include "zopen.c"
 
 
 #else  /* !FT_CONFIG_OPTION_USE_LZW */
@@ -403,7 +464,7 @@
     FT_UNUSED( stream );
     FT_UNUSED( source );
 
-    return FT_THROW( Unimplemented_Feature );
+    return LZW_Err_Unimplemented_Feature;
   }
 
 

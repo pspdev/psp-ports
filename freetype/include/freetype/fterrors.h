@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType error code handling (specification).                        */
 /*                                                                         */
-/*  Copyright 1996-2002, 2004, 2007, 2013 by                               */
+/*  Copyright 1996-2001, 2002, 2004 by                                     */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -28,8 +28,9 @@
   /*   The configuration macro FT_CONFIG_OPTION_USE_MODULE_ERRORS can be   */
   /*   defined in ftoption.h in order to make the higher byte indicate     */
   /*   the module where the error has happened (this is not compatible     */
-  /*   with standard builds of FreeType 2).  See the file `ftmoderr.h' for */
-  /*   more details.                                                       */
+  /*   with standard builds of FreeType 2).  You can then use the macro    */
+  /*   FT_ERROR_BASE macro to extract the generic error code from an       */
+  /*   FT_Error value.                                                     */
   /*                                                                       */
   /*                                                                       */
   /* II - Error Message strings                                            */
@@ -72,7 +73,7 @@
   /*       const struct                                                    */
   /*       {                                                               */
   /*         int          err_code;                                        */
-  /*         const char*  err_msg;                                         */
+  /*         const char*  err_msg                                          */
   /*       } ft_errors[] =                                                 */
   /*                                                                       */
   /*       #include FT_ERRORS_H                                            */
@@ -99,6 +100,12 @@
 
 
 #undef  FT_NEED_EXTERN_C
+
+#undef  FT_ERR_XCAT
+#undef  FT_ERR_CAT
+
+#define FT_ERR_XCAT( x, y )  x ## y
+#define FT_ERR_CAT( x, y )   FT_ERR_XCAT( x, y )
 
 
   /* FT_ERR_PREFIX is used as a prefix for error identifiers. */
@@ -143,11 +150,11 @@
 
 
   /* this macro is used to define an error */
-#define FT_ERRORDEF_( e, v, s )                                             \
+#define FT_ERRORDEF_( e, v, s )   \
           FT_ERRORDEF( FT_ERR_CAT( FT_ERR_PREFIX, e ), v + FT_ERR_BASE, s )
 
   /* this is only used for <module>_Err_Ok, which must be 0! */
-#define FT_NOERRORDEF_( e, v, s )                             \
+#define FT_NOERRORDEF_( e, v, s ) \
           FT_ERRORDEF( FT_ERR_CAT( FT_ERR_PREFIX, e ), v, s )
 
 
@@ -185,10 +192,11 @@
 #undef FT_NOERRORDEF_
 
 #undef FT_NEED_EXTERN_C
+#undef FT_ERR_CONCAT
 #undef FT_ERR_BASE
 
-  /* FT_ERR_PREFIX is needed internally */
-#ifndef FT2_BUILD_LIBRARY
+  /* FT_KEEP_ERR_PREFIX is needed for ftvalid.h */
+#ifndef FT_KEEP_ERR_PREFIX
 #undef FT_ERR_PREFIX
 #endif
 

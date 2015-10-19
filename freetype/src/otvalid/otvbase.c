@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    OpenType BASE table validation (body).                               */
 /*                                                                         */
-/*  Copyright 2004, 2007 by                                                */
+/*  Copyright 2004 by                                                      */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -62,7 +62,7 @@
       break;
 
     default:
-      FT_INVALID_FORMAT;
+      FT_INVALID_DATA;
     }
 
     OTV_EXIT;
@@ -297,7 +297,7 @@
     OTV_LIMIT_CHECK( 6 );
 
     if ( FT_NEXT_ULONG( p ) != 0x10000UL )      /* Version */
-      FT_INVALID_FORMAT;
+      FT_INVALID_DATA;
 
     table_size = 6;
 

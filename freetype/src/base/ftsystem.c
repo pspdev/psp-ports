@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    ANSI-specific FreeType low-level system interface (body).            */
 /*                                                                         */
-/*  Copyright 1996-2002, 2006, 2008-2011, 2013 by                          */
+/*  Copyright 1996-2001, 2002 by                                           */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -28,10 +28,12 @@
 #include <ft2build.h>
 #include FT_CONFIG_CONFIG_H
 #include FT_INTERNAL_DEBUG_H
-#include FT_INTERNAL_STREAM_H
 #include FT_SYSTEM_H
 #include FT_ERRORS_H
 #include FT_TYPES_H
+
+#include <stdio.h>
+#include <stdlib.h>
 
 
   /*************************************************************************/
@@ -44,7 +46,7 @@
   /*                                                                       */
   /* It is not necessary to do any error checking for the                  */
   /* allocation-related functions.  This will be done by the higher level  */
-  /* routines like ft_mem_alloc() or ft_mem_realloc().                     */
+  /* routines like FT_Alloc() or FT_Realloc().                             */
   /*                                                                       */
   /*************************************************************************/
 
@@ -71,7 +73,7 @@
   {
     FT_UNUSED( memory );
 
-    return ft_smalloc( size );
+    return malloc( size );
   }
 
 
@@ -104,7 +106,7 @@
     FT_UNUSED( memory );
     FT_UNUSED( cur_size );
 
-    return ft_srealloc( block, new_size );
+    return realloc( block, new_size );
   }
 
 
@@ -127,7 +129,7 @@
   {
     FT_UNUSED( memory );
 
-    ft_sfree( block );
+    free( block );
   }
 
 
@@ -137,7 +139,6 @@
   /*                                                                       */
   /*************************************************************************/
 
-#ifndef FT_CONFIG_OPTION_DISABLE_STREAM_SUPPORT
 
   /*************************************************************************/
   /*                                                                       */
@@ -150,7 +151,7 @@
 
   /* We use the macro STREAM_FILE for convenience to extract the       */
   /* system-specific stream handle from a given FreeType stream object */
-#define STREAM_FILE( stream )  ( (FT_FILE*)stream->descriptor.pointer )
+#define STREAM_FILE( stream )  ( (FILE*)stream->descriptor.pointer )
 
 
   /*************************************************************************/
@@ -167,7 +168,7 @@
   FT_CALLBACK_DEF( void )
   ft_ansi_stream_close( FT_Stream  stream )
   {
-    ft_fclose( STREAM_FILE( stream ) );
+    fclose( STREAM_FILE( stream ) );
 
     stream->descriptor.pointer = NULL;
     stream->size               = 0;
@@ -193,9 +194,7 @@
   /*    count  :: The number of bytes to read from the stream.             */
   /*                                                                       */
   /* <Return>                                                              */
-  /*    The number of bytes actually read.  If `count' is zero (this is,   */
-  /*    the function is used for seeking), a non-zero return value         */
-  /*    indicates an error.                                                */
+  /*    The number of bytes actually read.                                 */
   /*                                                                       */
   FT_CALLBACK_DEF( unsigned long )
   ft_ansi_stream_io( FT_Stream       stream,
@@ -203,61 +202,46 @@
                      unsigned char*  buffer,
                      unsigned long   count )
   {
-    FT_FILE*  file;
+    FILE*  file;
 
-
-    if ( !count && offset > stream->size )
-      return 1;
 
     file = STREAM_FILE( stream );
 
-    if ( stream->pos != offset )
-      ft_fseek( file, offset, SEEK_SET );
+    fseek( file, offset, SEEK_SET );
 
-    return (unsigned long)ft_fread( buffer, 1, count, file );
+    return (unsigned long)fread( buffer, 1, count, file );
   }
 
 
-  /* documentation is in ftstream.h */
+  /* documentation is in ftobjs.h */
 
-  FT_BASE_DEF( FT_Error )
+  FT_EXPORT_DEF( FT_Error )
   FT_Stream_Open( FT_Stream    stream,
                   const char*  filepathname )
   {
-    FT_FILE*  file;
+    FILE*  file;
 
 
     if ( !stream )
-      return FT_THROW( Invalid_Stream_Handle );
+      return FT_Err_Invalid_Stream_Handle;
 
-    stream->descriptor.pointer = NULL;
-    stream->pathname.pointer   = (char*)filepathname;
-    stream->base               = 0;
-    stream->pos                = 0;
-    stream->read               = NULL;
-    stream->close              = NULL;
-
-    file = ft_fopen( filepathname, "rb" );
+    file = fopen( filepathname, "rb" );
     if ( !file )
     {
-      FT_ERROR(( "FT_Stream_Open:"
-                 " could not open `%s'\n", filepathname ));
-
-      return FT_THROW( Cannot_Open_Resource );
-    }
-
-    ft_fseek( file, 0, SEEK_END );
-    stream->size = ft_ftell( file );
-    if ( !stream->size )
-    {
       FT_ERROR(( "FT_Stream_Open:" ));
-      FT_ERROR(( " opened `%s' but zero-sized\n", filepathname ));
-      ft_fclose( file );
-      return FT_THROW( Cannot_Open_Stream );
+      FT_ERROR(( " could not open `%s'\n", filepathname ));
+
+      return FT_Err_Cannot_Open_Resource;
     }
-    ft_fseek( file, 0, SEEK_SET );
+
+    fseek( file, 0, SEEK_END );
+    stream->size = ftell( file );
+    fseek( file, 0, SEEK_SET );
 
     stream->descriptor.pointer = file;
+    stream->pathname.pointer   = (char*)filepathname;
+    stream->pos                = 0;
+
     stream->read  = ft_ansi_stream_io;
     stream->close = ft_ansi_stream_close;
 
@@ -268,7 +252,6 @@
     return FT_Err_Ok;
   }
 
-#endif /* !FT_CONFIG_OPTION_DISABLE_STREAM_SUPPORT */
 
 #ifdef FT_DEBUG_MEMORY
 
@@ -283,13 +266,13 @@
 
   /* documentation is in ftobjs.h */
 
-  FT_BASE_DEF( FT_Memory )
+  FT_EXPORT_DEF( FT_Memory )
   FT_New_Memory( void )
   {
     FT_Memory  memory;
 
 
-    memory = (FT_Memory)ft_smalloc( sizeof ( *memory ) );
+    memory = (FT_Memory)malloc( sizeof ( *memory ) );
     if ( memory )
     {
       memory->user    = 0;
@@ -307,13 +290,13 @@
 
   /* documentation is in ftobjs.h */
 
-  FT_BASE_DEF( void )
+  FT_EXPORT_DEF( void )
   FT_Done_Memory( FT_Memory  memory )
   {
 #ifdef FT_DEBUG_MEMORY
     ft_mem_debug_done( memory );
 #endif
-    ft_sfree( memory );
+    memory->free( memory, memory );
   }
 
 

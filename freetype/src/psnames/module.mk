@@ -3,7 +3,7 @@
 #
 
 
-# Copyright 1996-2000, 2006 by
+# Copyright 1996-2000 by
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -13,11 +13,10 @@
 # fully.
 
 
-FTMODULE_H_COMMANDS += PSNAMES_MODULE
+make_module_list: add_psnames_module
 
-define PSNAMES_MODULE
-$(OPEN_DRIVER) FT_Module_Class, psnames_module_class $(CLOSE_DRIVER)
-$(ECHO_DRIVER)psnames   $(ECHO_DRIVER_DESC)Postscript & Unicode Glyph name handling$(ECHO_DRIVER_DONE)
-endef
+add_psnames_module:
+	$(OPEN_DRIVER)psnames_module_class$(CLOSE_DRIVER)
+	$(ECHO_DRIVER)psnames   $(ECHO_DRIVER_DESC)Postscript & Unicode Glyph name handling$(ECHO_DRIVER_DONE)
 
 # EOF

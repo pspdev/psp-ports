@@ -1,0 +1,13 @@
+Requirements (from README.CVS):
+
+   automake 1.9.4 or higher
+   libtool 1.5.16 or higher (I used 1.5.6)
+   autoconf 2.59 or higher
+
+To build and install:
+
+   sh autogen.sh
+   LDFLAGS="-L$(psp-config --pspsdk-path)/lib" LIBS="-lc -lpspuser" \
+      ./configure --host psp --prefix=$(psp-config --psp-prefix)
+   make
+   make install

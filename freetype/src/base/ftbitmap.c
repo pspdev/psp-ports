@@ -2,9 +2,10 @@
 /*                                                                         */
 /*  ftbitmap.c                                                             */
 /*                                                                         */
-/*    FreeType utility functions for bitmaps (body).                       */
+/*    FreeType utility functions for converting 1bpp, 2bpp, 4bpp, and 8bpp */
+/*    bitmaps into 8bpp format (body).                                     */
 /*                                                                         */
-/*  Copyright 2004-2009, 2011, 2013 by                                     */
+/*  Copyright 2004, 2005 by                                                */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -17,10 +18,7 @@
 
 
 #include <ft2build.h>
-#include FT_INTERNAL_DEBUG_H
-
 #include FT_BITMAP_H
-#include FT_IMAGE_H
 #include FT_INTERNAL_OBJECTS_H
 
 
@@ -75,10 +73,10 @@
       target_size = (FT_ULong)( target_pitch * target->rows );
 
       if ( target_size != size )
-        (void)FT_QREALLOC( target->buffer, target_size, size );
+        FT_QREALLOC( target->buffer, target_size, size );
     }
     else
-      (void)FT_QALLOC( target->buffer, size );
+      FT_QALLOC( target->buffer, size );
 
     if ( !error )
     {
@@ -105,96 +103,82 @@
     FT_Error        error;
     int             pitch;
     int             new_pitch;
-    FT_UInt         bpp;
-    FT_Int          i, width, height;
-    unsigned char*  buffer = NULL;
+    FT_UInt         ppb;
+    FT_Int          i;
+    unsigned char*  buffer;
 
 
-    width  = bitmap->width;
-    height = bitmap->rows;
-    pitch  = bitmap->pitch;
+    pitch = bitmap->pitch;
     if ( pitch < 0 )
       pitch = -pitch;
 
     switch ( bitmap->pixel_mode )
     {
     case FT_PIXEL_MODE_MONO:
-      bpp       = 1;
-      new_pitch = ( width + xpixels + 7 ) >> 3;
+      ppb = 8;
       break;
     case FT_PIXEL_MODE_GRAY2:
-      bpp       = 2;
-      new_pitch = ( width + xpixels + 3 ) >> 2;
+      ppb = 4;
       break;
     case FT_PIXEL_MODE_GRAY4:
-      bpp       = 4;
-      new_pitch = ( width + xpixels + 1 ) >> 1;
+      ppb = 2;
       break;
     case FT_PIXEL_MODE_GRAY:
     case FT_PIXEL_MODE_LCD:
     case FT_PIXEL_MODE_LCD_V:
-      bpp       = 8;
-      new_pitch = ( width + xpixels );
+      ppb = 1;
       break;
     default:
-      return FT_THROW( Invalid_Glyph_Format );
+      return FT_Err_Invalid_Glyph_Format;
     }
 
     /* if no need to allocate memory */
-    if ( ypixels == 0 && new_pitch <= pitch )
+    if ( ypixels == 0 && pitch * ppb >= bitmap->width + xpixels )
     {
       /* zero the padding */
-      FT_Int  bit_width = pitch * 8;
-      FT_Int  bit_last  = ( width + xpixels ) * bpp;
-
-
-      if ( bit_last < bit_width )
+      for ( i = 0; i < bitmap->rows; i++ )
       {
-        FT_Byte*  line  = bitmap->buffer + ( bit_last >> 3 );
-        FT_Byte*  end   = bitmap->buffer + pitch;
-        FT_Int    shift = bit_last & 7;
-        FT_UInt   mask  = 0xFF00U >> shift;
-        FT_Int    count = height;
+        unsigned char*  last_byte;
+        int             bits = xpixels * ( 8 / ppb );
+        int             mask = 0;
 
 
-        for ( ; count > 0; count--, line += pitch, end += pitch )
+        last_byte = bitmap->buffer + i * pitch + ( bitmap->width - 1 ) / ppb;
+
+        if ( bits >= 8 )
         {
-          FT_Byte*  write = line;
+          FT_MEM_ZERO( last_byte + 1, bits / 8 );
+          bits %= 8;
+        }
 
+        if ( bits > 0 )
+        {
+          while ( bits-- > 0 )
+            mask |= 1 << bits;
 
-          if ( shift > 0 )
-          {
-            write[0] = (FT_Byte)( write[0] & mask );
-            write++;
-          }
-          if ( write < end )
-            FT_MEM_ZERO( write, end-write );
+          *last_byte &= ~mask;
         }
       }
 
       return FT_Err_Ok;
     }
 
-    if ( FT_QALLOC_MULT( buffer, new_pitch, bitmap->rows + ypixels ) )
+    new_pitch = ( bitmap->width + xpixels + ppb - 1 ) / ppb;
+
+    if ( FT_ALLOC( buffer, new_pitch * ( bitmap->rows + ypixels ) ) )
       return error;
 
     if ( bitmap->pitch > 0 )
     {
-      FT_Int  len = ( width * bpp + 7 ) >> 3;
-
-
       for ( i = 0; i < bitmap->rows; i++ )
         FT_MEM_COPY( buffer + new_pitch * ( ypixels + i ),
-                     bitmap->buffer + pitch * i, len );
+                     bitmap->buffer + pitch * i, pitch );
     }
     else
     {
-      FT_Int  len = ( width * bpp + 7 ) >> 3;
-
-
       for ( i = 0; i < bitmap->rows; i++ )
         FT_MEM_COPY( buffer + new_pitch * i,
-                     bitmap->buffer + pitch * i, len );
+                     bitmap->buffer + pitch * i, pitch );
     }
 
     FT_FREE( bitmap->buffer );
@@ -203,7 +187,7 @@
     if ( bitmap->pitch < 0 )
       new_pitch = -new_pitch;
 
-    /* set pitch only, width and height are left untouched */
+    /* set pitch only */
     bitmap->pitch = new_pitch;
 
     return FT_Err_Ok;
@@ -225,22 +209,18 @@
 
 
     if ( !library )
-      return FT_THROW( Invalid_Library_Handle );
+      return FT_Err_Invalid_Library_Handle;
 
     if ( !bitmap || !bitmap->buffer )
-      return FT_THROW( Invalid_Argument );
+      return FT_Err_Invalid_Argument;
 
-    if ( ( ( FT_PIX_ROUND( xStrength ) >> 6 ) > FT_INT_MAX ) ||
-         ( ( FT_PIX_ROUND( yStrength ) >> 6 ) > FT_INT_MAX ) )
-      return FT_THROW( Invalid_Argument );
-
-    xstr = (FT_Int)FT_PIX_ROUND( xStrength ) >> 6;
-    ystr = (FT_Int)FT_PIX_ROUND( yStrength ) >> 6;
+    xstr = FT_PIX_ROUND( xStrength ) >> 6;
+    ystr = FT_PIX_ROUND( yStrength ) >> 6;
 
     if ( xstr == 0 && ystr == 0 )
       return FT_Err_Ok;
     else if ( xstr < 0 || ystr < 0 )
-      return FT_THROW( Invalid_Argument );
+      return FT_Err_Invalid_Argument;
 
     switch ( bitmap->pixel_mode )
     {
@@ -257,8 +237,8 @@
           align = ( bitmap->width + xstr + 1 ) / 2;
 
         FT_Bitmap_New( &tmp );
-
         error = FT_Bitmap_Convert( library, bitmap, &tmp, align );
+
         if ( error )
           return error;
 
@@ -297,7 +277,7 @@
     /* for each row */
     for ( y = 0; y < bitmap->rows ; y++ )
     {
-      /*
+      /* 
        * Horizontally:
        *
        * From the last pixel on, make each pixel or'ed with the
@@ -330,12 +310,12 @@
             {
               if ( p[x] + p[x - i] > bitmap->num_grays - 1 )
               {
-                p[x] = (unsigned char)(bitmap->num_grays - 1);
+                p[x] = bitmap->num_grays - 1;
                 break;
               }
               else
               {
-                p[x] = (unsigned char)(p[x] + p[x-i]);
+                p[x] += p[x - i];
                 if ( p[x] == bitmap->num_grays - 1 )
                   break;
               }
@@ -346,7 +326,7 @@
         }
       }
 
-      /*
+      /* 
        * Vertically:
        *
        * Make the above `ystr' rows or'ed with it.
@@ -384,7 +364,7 @@
 
 
     if ( !library )
-      return FT_THROW( Invalid_Library_Handle );
+      return FT_Err_Invalid_Library_Handle;
 
     memory = library->memory;
 
@@ -394,8 +374,6 @@
     case FT_PIXEL_MODE_GRAY:
     case FT_PIXEL_MODE_GRAY2:
     case FT_PIXEL_MODE_GRAY4:
-    case FT_PIXEL_MODE_LCD:
-    case FT_PIXEL_MODE_LCD_V:
       {
         FT_Int   pad;
         FT_Long  old_size;
@@ -419,10 +397,6 @@
 
         target->pitch = source->width + pad;
 
-        if ( target->pitch > 0                                     &&
-             (FT_ULong)target->rows > FT_ULONG_MAX / target->pitch )
-          return FT_THROW( Invalid_Argument );
-
         if ( target->rows * target->pitch > old_size             &&
              FT_QREALLOC( target->buffer,
                           old_size, target->rows * target->pitch ) )
@@ -431,7 +405,7 @@
       break;
 
     default:
-      error = FT_THROW( Invalid_Argument );
+      error = FT_Err_Invalid_Argument;
     }
 
     switch ( source->pixel_mode )
@@ -494,8 +468,6 @@
 
 
     case FT_PIXEL_MODE_GRAY:
-    case FT_PIXEL_MODE_LCD:
-    case FT_PIXEL_MODE_LCD_V:
       {
         FT_Int    width   = source->width;
         FT_Byte*  s       = source->buffer;
@@ -620,31 +592,6 @@
   /* documentation is in ftbitmap.h */
 
   FT_EXPORT_DEF( FT_Error )
-  FT_GlyphSlot_Own_Bitmap( FT_GlyphSlot  slot )
-  {
-    if ( slot && slot->format == FT_GLYPH_FORMAT_BITMAP   &&
-         !( slot->internal->flags & FT_GLYPH_OWN_BITMAP ) )
-    {
-      FT_Bitmap  bitmap;
-      FT_Error   error;
-
-
-      FT_Bitmap_New( &bitmap );
-      error = FT_Bitmap_Copy( slot->library, &slot->bitmap, &bitmap );
-      if ( error )
-        return error;
-
-      slot->bitmap = bitmap;
-      slot->internal->flags |= FT_GLYPH_OWN_BITMAP;
-    }
-
-    return FT_Err_Ok;
-  }
-
-
-  /* documentation is in ftbitmap.h */
-
-  FT_EXPORT_DEF( FT_Error )
   FT_Bitmap_Done( FT_Library  library,
                   FT_Bitmap  *bitmap )
   {
@@ -652,10 +599,10 @@
 
 
     if ( !library )
-      return FT_THROW( Invalid_Library_Handle );
+      return FT_Err_Invalid_Library_Handle;
 
     if ( !bitmap )
-      return FT_THROW( Invalid_Argument );
+      return FT_Err_Invalid_Argument;
 
     memory = library->memory;
 

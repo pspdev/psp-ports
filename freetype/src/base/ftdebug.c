@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Debugging and logging component (body).                              */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2004, 2008, 2013 by                         */
+/*  Copyright 1996-2001, 2002, 2004 by                                     */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -46,52 +46,35 @@
 #include FT_INTERNAL_DEBUG_H
 
 
-#ifdef FT_DEBUG_LEVEL_ERROR
+#if defined( FT_DEBUG_LEVEL_ERROR )
 
   /* documentation is in ftdebug.h */
 
-  FT_BASE_DEF( void )
-  FT_Message( const char*  fmt,
-              ... )
+  FT_EXPORT_DEF( void )
+  FT_Message( const char*  fmt, ... )
   {
     va_list  ap;
 
 
     va_start( ap, fmt );
-    vfprintf( stderr, fmt, ap );
+    vprintf( fmt, ap );
     va_end( ap );
   }
 
 
   /* documentation is in ftdebug.h */
 
-  FT_BASE_DEF( void )
-  FT_Panic( const char*  fmt,
-            ... )
+  FT_EXPORT_DEF( void )
+  FT_Panic( const char*  fmt, ... )
   {
     va_list  ap;
 
 
     va_start( ap, fmt );
-    vfprintf( stderr, fmt, ap );
+    vprintf( fmt, ap );
     va_end( ap );
 
     exit( EXIT_FAILURE );
-  }
-
-
-  /* documentation is in ftdebug.h */
-
-  FT_BASE_DEF( int )
-  FT_Throw( FT_Error     error,
-            int          line,
-            const char*  file )
-  {
-    FT_UNUSED( error );
-    FT_UNUSED( line );
-    FT_UNUSED( file );
-
-    return 0;
   }
 
 #endif /* FT_DEBUG_LEVEL_ERROR */
@@ -118,7 +101,7 @@
 
   /* documentation is in ftdebug.h */
 
-  FT_BASE_DEF( FT_Int )
+  FT_EXPORT_DEF( FT_Int )
   FT_Trace_Get_Count( void )
   {
     return trace_count;
@@ -127,7 +110,7 @@
 
   /* documentation is in ftdebug.h */
 
-  FT_BASE_DEF( const char * )
+  FT_EXPORT_DEF( const char * )
   FT_Trace_Get_Name( FT_Int  idx )
   {
     int  max = FT_Trace_Get_Count();
@@ -241,14 +224,14 @@
   }
 
 
-  FT_BASE_DEF( FT_Int )
+  FT_EXPORT_DEF( FT_Int )
   FT_Trace_Get_Count( void )
   {
     return 0;
   }
 
 
-  FT_BASE_DEF( const char * )
+  FT_EXPORT_DEF( const char * )
   FT_Trace_Get_Name( FT_Int  idx )
   {
     FT_UNUSED( idx );

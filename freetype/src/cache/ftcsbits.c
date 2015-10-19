@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType sbits manager (body).                                       */
 /*                                                                         */
-/*  Copyright 2000-2006, 2009-2011, 2013 by                                */
+/*  Copyright 2000-2001, 2002, 2003, 2004, 2005 by                         */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -18,16 +18,13 @@
 
 #include <ft2build.h>
 #include FT_CACHE_H
-#include "ftcsbits.h"
+#include FT_CACHE_INTERNAL_SBITS_H
 #include FT_INTERNAL_OBJECTS_H
 #include FT_INTERNAL_DEBUG_H
 #include FT_ERRORS_H
 
 #include "ftccback.h"
 #include "ftcerror.h"
-
-#undef  FT_COMPONENT
-#define FT_COMPONENT  trace_cache
 
 
   /*************************************************************************/
@@ -80,7 +77,7 @@
   }
 
 
-  FT_LOCAL_DEF( void )
+  FT_EXPORT_DEF( void )
   FTC_SNode_Free( FTC_SNode  snode,
                   FTC_Cache  cache )
   {
@@ -116,7 +113,7 @@
     if ( (FT_UInt)(gindex - gnode->gindex) >= snode->count )
     {
       FT_ERROR(( "ftc_snode_load: invalid glyph index" ));
-      return FT_THROW( Invalid_Argument );
+      return FTC_Err_Invalid_Argument;
     }
 
     sbit  = snode->sbits + ( gindex - gnode->gindex );
@@ -132,13 +129,13 @@
       FT_Int        temp;
       FT_GlyphSlot  slot   = face->glyph;
       FT_Bitmap*    bitmap = &slot->bitmap;
-      FT_Pos        xadvance, yadvance; /* FT_GlyphSlot->advance.{x|y} */
+      FT_Int        xadvance, yadvance;
 
 
       if ( slot->format != FT_GLYPH_FORMAT_BITMAP )
       {
-        FT_TRACE0(( "ftc_snode_load:"
-                    " glyph loaded didn't return a bitmap\n" ));
+        FT_ERROR(( "%s: glyph loaded didn't return a bitmap!\n",
+                   "ftc_snode_load" ));
         goto BadGlyph;
       }
 
@@ -160,11 +157,7 @@
            !CHECK_CHAR( slot->bitmap_top  ) ||
            !CHECK_CHAR( xadvance )          ||
            !CHECK_CHAR( yadvance )          )
-      {
-        FT_TRACE2(( "ftc_snode_load:"
-                    " glyph too large for small bitmap cache\n"));
         goto BadGlyph;
-      }
 
       sbit->width     = (FT_Byte)bitmap->width;
       sbit->height    = (FT_Byte)bitmap->rows;
@@ -189,13 +182,13 @@
     /* we mark unloaded glyphs with `sbit.buffer == 0' */
     /* and `width == 255', `height == 0'               */
     /*                                                 */
-    if ( error && FT_ERR_NEQ( error, Out_Of_Memory ) )
+    if ( error && error != FTC_Err_Out_Of_Memory )
     {
     BadGlyph:
       sbit->width  = 255;
       sbit->height = 0;
       sbit->buffer = NULL;
-      error        = FT_Err_Ok;
+      error        = 0;
       if ( asize )
         *asize = 0;
     }
@@ -204,7 +197,7 @@
   }
 
 
-  FT_LOCAL_DEF( FT_Error )
+  FT_EXPORT_DEF( FT_Error )
   FTC_SNode_New( FTC_SNode  *psnode,
                  FTC_GQuery  gquery,
                  FTC_Cache   cache )
@@ -217,13 +210,12 @@
 
     FTC_SFamilyClass  clazz = FTC_CACHE__SFAMILY_CLASS( cache );
     FT_UInt           total;
-    FT_UInt           node_count;
 
 
     total = clazz->family_get_count( family, cache->manager );
     if ( total == 0 || gindex >= total )
     {
-      error = FT_THROW( Invalid_Argument );
+      error = FT_Err_Invalid_Argument;
       goto Exit;
     }
 
@@ -240,10 +232,6 @@
       FTC_GNode_Init( FTC_GNODE( snode ), start, family );
 
       snode->count = count;
-      for ( node_count = 0; node_count < count; node_count++ )
-      {
-        snode->sbits[node_count].width = 255;
-      }
 
       error = ftc_snode_load( snode,
                               cache->manager,
@@ -275,7 +263,7 @@
   }
 
 
-  FT_LOCAL_DEF( FT_Offset )
+  FT_LOCAL_DEF( FT_ULong )
   ftc_snode_weight( FTC_Node   ftcsnode,
                     FTC_Cache  cache )
   {
@@ -283,7 +271,7 @@
     FT_UInt    count = snode->count;
     FTC_SBit   sbit  = snode->sbits;
     FT_Int     pitch;
-    FT_Offset  size;
+    FT_ULong   size;
 
     FT_UNUSED( cache );
 
@@ -310,22 +298,17 @@
   }
 
 
-#if 0
-
-  FT_LOCAL_DEF( FT_Offset )
+  FT_EXPORT_DEF( FT_ULong )
   FTC_SNode_Weight( FTC_SNode  snode )
   {
     return ftc_snode_weight( FTC_NODE( snode ), NULL );
   }
 
-#endif /* 0 */
-
 
   FT_LOCAL_DEF( FT_Bool )
   ftc_snode_compare( FTC_Node    ftcsnode,
                      FT_Pointer  ftcgquery,
-                     FTC_Cache   cache,
-                     FT_Bool*    list_changed )
+                     FTC_Cache   cache )
   {
     FTC_SNode   snode  = (FTC_SNode)ftcsnode;
     FTC_GQuery  gquery = (FTC_GQuery)ftcgquery;
@@ -334,8 +317,6 @@
     FT_Bool     result;
 
 
-    if (list_changed)
-      *list_changed = FALSE;
     result = FT_BOOL( gnode->family == gquery->family                    &&
                       (FT_UInt)( gindex - gnode->gindex ) < snode->count );
     if ( result )
@@ -360,7 +341,7 @@
        *  However, we need to `lock' the node before this operation to
        *  prevent it from being flushed within the loop.
        *
-       *  When we exit the loop, we unlock the node, then check the `error'
+       *  When we exit the loop, we unlock the node, then check the `error' 
        *  variable.  If it is non-zero, this means that the cache was
        *  completely flushed and that no usable memory was found to load
        *  the bitmap.
@@ -376,7 +357,7 @@
        *
        */
 
-      if ( sbit->buffer == NULL && sbit->width == 255 )
+      if ( sbit->buffer == NULL && sbit->width != 255 )
       {
         FT_ULong  size;
         FT_Error  error;
@@ -389,7 +370,7 @@
         {
           error = ftc_snode_load( snode, cache->manager, gindex, &size );
         }
-        FTC_CACHE_TRYLOOP_END( list_changed );
+        FTC_CACHE_TRYLOOP_END();
 
         ftcsnode->ref_count--;  /* unlock the node */
 
@@ -404,18 +385,13 @@
   }
 
 
-#ifdef FTC_INLINE
-
-  FT_LOCAL_DEF( FT_Bool )
+  FT_EXPORT_DEF( FT_Bool )
   FTC_SNode_Compare( FTC_SNode   snode,
                      FTC_GQuery  gquery,
-                     FTC_Cache   cache,
-                     FT_Bool*    list_changed )
+                     FTC_Cache   cache )
   {
-    return ftc_snode_compare( FTC_NODE( snode ), gquery,
-                              cache, list_changed );
+    return ftc_snode_compare( FTC_NODE( snode ), gquery, cache );
   }
 
-#endif
 
 /* END */

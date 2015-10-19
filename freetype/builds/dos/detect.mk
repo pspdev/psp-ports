@@ -3,7 +3,7 @@
 #
 
 
-# Copyright 1996-2000, 2003, 2004, 2006 by
+# Copyright 1996-2000, 2003, 2004 by
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -73,7 +73,9 @@ ifeq ($(PLATFORM),dos)
   # Use DJGPP (i.e. gcc) by default.
   #
   CONFIG_FILE := dos-gcc.mk
-  CC          ?= gcc
+  ifndef CC
+    CC        := gcc
+  endif
 
   # additionally, we provide hooks for various other compilers
   #
@@ -116,12 +118,10 @@ ifeq ($(PLATFORM),dos)
     SEP    := /
     DELETE := rm
     COPY   := cp
-    CAT    := cat
     setup: std_setup
   else
     SEP    := $(BACKSLASH)
     DELETE := del
-    CAT    := type
 
     # Setting COPY is a bit trickier.  We can be running DJGPP on some
     # Windows NT derivatives, like XP.  See builds/win32/detect.mk for
