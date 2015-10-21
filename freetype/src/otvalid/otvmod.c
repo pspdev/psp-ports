@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType's OpenType validation module implementation (body).         */
 /*                                                                         */
-/*  Copyright 2004-2008, 2013 by                                           */
+/*  Copyright 2004, 2005 by                                                */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -39,18 +39,18 @@
 
 
   static FT_Error
-  otv_load_table( FT_Face             face,
-                  FT_Tag              tag,
-                  FT_Byte* volatile*  table,
-                  FT_ULong*           table_len )
+  otv_load_table( FT_Face    face,
+                  FT_Tag     tag,
+                  FT_Byte*  *table,
+                  FT_ULong  *table_len )
   {
     FT_Error   error;
     FT_Memory  memory = FT_FACE_MEMORY( face );
 
 
     error = FT_Load_Sfnt_Table( face, tag, 0, NULL, table_len );
-    if ( FT_ERR_EQ( error, Table_Missing ) )
-      return FT_Err_Ok;
+    if ( error == OTV_Err_Table_Missing )
+      return OTV_Err_Ok;
     if ( error )
       goto Exit;
 
@@ -65,41 +65,22 @@
 
 
   static FT_Error
-  otv_validate( FT_Face volatile   face,
-                FT_UInt            ot_flags,
-                FT_Bytes          *ot_base,
-                FT_Bytes          *ot_gdef,
-                FT_Bytes          *ot_gpos,
-                FT_Bytes          *ot_gsub,
-                FT_Bytes          *ot_jstf )
+  otv_validate( FT_Face    face,
+                FT_UInt    ot_flags,
+                FT_Bytes  *ot_base,
+                FT_Bytes  *ot_gdef,
+                FT_Bytes  *ot_gpos,
+                FT_Bytes  *ot_gsub,
+                FT_Bytes  *ot_jstf )
   {
-    FT_Error                  error = FT_Err_Ok;
-    FT_Byte* volatile         base;
-    FT_Byte* volatile         gdef;
-    FT_Byte* volatile         gpos;
-    FT_Byte* volatile         gsub;
-    FT_Byte* volatile         jstf;
-    FT_Byte* volatile         math;
-    FT_ULong                  len_base, len_gdef, len_gpos, len_gsub, len_jstf;
-    FT_ULong                  len_math;
-    FT_UInt                   num_glyphs = (FT_UInt)face->num_glyphs;
-    FT_ValidatorRec volatile  valid;
+    FT_Error         error = OTV_Err_Ok;
+    FT_Byte          *base, *gdef, *gpos, *gsub, *jstf;
+    FT_ULong         len_base, len_gdef, len_gpos, len_gsub, len_jstf;
+    FT_ValidatorRec  valid;
 
 
-    base     = gdef     = gpos     = gsub     = jstf     = math     = NULL;
-    len_base = len_gdef = len_gpos = len_gsub = len_jstf = len_math = 0;
-
-    /*
-     * XXX: OpenType tables cannot handle 32-bit glyph index,
-     *      although broken TrueType can have 32-bit glyph index.
-     */
-    if ( face->num_glyphs > 0xFFFFL )
-    {
-      FT_TRACE1(( "otv_validate: Invalid glyphs index (0x0000FFFF - 0x%08x) ",
-                  face->num_glyphs ));
-      FT_TRACE1(( "are not handled by OpenType tables\n" ));
-      num_glyphs = 0xFFFF;
-    }
+    base     = gdef     = gpos     = gsub     = jstf     = NULL;
+    len_base = len_gdef = len_gpos = len_gsub = len_jstf = 0;
 
     /* load tables */
 
@@ -138,13 +119,6 @@
         goto Exit;
     }
 
-    if ( ot_flags & FT_VALIDATE_MATH )
-    {
-      error = otv_load_table( face, TTAG_MATH, &math, &len_math );
-      if ( error )
-        goto Exit;
-    }
-
     /* validate tables */
 
     if ( base )
@@ -160,8 +134,8 @@
     if ( gpos )
     {
       ft_validator_init( &valid, gpos, gpos + len_gpos, FT_VALIDATE_DEFAULT );
-      if ( ft_setjmp( valid.jump_buffer ) == 0 )
-        otv_GPOS_validate( gpos, num_glyphs, &valid );
+      if (ft_setjmp( valid.jump_buffer ) == 0 )
+        otv_GPOS_validate( gpos, face->num_glyphs, &valid );
       error = valid.error;
       if ( error )
         goto Exit;
@@ -171,7 +145,7 @@
     {
       ft_validator_init( &valid, gsub, gsub + len_gsub, FT_VALIDATE_DEFAULT );
       if ( ft_setjmp( valid.jump_buffer ) == 0 )
-        otv_GSUB_validate( gsub, num_glyphs, &valid );
+        otv_GSUB_validate( gsub, face->num_glyphs, &valid );
       error = valid.error;
       if ( error )
         goto Exit;
@@ -181,7 +155,7 @@
     {
       ft_validator_init( &valid, gdef, gdef + len_gdef, FT_VALIDATE_DEFAULT );
       if ( ft_setjmp( valid.jump_buffer ) == 0 )
-        otv_GDEF_validate( gdef, gsub, gpos, num_glyphs, &valid );
+        otv_GDEF_validate( gdef, gsub, gpos, &valid );
       error = valid.error;
       if ( error )
         goto Exit;
@@ -191,17 +165,7 @@
     {
       ft_validator_init( &valid, jstf, jstf + len_jstf, FT_VALIDATE_DEFAULT );
       if ( ft_setjmp( valid.jump_buffer ) == 0 )
-        otv_JSTF_validate( jstf, gsub, gpos, num_glyphs, &valid );
-      error = valid.error;
-      if ( error )
-        goto Exit;
-    }
-
-    if ( math )
-    {
-      ft_validator_init( &valid, math, math + len_math, FT_VALIDATE_DEFAULT );
-      if ( ft_setjmp( valid.jump_buffer ) == 0 )
-        otv_MATH_validate( math, num_glyphs, &valid );
+        otv_JSTF_validate( jstf, gsub, gpos, face->num_glyphs, &valid );
       error = valid.error;
       if ( error )
         goto Exit;
@@ -214,8 +178,7 @@
     *ot_jstf = (FT_Bytes)jstf;
 
   Exit:
-    if ( error )
-    {
+    if ( error ) {
       FT_Memory  memory = FT_FACE_MEMORY( face );
 
 
@@ -226,26 +189,19 @@
       FT_FREE( jstf );
     }
 
-    {
-      FT_Memory  memory = FT_FACE_MEMORY( face );
-
-
-      FT_FREE( math );                 /* Can't return this as API is frozen */
-    }
-
     return error;
   }
 
 
   static
-  const FT_Service_OTvalidateRec  otvalid_interface =
+  const FT_Service_OTvalidateRec  otvalid_interface = 
   {
     otv_validate
   };
 
 
   static
-  const FT_ServiceDescRec  otvalid_services[] =
+  const FT_ServiceDescRec  otvalid_services[] = 
   {
     { FT_SERVICE_ID_OPENTYPE_VALIDATE, &otvalid_interface },
     { NULL, NULL }
@@ -266,7 +222,7 @@
   const FT_Module_Class  otv_module_class =
   {
     0,
-    sizeof ( FT_ModuleRec ),
+    sizeof( FT_ModuleRec ),
     "otvalid",
     0x10000L,
     0x20000L,

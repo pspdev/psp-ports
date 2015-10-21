@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType PFR cmap handling (body).                                   */
 /*                                                                         */
-/*  Copyright 2002, 2007, 2009, 2013 by                                    */
+/*  Copyright 2002 by                                                      */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -16,42 +16,34 @@
 /***************************************************************************/
 
 
-#include <ft2build.h>
-#include FT_INTERNAL_DEBUG_H
-#include "pfrcmap.h"
+#include "pfrcmap.h" 
 #include "pfrobjs.h"
-
-#include "pfrerror.h"
+#include FT_INTERNAL_DEBUG_H
 
 
   FT_CALLBACK_DEF( FT_Error )
   pfr_cmap_init( PFR_CMap  cmap )
   {
-    FT_Error  error = FT_Err_Ok;
-    PFR_Face  face  = (PFR_Face)FT_CMAP_FACE( cmap );
+    PFR_Face  face = (PFR_Face)FT_CMAP_FACE( cmap );
 
 
     cmap->num_chars = face->phy_font.num_chars;
     cmap->chars     = face->phy_font.chars;
-
+    
     /* just for safety, check that the character entries are correctly */
     /* sorted in increasing character code order                       */
     {
       FT_UInt  n;
-
+      
 
       for ( n = 1; n < cmap->num_chars; n++ )
       {
         if ( cmap->chars[n - 1].char_code >= cmap->chars[n].char_code )
-        {
-          error = FT_THROW( Invalid_Table );
-          goto Exit;
-        }
+          FT_ASSERT( 0 );
       }
     }
-
-  Exit:
-    return error;
+    
+    return 0;
   }
 
 
@@ -90,7 +82,7 @@
   }
 
 
-  FT_CALLBACK_DEF( FT_UInt32 )
+  FT_CALLBACK_DEF( FT_UInt )
   pfr_cmap_char_next( PFR_CMap    cmap,
                       FT_UInt32  *pchar_code )
   {
@@ -159,9 +151,7 @@
     (FT_CMap_InitFunc)     pfr_cmap_init,
     (FT_CMap_DoneFunc)     pfr_cmap_done,
     (FT_CMap_CharIndexFunc)pfr_cmap_char_index,
-    (FT_CMap_CharNextFunc) pfr_cmap_char_next,
-
-    NULL, NULL, NULL, NULL, NULL
+    (FT_CMap_CharNextFunc) pfr_cmap_char_next
   };
 
 

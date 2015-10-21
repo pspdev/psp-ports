@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    CID-keyed Type1 font loader (body).                                  */
 /*                                                                         */
-/*  Copyright 1996-2006, 2009, 2011-2013 by                                */
+/*  Copyright 1996-2001, 2002, 2003, 2004, 2005 by                         */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -42,7 +42,7 @@
   cid_get_offset( FT_Byte*  *start,
                   FT_Byte    offsize )
   {
-    FT_ULong  result;
+    FT_Long   result;
     FT_Byte*  p = *start;
 
 
@@ -53,7 +53,7 @@
     }
 
     *start = p;
-    return (FT_Long)result;
+    return result;
   }
 
 
@@ -97,10 +97,6 @@
       object = (FT_Byte*)&cid->font_info;
       break;
 
-    case T1_FIELD_LOCATION_FONT_EXTRA:
-      object = (FT_Byte*)&face->font_extra;
-      break;
-
     case T1_FIELD_LOCATION_BBOX:
       object = (FT_Byte*)&cid->font_bbox;
       break;
@@ -110,11 +106,11 @@
         CID_FaceDict  dict;
 
 
-        if ( parser->num_dict < 0 || parser->num_dict >= cid->num_dicts )
+        if ( parser->num_dict < 0 )
         {
-          FT_ERROR(( "cid_load_keyword: invalid use of `%s'\n",
+          FT_ERROR(( "cid_load_keyword: invalid use of `%s'!\n",
                      keyword->ident ));
-          error = FT_THROW( Syntax_Error );
+          error = CID_Err_Syntax_Error;
           goto Exit;
         }
 
@@ -147,8 +143,8 @@
 
 
   FT_CALLBACK_DEF( FT_Error )
-  cid_parse_font_matrix( CID_Face     face,
-                         CID_Parser*  parser )
+  parse_font_matrix( CID_Face     face,
+                     CID_Parser*  parser )
   {
     FT_Matrix*    matrix;
     FT_Vector*    offset;
@@ -158,7 +154,7 @@
     FT_Fixed      temp_scale;
 
 
-    if ( parser->num_dict >= 0 && parser->num_dict < face->cid.num_dicts )
+    if ( parser->num_dict >= 0 )
     {
       dict   = face->cid.font_dicts + parser->num_dict;
       matrix = &dict->font_matrix;
@@ -168,11 +164,11 @@
 
       temp_scale = FT_ABS( temp[3] );
 
-      /* Set Units per EM based on FontMatrix values.  We set the value to */
-      /* 1000 / temp_scale, because temp_scale was already multiplied by   */
-      /* 1000 (in t1_tofixed, from psobjs.c).                              */
-
-      root->units_per_EM = (FT_UShort)FT_DivFix( 1000, temp_scale );
+      /* Set units per EM based on FontMatrix values.  We set the value to */
+      /* `1000/temp_scale', because temp_scale was already multiplied by   */
+      /* 1000 (in `t1_tofixed', from psobjs.c).                            */
+      root->units_per_EM = (FT_UShort)( FT_DivFix( 0x10000L,
+                                        FT_DivFix( temp_scale, 1000 ) ) );
 
       /* we need to scale the values by 1.0/temp[3] */
       if ( temp_scale != 0x10000L )
@@ -195,7 +191,7 @@
       offset->y  = temp[5] >> 16;
     }
 
-    return FT_Err_Ok;      /* this is a callback function; */
+    return CID_Err_Ok;      /* this is a callback function; */
                             /* we must return an error code */
   }
 
@@ -206,7 +202,7 @@
   {
     CID_FaceInfo  cid    = &face->cid;
     FT_Memory     memory = face->root.memory;
-    FT_Error      error  = FT_Err_Ok;
+    FT_Error      error  = CID_Err_Ok;
     FT_Long       num_dicts;
 
 
@@ -238,40 +234,16 @@
   }
 
 
-  /* by mistake, `expansion_factor' appears both in PS_PrivateRec */
-  /* and CID_FaceDictRec (both are public header files and can't  */
-  /* changed); we simply copy the value                           */
-
-  FT_CALLBACK_DEF( FT_Error )
-  parse_expansion_factor( CID_Face     face,
-                          CID_Parser*  parser )
-  {
-    CID_FaceDict  dict;
-
-
-    if ( parser->num_dict >= 0 && parser->num_dict < face->cid.num_dicts )
-    {
-      dict = face->cid.font_dicts + parser->num_dict;
-
-      dict->expansion_factor              = cid_parser_to_fixed( parser, 0 );
-      dict->private_dict.expansion_factor = dict->expansion_factor;
-    }
-
-    return FT_Err_Ok;
-  }
-
-
   static
   const T1_FieldRec  cid_field_records[] =
   {
 
 #include "cidtoken.h"
 
-    T1_FIELD_CALLBACK( "FDArray",         parse_fd_array, 0 )
-    T1_FIELD_CALLBACK( "FontMatrix",      cid_parse_font_matrix, 0 )
-    T1_FIELD_CALLBACK( "ExpansionFactor", parse_expansion_factor, 0 )
+    T1_FIELD_CALLBACK( "FDArray",    parse_fd_array )
+    T1_FIELD_CALLBACK( "FontMatrix", parse_font_matrix )
 
-    { 0, T1_FIELD_LOCATION_CID_INFO, T1_FIELD_TYPE_NONE, 0, 0, 0, 0, 0, 0 }
+    { 0, T1_FIELD_LOCATION_CID_INFO, T1_FIELD_TYPE_NONE, 0, 0, 0, 0, 0 }
   };
 
 
@@ -286,7 +258,7 @@
 
     parser->root.cursor = base;
     parser->root.limit  = base + size;
-    parser->root.error  = FT_Err_Ok;
+    parser->root.error  = CID_Err_Ok;
 
     {
       FT_Byte*  cur   = base;
@@ -413,24 +385,11 @@
       FT_Byte*      p;
 
 
-      /* Check for possible overflow. */
-      if ( num_subrs == FT_UINT_MAX )
-      {
-        error = FT_THROW( Syntax_Error );
-        goto Fail;
-      }
-
       /* reallocate offsets array if needed */
       if ( num_subrs + 1 > max_offsets )
       {
         FT_UInt  new_max = FT_PAD_CEIL( num_subrs + 1, 4 );
 
-
-        if ( new_max <= max_offsets )
-        {
-          error = FT_THROW( Syntax_Error );
-          goto Fail;
-        }
 
         if ( FT_RENEW_ARRAY( offsets, max_offsets, new_max ) )
           goto Fail;
@@ -448,11 +407,6 @@
         offsets[count] = cid_get_offset( &p, (FT_Byte)dict->sd_bytes );
 
       FT_FRAME_EXIT();
-
-      /* offsets must be ordered */
-      for ( count = 1; count <= num_subrs; count++ )
-        if ( offsets[count - 1] > offsets[count] )
-          goto Fail;
 
       /* now, compute the size of subrs charstrings, */
       /* allocate, and read them                     */
@@ -513,8 +467,8 @@
 
 
   static void
-  cid_init_loader( CID_Loader*  loader,
-                   CID_Face     face )
+  t1_init_loader( CID_Loader*  loader,
+                  CID_Face     face )
   {
     FT_UNUSED( face );
 
@@ -522,8 +476,8 @@
   }
 
 
-  static  void
-  cid_done_loader( CID_Loader*  loader )
+  static void
+  t1_done_loader( CID_Loader*  loader )
   {
     CID_Parser*  parser = &loader->parser;
 
@@ -571,7 +525,7 @@
 
         if ( size == 0 )
         {
-          error = FT_THROW( Syntax_Error );
+          error = CID_Err_Syntax_Error;
           goto Exit;
         }
 
@@ -604,7 +558,7 @@
       }
       else
       {
-        error = FT_THROW( Syntax_Error );
+        error = CID_Err_Syntax_Error;
         goto Exit;
       }
 
@@ -624,7 +578,7 @@
       p++;
     }
 
-    error = FT_Err_Ok;
+    error = CID_Err_Ok;
 
   Exit:
     return error;
@@ -641,7 +595,7 @@
     FT_Error     error;
 
 
-    cid_init_loader( &loader, face );
+    t1_init_loader( &loader, face );
 
     parser = &loader.parser;
     error = cid_parser_new( parser, face->root.stream, face->root.memory,
@@ -682,7 +636,7 @@
     error = cid_read_subrs( face );
 
   Exit:
-    cid_done_loader( &loader );
+    t1_done_loader( &loader );
     return error;
   }
 

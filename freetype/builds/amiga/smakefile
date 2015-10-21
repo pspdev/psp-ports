@@ -3,7 +3,7 @@
 #
 
 
-# Copyright 2005,2006, 2007, 2009 by
+# Copyright 2005 by
 # Werner Lemberg and Detlef Würkner.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -34,7 +34,6 @@
 #define FT_USE_PFR     // pfr font driver
 #define FT_USE_WINFNT  // windows .fnt|.fon bitmap font driver
 #define FT_USE_OTV     // opentype validator
-#define FT_USE_GXV     // truetype gx validator
 #include "FT:src/base/ftinit.c"
 # ---8<---
 #
@@ -42,17 +41,14 @@
 # (and either ftdebug.o or ftdebugpure.o if you enabled FT_DEBUG_LEVEL_ERROR or
 # FT_DEBUG_LEVEL_TRACE in include/freetype/config/ftoption.h).
 
-OBJBASE = ftbase.o ftbbox.o ftbdf.o ftbitmap.o ftcid.o ftfstype.o ftgasp.o   \
-	  ftglyph.o ftgxval.o ftlcdfil.o ftmm.o ftotval.o ftpatent.o ftpfr.o \
-	  ftstroke.o ftsynth.o fttype1.o ftwinfnt.o ftxf86.o
+OBJBASE = ftbase.o ftbbox.o ftbdf.o ftbitmap.o ftglyph.o ftmm.o ftotval.o \
+	  ftpfr.o ftstroke.o ftsynth.o fttype1.o ftwinfnt.o ftxf86.o
 
 OBJSYSTEM = ftsystem.o ftsystempure.o
 
 OBJDEBUG = ftdebug.o ftdebugpure.o
 
 OBJAFIT = autofit.o
-
-OBJGXV = gxvalid.o
 
 OBJOTV = otvalid.o
 
@@ -77,9 +73,9 @@ CPU       = 68000
 
 OPTIMIZER = optinlocal
 
-SCFLAGS = optimize opttime optsched strmerge data=faronly idlen=50 cpu=$(CPU)\
+SCFLAGS = optimize opttime optsched strmerge strsect=near idlen=40 cpu=$(CPU)\
 	  idir=include/ idir=$(CORE) idir=FT:include/ nostackcheck nochkabort\
-	  noicons ignore=79,85,110,306 parameters=both define=FT2_BUILD_LIBRARY
+	  noicons ignore=79,85,110,306 parameters=both
 
 LIB  = ft2_$(CPU).lib
 
@@ -98,8 +94,8 @@ assign:
 
 # uses separate object modules in lib to make for easier debugging
 # also, can make smaller programs if entire engine is not used
-ft2_$(CPU).lib:  $(OBJBASE) $(OBJAFIT) $(OBJOTV) $(OBJPS) $(OBJRASTER) $(OBJSFNT) $(OBJCACHE) $(OBJFONTD) lzw.o gzip.o bzip2.o
-	oml $@ r $(OBJBASE) $(OBJAFIT) $(OBJOTV) $(OBJPS) $(OBJRASTER) $(OBJSFNT) $(OBJCACHE) $(OBJFONTD) lzw.o gzip.o bzip2.o
+ft2_$(CPU).lib:  $(OBJBASE) $(OBJAFIT) $(OBJOTV) $(OBJPS) $(OBJRASTER) $(OBJSFNT) $(OBJCACHE) $(OBJFONTD) lzw.o # gzip.o
+	oml $@ r $(OBJBASE) $(OBJAFIT) $(OBJOTV) $(OBJPS) $(OBJRASTER) $(OBJSFNT) $(OBJCACHE) $(OBJFONTD) lzw.o
 
 clean:
 	-delete \#?.o
@@ -131,23 +127,11 @@ ftbdf.o: $(CORE)base/ftbdf.c
 	sc $(SCFLAGS) objname=$@ $<
 ftbitmap.o: $(CORE)base/ftbitmap.c
 	sc $(SCFLAGS) objname=$@ $<
-ftcid.o: $(CORE)base/ftcid.c
-	sc $(SCFLAGS) objname=$@ $<
-ftfstype.o: $(CORE)base/ftfstype.c
-	sc $(SCFLAGS) objname=$@ $<
-ftgasp.o: $(CORE)base/ftgasp.c
-	sc $(SCFLAGS) objname=$@ $<
 ftglyph.o: $(CORE)base/ftglyph.c
-	sc $(SCFLAGS) objname=$@ $<
-ftgxval.o: $(CORE)base/ftgxval.c
-	sc $(SCFLAGS) objname=$@ $<
-ftlcdfil.o: $(CORE)base/ftlcdfil.c
 	sc $(SCFLAGS) objname=$@ $<
 ftmm.o: $(CORE)base/ftmm.c
 	sc $(SCFLAGS) objname=$@ $<
 ftotval.o: $(CORE)base/ftotval.c
-	sc $(SCFLAGS) objname=$@ $<
-ftpatent.o: $(CORE)base/ftpatent.c
 	sc $(SCFLAGS) objname=$@ $<
 ftpfr.o: $(CORE)base/ftpfr.c
 	sc $(SCFLAGS) objname=$@ $<
@@ -183,7 +167,7 @@ psaux.o: $(CORE)psaux/psaux.c
 # freetype library PS glyph names module
 #
 psnames.o: $(CORE)psnames/psnames.c
-	sc $(SCFLAGS) code=far objname=$@ $<
+	sc $(SCFLAGS) objname=$@ $<
 
 #
 # freetype library monochrome raster module
@@ -260,13 +244,7 @@ pcf.o: $(CORE)pcf/pcf.c
 # freetype library gzip support for compressed PCF bitmap fonts
 #
 gzip.o: $(CORE)gzip/ftgzip.c
-	sc $(SCFLAGS) define FAR objname=$@ $<
-
-#
-# freetype library bzip2 support for compressed PCF bitmap fonts
-#
-bzip2.o: $(CORE)bzip2/ftbzip2.c
-	sc $(SCFLAGS) define FAR objname=$@ $<
+	sc $(SCFLAGS) objname=$@ $<
 
 #
 # freetype library compress support for compressed PCF bitmap fonts
@@ -284,12 +262,6 @@ pfr.o: $(CORE)pfr/pfr.c
 # freetype library Windows FNT/FON bitmap font driver
 #
 winfnt.o: $(CORE)winfonts/winfnt.c
-	sc $(SCFLAGS) objname=$@ $<
-
-#
-# freetype library TrueTypeGX validator
-#
-gxvalid.o: $(CORE)gxvalid/gxvalid.c
 	sc $(SCFLAGS) objname=$@ $<
 
 #

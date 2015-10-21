@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType API for validating OpenType tables (body).                  */
 /*                                                                         */
-/*  Copyright 2004, 2006, 2008, 2010, 2013 by                              */
+/*  Copyright 2004 by                                                      */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -16,11 +16,8 @@
 /***************************************************************************/
 
 #include <ft2build.h>
-#include FT_INTERNAL_DEBUG_H
-
 #include FT_INTERNAL_OBJECTS_H
 #include FT_SERVICE_OPENTYPE_VALIDATE_H
-#include FT_OPENTYPE_VALIDATE_H
 
 
   /* documentation is in ftotval.h */
@@ -40,7 +37,7 @@
 
     if ( !face )
     {
-      error = FT_THROW( Invalid_Face_Handle );
+      error = FT_Err_Invalid_Face_Handle;
       goto Exit;
     }
 
@@ -50,7 +47,7 @@
             GSUB_table &&
             JSTF_table ) )
     {
-      error = FT_THROW( Invalid_Argument );
+      error = FT_Err_Invalid_Argument;
       goto Exit;
     }
 
@@ -65,26 +62,10 @@
                                  GSUB_table,
                                  JSTF_table );
     else
-      error = FT_THROW( Unimplemented_Feature );
+      error = FT_Err_Invalid_Argument;
 
   Exit:
     return error;
-  }
-
-
-  FT_EXPORT_DEF( void )
-  FT_OpenType_Free( FT_Face   face,
-                    FT_Bytes  table )
-  {
-    FT_Memory  memory;
-
-
-    if ( !face )
-      return;
-
-    memory = FT_FACE_MEMORY( face );
-
-    FT_FREE( table );
   }
 
 

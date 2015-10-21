@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Single object library component (body only).                         */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004, 2006, 2007, 2008, 2009 by       */
+/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -20,21 +20,18 @@
 
 #define  FT_MAKE_OPTION_SINGLE_OBJECT
 
-#include "ftpic.c"
-#include "basepic.c"
-#include "ftadvanc.c"
-#include "ftcalc.c"
+#include "ftutil.c"
 #include "ftdbgmem.c"
+#include "ftstream.c"
+#include "ftcalc.c"
+#include "fttrigon.c"
+#include "ftoutln.c"
 #include "ftgloadr.c"
 #include "ftobjs.c"
-#include "ftoutln.c"
+#include "ftnames.c"
 #include "ftrfork.c"
-#include "ftsnames.c"
-#include "ftstream.c"
-#include "fttrigon.c"
-#include "ftutil.c"
 
-#ifdef FT_MACINTOSH
+#if defined( __APPLE__ ) && !defined ( DARWIN_NO_CARBON )
 #include "ftmac.c"
 #endif
 

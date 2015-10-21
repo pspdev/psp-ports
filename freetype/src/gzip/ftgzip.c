@@ -8,7 +8,7 @@
 /*  parse compressed PCF fonts, as found with many X11 server              */
 /*  distributions.                                                         */
 /*                                                                         */
-/*  Copyright 2002-2006, 2009-2013 by                                      */
+/*  Copyright 2002, 2003, 2004, 2005 by                                    */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -24,15 +24,13 @@
 #include FT_INTERNAL_MEMORY_H
 #include FT_INTERNAL_STREAM_H
 #include FT_INTERNAL_DEBUG_H
-#include FT_GZIP_H
-#include FT_CONFIG_STANDARD_LIBRARY_H
+#include <string.h>
 
 
 #include FT_MODULE_ERRORS_H
 
 #undef __FTERRORS_H__
 
-#undef  FT_ERR_PREFIX
 #define FT_ERR_PREFIX  Gzip_Err_
 #define FT_ERR_BASE    FT_Mod_Err_Gzip
 
@@ -40,10 +38,6 @@
 
 
 #ifdef FT_CONFIG_OPTION_USE_ZLIB
-
-#ifdef FT_CONFIG_OPTION_PIC
-#error "gzip code does not support PIC yet"
-#endif
 
 #ifdef FT_CONFIG_OPTION_SYSTEM_ZLIB
 
@@ -59,9 +53,7 @@
  /* original ZLib.                                                   */
 
 #define NO_DUMMY_DECL
-#ifndef USE_ZLIB_ZCALLOC
-#define MY_ZCALLOC /* prevent all zcalloc() & zfree() in zutils.c */
-#endif
+#define MY_ZCALLOC
 
 #include "zlib.h"
 
@@ -107,12 +99,12 @@
                  uInt       size )
   {
     FT_ULong    sz = (FT_ULong)size * items;
-    FT_Error    error;
-    FT_Pointer  p  = NULL;
+    FT_Pointer  p;
 
 
-    (void)FT_ALLOC( p, sz );
-    return p;
+    FT_MEM_ALLOC( p, sz );
+
+    return (voidpf) p;
   }
 
 
@@ -124,7 +116,7 @@
   }
 
 
-#if !defined( FT_CONFIG_OPTION_SYSTEM_ZLIB ) && !defined( USE_ZLIB_ZCALLOC )
+#ifndef FT_CONFIG_OPTION_SYSTEM_ZLIB
 
   local voidpf
   zcalloc ( voidpf    opaque,
@@ -141,7 +133,7 @@
     ft_gzip_free( (FT_Memory)opaque, ptr );
   }
 
-#endif /* !SYSTEM_ZLIB && !USE_ZLIB_ZCALLOC */
+#endif /* !SYSTEM_ZLIB */
 
 
 /***************************************************************************/
@@ -200,7 +192,7 @@
          head[2] != Z_DEFLATED        ||
         (head[3] & FT_GZIP_RESERVED)  )
     {
-      error = FT_THROW( Invalid_File_Format );
+      error = Gzip_Err_Invalid_File_Format;
       goto Exit;
     }
 
@@ -262,7 +254,7 @@
                      FT_Stream    source )
   {
     z_stream*  zstream = &zip->zstream;
-    FT_Error   error   = FT_Err_Ok;
+    FT_Error   error   = Gzip_Err_Ok;
 
 
     zip->stream = stream;
@@ -294,7 +286,7 @@
 
     if ( inflateInit2( zstream, -MAX_WBITS ) != Z_OK ||
          zstream->next_in == NULL                     )
-      error = FT_THROW( Invalid_File_Format );
+      error = Gzip_Err_Invalid_File_Format;
 
   Exit:
     return error;
@@ -365,7 +357,7 @@
       size = stream->read( stream, stream->pos, zip->input,
                            FT_GZIP_BUFFER_SIZE );
       if ( size == 0 )
-        return FT_THROW( Invalid_Stream_Operation );
+        return Gzip_Err_Invalid_Stream_Operation;
     }
     else
     {
@@ -374,7 +366,7 @@
         size = FT_GZIP_BUFFER_SIZE;
 
       if ( size == 0 )
-        return FT_THROW( Invalid_Stream_Operation );
+        return Gzip_Err_Invalid_Stream_Operation;
 
       FT_MEM_COPY( zip->input, stream->base + stream->pos, size );
     }
@@ -383,7 +375,7 @@
     zstream->next_in  = zip->input;
     zstream->avail_in = size;
 
-    return FT_Err_Ok;
+    return Gzip_Err_Ok;
   }
 
 
@@ -391,7 +383,7 @@
   ft_gzip_file_fill_output( FT_GZipFile  zip )
   {
     z_stream*  zstream = &zip->zstream;
-    FT_Error   error   = FT_Err_Ok;
+    FT_Error   error   = 0;
 
 
     zip->cursor        = zip->buffer;
@@ -416,12 +408,12 @@
       {
         zip->limit = zstream->next_out;
         if ( zip->limit == zip->cursor )
-          error = FT_THROW( Invalid_Stream_Operation );
+          error = Gzip_Err_Invalid_Stream_Operation;
         break;
       }
       else if ( err != Z_OK )
       {
-        error = FT_THROW( Invalid_Stream_Operation );
+        error = Gzip_Err_Invalid_Stream_Operation;
         break;
       }
     }
@@ -435,7 +427,7 @@
   ft_gzip_file_skip_output( FT_GZipFile  zip,
                             FT_ULong     count )
   {
-    FT_Error  error = FT_Err_Ok;
+    FT_Error  error = Gzip_Err_Ok;
     FT_ULong  delta;
 
 
@@ -561,35 +553,13 @@
   }
 
 
-  static FT_ULong
-  ft_gzip_get_uncompressed_size( FT_Stream  stream )
-  {
-    FT_Error  error;
-    FT_ULong  old_pos;
-    FT_ULong  result = 0;
-
-
-    old_pos = stream->pos;
-    if ( !FT_Stream_Seek( stream, stream->size - 4 ) )
-    {
-      result = FT_Stream_ReadULong( stream, &error );
-      if ( error )
-        result = 0;
-
-      (void)FT_Stream_Seek( stream, old_pos );
-    }
-
-    return result;
-  }
-
-
   FT_EXPORT_DEF( FT_Error )
   FT_Stream_OpenGzip( FT_Stream  stream,
                       FT_Stream  source )
   {
     FT_Error     error;
     FT_Memory    memory = source->memory;
-    FT_GZipFile  zip = NULL;
+    FT_GZipFile  zip;
 
 
     /*
@@ -615,52 +585,6 @@
       stream->descriptor.pointer = zip;
     }
 
-    /*
-     *  We use the following trick to try to dramatically improve the
-     *  performance while dealing with small files.  If the original stream
-     *  size is less than a certain threshold, we try to load the whole font
-     *  file into memory.  This saves us from using the 32KB buffer needed
-     *  to inflate the file, plus the two 4KB intermediate input/output
-     *  buffers used in the `FT_GZipFile' structure.
-     */
-    {
-      FT_ULong  zip_size = ft_gzip_get_uncompressed_size( source );
-
-
-      if ( zip_size != 0 && zip_size < 40 * 1024 )
-      {
-        FT_Byte*  zip_buff = NULL;
-
-
-        if ( !FT_ALLOC( zip_buff, zip_size ) )
-        {
-          FT_ULong  count;
-
-
-          count = ft_gzip_file_io( zip, 0, zip_buff, zip_size );
-          if ( count == zip_size )
-          {
-            ft_gzip_file_done( zip );
-            FT_FREE( zip );
-
-            stream->descriptor.pointer = NULL;
-
-            stream->size  = zip_size;
-            stream->pos   = 0;
-            stream->base  = zip_buff;
-            stream->read  = NULL;
-            stream->close = ft_gzip_stream_close;
-
-            goto Exit;
-          }
-
-          ft_gzip_file_io( zip, 0, NULL, 0 );
-          FT_FREE( zip_buff );
-        }
-        error = FT_Err_Ok;
-      }
-    }
-
     stream->size  = 0x7FFFFFFFL;  /* don't know the real size! */
     stream->pos   = 0;
     stream->base  = 0;
@@ -680,7 +604,7 @@
     FT_UNUSED( stream );
     FT_UNUSED( source );
 
-    return FT_THROW( Unimplemented_Feature );
+    return Gzip_Err_Unimplemented_Feature;
   }
 
 #endif /* !FT_CONFIG_OPTION_USE_ZLIB */

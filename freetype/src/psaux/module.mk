@@ -3,7 +3,7 @@
 #
 
 
-# Copyright 1996-2000, 2006 by
+# Copyright 1996-2000 by
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -13,11 +13,10 @@
 # fully.
 
 
-FTMODULE_H_COMMANDS += PSAUX_MODULE
+make_module_list: add_psaux_module
 
-define PSAUX_MODULE
-$(OPEN_DRIVER) FT_Module_Class, psaux_module_class $(CLOSE_DRIVER)
-$(ECHO_DRIVER)psaux     $(ECHO_DRIVER_DESC)Postscript Type 1 & Type 2 helper module$(ECHO_DRIVER_DONE)
-endef
+add_psaux_module:
+	$(OPEN_DRIVER)psaux_module_class$(CLOSE_DRIVER)
+	$(ECHO_DRIVER)psaux     $(ECHO_DRIVER_DESC)Postscript Type 1 & Type 2 helper module$(ECHO_DRIVER_DONE)
 
 # EOF

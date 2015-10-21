@@ -3,7 +3,7 @@
 #
 
 
-# Copyright 1996-2000, 2003, 2004, 2005, 2006 by
+# Copyright 1996-2000, 2003, 2004, 2005 by
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -64,8 +64,7 @@ T := -o$(space)
 #
 ifndef CFLAGS
   ifeq ($(findstring g++,$(CC)),)
-    nested_externs    := -Wnested-externs
-    strict_prototypes := -Wstrict-prototypes
+    nested_externs := -Wnested-externs
   endif
 
   CFLAGS := -c -g -O0 \
@@ -75,10 +74,10 @@ ifndef CFLAGS
             -Wshadow \
             -Wpointer-arith \
             -Wwrite-strings \
+            -Wstrict-prototypes \
             -Wredundant-decls \
             -Wno-long-long \
-            $(nested_externs) \
-            $(strict_prototypes)
+            $(nested_externs)
 endif
 
 # ANSIFLAGS: Put there the flags used to make your compiler ANSI-compliant.
@@ -88,8 +87,10 @@ ANSIFLAGS := -ansi -pedantic
 
 # Library linking
 #
-CLEAN_LIBRARY ?= $(DELETE) $(subst /,$(SEP),$(PROJECT_LIBRARY))
-LINK_LIBRARY   = $(AR) -r $@ $(OBJECTS_LIST)
+ifndef CLEAN_LIBRARY
+  CLEAN_LIBRARY = $(DELETE) $(subst /,$(SEP),$(PROJECT_LIBRARY))
+endif
+LINK_LIBRARY = $(AR) -r $@ $(OBJECTS_LIST)
 
 
 # EOF

@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    CID-keyed Type1 parser (body).                                       */
 /*                                                                         */
-/*  Copyright 1996-2007, 2009, 2013 by                                     */
+/*  Copyright 1996-2001, 2002, 2003, 2004, 2005 by                         */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -18,6 +18,7 @@
 
 #include <ft2build.h>
 #include FT_INTERNAL_DEBUG_H
+#include FT_INTERNAL_CALC_H
 #include FT_INTERNAL_OBJECTS_H
 #include FT_INTERNAL_STREAM_H
 
@@ -55,6 +56,8 @@
   {
     FT_Error  error;
     FT_ULong  base_offset, offset, ps_len;
+    FT_Byte   buffer[256 + 10];
+    FT_Int    buff_len;
     FT_Byte   *cur, *limit;
     FT_Byte   *arg1, *arg2;
 
@@ -73,8 +76,8 @@
     if ( ft_strncmp( (char *)stream->cursor,
                      "%!PS-Adobe-3.0 Resource-CIDFont", 31 ) )
     {
-      FT_TRACE2(( "  not a CID-keyed font\n" ));
-      error = FT_THROW( Unknown_File_Format );
+      FT_TRACE2(( "[not a valid CID-keyed font]\n" ));
+      error = CID_Err_Unknown_File_Format;
     }
 
     FT_FRAME_EXIT();
@@ -82,61 +85,44 @@
       goto Exit;
 
   Again:
-    /* now, read the rest of the file until we find */
-    /* `StartData' or `/sfnts'                      */
+    /* now, read the rest of the file until we find a `StartData' */
+    buff_len = 256;
+    for (;;)
     {
-      FT_Byte   buffer[256 + 10];
-      FT_Long   read_len = 256 + 10; /* same as signed FT_Stream->size */
-      FT_Byte*  p        = buffer;
+      FT_Byte*  p;
+      FT_ULong  top_position;
 
 
-      for ( offset = FT_STREAM_POS(); ; offset += 256 )
+      /* fill input buffer */
+      limit     = buffer + 256;
+      buff_len -= 256;
+      if ( buff_len > 0 )
+        FT_MEM_MOVE( buffer, limit, buff_len );
+
+      p = buffer + buff_len;
+
+      if ( FT_STREAM_READ( p, 256 + 10 - buff_len ) )
+        goto Exit;
+
+      top_position = FT_STREAM_POS() - buff_len;
+      buff_len     = 256 + 10;
+
+      /* look for `StartData' */
+      for ( p = buffer; p < limit; p++ )
       {
-        FT_Long  stream_len; /* same as signed FT_Stream->size */
-
-
-        stream_len = stream->size - FT_STREAM_POS();
-        if ( stream_len == 0 )
+        if ( p[0] == 'S' && ft_strncmp( (char*)p, "StartData", 9 ) == 0 )
         {
-          FT_TRACE2(( "cid_parser_new: no `StartData' keyword found\n" ));
-          error = FT_THROW( Invalid_File_Format );
-          goto Exit;
+          /* save offset of binary data after `StartData' */
+          offset = (FT_ULong)( top_position - ( limit - p ) + 10 );
+          goto Found;
         }
-
-        read_len = FT_MIN( read_len, stream_len );
-        if ( FT_STREAM_READ( p, read_len ) )
-          goto Exit;
-
-        if ( read_len < 256 )
-          p[read_len]  = '\0';
-
-        limit = p + read_len - 10;
-
-        for ( p = buffer; p < limit; p++ )
-        {
-          if ( p[0] == 'S' && ft_strncmp( (char*)p, "StartData", 9 ) == 0 )
-          {
-            /* save offset of binary data after `StartData' */
-            offset += p - buffer + 10;
-            goto Found;
-          }
-          else if ( p[1] == 's' && ft_strncmp( (char*)p, "/sfnts", 6 ) == 0 )
-          {
-            offset += p - buffer + 7;
-            goto Found;
-          }
-        }
-
-        FT_MEM_MOVE( buffer, p, 10 );
-        read_len = 256;
-        p = buffer + 10;
       }
     }
 
   Found:
-    /* We have found the start of the binary data or the `/sfnts' token. */
-    /* Now rewind and extract the frame corresponding to this PostScript */
-    /* section.                                                          */
+    /* we have found the start of the binary data.  We will now     */
+    /* rewind and extract the frame corresponding to the PostScript */
+    /* section                                                      */
 
     ps_len = offset - base_offset;
     if ( FT_STREAM_SEEK( base_offset )                  ||
@@ -150,10 +136,9 @@
     parser->root.limit     = parser->root.cursor + ps_len;
     parser->num_dict       = -1;
 
-    /* Finally, we check whether `StartData' or `/sfnts' was real --  */
-    /* it could be in a comment or string.  We also get the arguments */
-    /* of `StartData' to find out whether the data is represented in  */
-    /* binary or hex format.                                          */
+    /* Finally, we check whether `StartData' was real -- it could be  */
+    /* in a comment or string.  We also get its arguments to find out */
+    /* whether the data is represented in binary or hex format.       */
 
     arg1 = parser->root.cursor;
     cid_parser_skip_PS_token( parser );
@@ -168,24 +153,15 @@
     while ( cur < limit )
     {
       if ( parser->root.error )
-      {
-        error = parser->root.error;
-        goto Exit;
-      }
+        break;
 
-      if ( cur[0] == 'S' && ft_strncmp( (char*)cur, "StartData", 9 ) == 0 )
+      if ( *cur == 'S' && ft_strncmp( (char*)cur, "StartData", 9 ) == 0 )
       {
         if ( ft_strncmp( (char*)arg1, "(Hex)", 5 ) == 0 )
           parser->binary_length = ft_atol( (const char *)arg2 );
 
         limit = parser->root.limit;
         cur   = parser->root.cursor;
-        goto Exit;
-      }
-      else if ( cur[1] == 's' && ft_strncmp( (char*)cur, "/sfnts", 6 ) == 0 )
-      {
-        FT_TRACE2(( "cid_parser_new: cannot handle Type 11 fonts\n" ));
-        error = FT_THROW( Unknown_File_Format );
         goto Exit;
       }
 

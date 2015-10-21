@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Debugging and logging component (specification).                     */
 /*                                                                         */
-/*  Copyright 1996-2002, 2004, 2006-2009, 2013 by                          */
+/*  Copyright 1996-2001, 2002, 2004 by                                     */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -15,7 +15,7 @@
 /*                                                                         */
 /*                                                                         */
 /*  IMPORTANT: A description of FreeType's debugging support can be        */
-/*             found in `docs/DEBUG.TXT'.  Read it if you need to use or   */
+/*             found in "docs/DEBUG.TXT".  Read it if you need to use or   */
 /*             understand this code.                                       */
 /*                                                                         */
 /***************************************************************************/
@@ -54,7 +54,7 @@ FT_BEGIN_HEADER
 #define FT_TRACE_DEF( x )  trace_ ## x ,
 
   /* defining the enumeration */
-  typedef enum  FT_Trace_
+  typedef enum
   {
 #include FT_INTERNAL_TRACE_H
     trace_count
@@ -92,7 +92,7 @@ FT_BEGIN_HEADER
 
 #else /* !FT_DEBUG_LEVEL_TRACE */
 
-#define FT_TRACE( level, varformat )  do { } while ( 0 )      /* nothing */
+#define FT_TRACE( level, varformat )  do ; while ( 0 )      /* nothing */
 
 #endif /* !FT_DEBUG_LEVEL_TRACE */
 
@@ -113,7 +113,7 @@ FT_BEGIN_HEADER
   /*    This function may be useful if you want to access elements of      */
   /*    the internal `ft_trace_levels' array by an index.                  */
   /*                                                                       */
-  FT_BASE( FT_Int )
+  FT_EXPORT( FT_Int )
   FT_Trace_Get_Count( void );
 
 
@@ -138,19 +138,17 @@ FT_BEGIN_HEADER
   /*    components.                                                        */
   /*                                                                       */
   /*    This function may be useful if you want to control FreeType 2's    */
-  /*    debug level in your application.                                   */
+  /*    debug level in your appliaciton.                                   */
   /*                                                                       */
-  FT_BASE( const char * )
+  FT_EXPORT( const char * )
   FT_Trace_Get_Name( FT_Int  idx );
 
 
   /*************************************************************************/
   /*                                                                       */
-  /* You need two opening and closing parentheses!                         */
+  /* You need two opening resp. closing parentheses!                       */
   /*                                                                       */
   /* Example: FT_TRACE0(( "Value is %i", foo ))                            */
-  /*                                                                       */
-  /* Output of the FT_TRACEX macros is sent to stderr.                     */
   /*                                                                       */
   /*************************************************************************/
 
@@ -166,9 +164,7 @@ FT_BEGIN_HEADER
 
   /*************************************************************************/
   /*                                                                       */
-  /* Define the FT_ERROR macro.                                            */
-  /*                                                                       */
-  /* Output of this macro is sent to stderr.                               */
+  /*  Define the FT_ERROR macro                                            */
   /*                                                                       */
   /*************************************************************************/
 
@@ -178,15 +174,14 @@ FT_BEGIN_HEADER
 
 #else  /* !FT_DEBUG_LEVEL_ERROR */
 
-#define FT_ERROR( varformat )  do { } while ( 0 )      /* nothing */
+#define FT_ERROR( varformat )  do ; while ( 0 )      /* nothing */
 
 #endif /* !FT_DEBUG_LEVEL_ERROR */
 
 
   /*************************************************************************/
   /*                                                                       */
-  /* Define the FT_ASSERT and FT_THROW macros.  The call to `FT_Throw'     */
-  /* makes it possible to easily set a breakpoint at this function.        */
+  /* Define the FT_ASSERT macro                                            */
   /*                                                                       */
   /*************************************************************************/
 
@@ -200,46 +195,30 @@ FT_BEGIN_HEADER
                         __LINE__, __FILE__ );                       \
           } while ( 0 )
 
-#define FT_THROW( e )                                   \
-          ( FT_Throw( FT_ERR_CAT( FT_ERR_PREFIX, e ),   \
-                      __LINE__,                         \
-                      __FILE__ )                      | \
-            FT_ERR_CAT( FT_ERR_PREFIX, e )            )
-
 #else /* !FT_DEBUG_LEVEL_ERROR */
 
-#define FT_ASSERT( condition )  do { } while ( 0 )
-
-#define FT_THROW( e )  FT_ERR_CAT( FT_ERR_PREFIX, e )
+#define FT_ASSERT( condition )  do ; while ( 0 )
 
 #endif /* !FT_DEBUG_LEVEL_ERROR */
 
 
   /*************************************************************************/
   /*                                                                       */
-  /* Define `FT_Message' and `FT_Panic' when needed.                       */
+  /*  Define 'FT_Message' and 'FT_Panic' when needed                       */
   /*                                                                       */
   /*************************************************************************/
 
 #ifdef FT_DEBUG_LEVEL_ERROR
 
-#include "stdio.h"  /* for vfprintf() */
+#include "stdio.h"  /* for vprintf() */
 
   /* print a message */
-  FT_BASE( void )
-  FT_Message( const char*  fmt,
-              ... );
+  FT_EXPORT( void )
+  FT_Message( const char*  fmt, ... );
 
   /* print a message and exit */
-  FT_BASE( void )
-  FT_Panic( const char*  fmt,
-            ... );
-
-  /* report file name and line number of an error */
-  FT_BASE( int )
-  FT_Throw( FT_Error     error,
-            int          line,
-            const char*  file );
+  FT_EXPORT( void )
+  FT_Panic( const char*  fmt, ... );
 
 #endif /* FT_DEBUG_LEVEL_ERROR */
 
@@ -250,8 +229,8 @@ FT_BEGIN_HEADER
 
 #if defined( _MSC_VER )      /* Visual C++ (and Intel C++) */
 
-  /* We disable the warning `conditional expression is constant' here */
-  /* in order to compile cleanly with the maximum level of warnings.  */
+  /* we disable the warning `conditional expression is constant' here */
+  /* in order to compile cleanly with the maximum level of warnings   */
 #pragma warning( disable : 4127 )
 
 #endif /* _MSC_VER */

@@ -3,7 +3,7 @@
 #
 
 
-# Copyright 1996-2000, 2003, 2006 by
+# Copyright 1996-2000, 2003 by
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -13,11 +13,28 @@
 # fully.
 
 
+ifndef TOP_DIR
+  TOP_DIR := .
+endif
+
 DELETE    := rm -f
-CAT       := cat
 SEP       := /
 BUILD_DIR := $(TOP_DIR)/builds/ansi
 PLATFORM  := ansi
+
+
+# The directory where all object files are placed.
+#
+# This lets you build the library in your own directory with something like
+#
+#   set TOP_DIR=.../path/to/freetype2/top/dir...
+#   set OBJ_DIR=.../path/to/obj/dir
+#   make -f $TOP_DIR/Makefile setup [options]
+#   make -f $TOP_DIR/Makefile
+#
+ifndef OBJ_DIR
+  OBJ_DIR := $(TOP_DIR)/objs
+endif
 
 
 # The directory where all library files are placed.
@@ -64,7 +81,9 @@ T := -o$(space)
 #   Use the ANSIFLAGS variable to define the compiler flags used to enfore
 #   ANSI compliance.
 #
-CFLAGS ?= -c
+ifndef CFLAGS
+  CFLAGS := -c
+endif
 
 # ANSIFLAGS: Put there the flags used to make your compiler ANSI-compliant.
 #
