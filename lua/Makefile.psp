@@ -3,18 +3,19 @@ LUA = .
 PSPSDK = $(shell psp-config --pspsdk-path)
 PSPDIR = $(shell psp-config --psp-prefix)
 
-CFLAGS = -O2 -G0 -I$(LUA)/include
+CFLAGS = -O2 -G0 -I$(LUA)/include -DLUA_32BITS
 
 CORE_O=	src/lapi.o src/lcode.o src/lctype.o src/ldebug.o src/ldo.o src/ldump.o\
         src/lfunc.o src/lgc.o src/llex.o src/lmem.o src/lobject.o\
         src/lopcodes.o src/lparser.o src/lstate.o src/lstring.o src/ltable.o \
-	      src/ltm.o src/lundump.o src/lvm.o src/lzio.o
+	      src/ltm.o src/lundump.o src/lvm.o src/lzio.o 
 LIB_O=	src/lauxlib.o src/lbaselib.o src/lbitlib.o src/lcorolib.o src/ldblib.o\
         src/liolib.o src/lmathlib.o src/loslib.o src/lstrlib.o src/ltablib.o\
-        src/loadlib.o src/linit.o
+        src/loadlib.o src/linit.o src/lutf8lib.o
 BASE_O= $(CORE_O) $(LIB_O)
 
 OBJS = $(BASE_O)
+#$(BASE_O)
 TARGET_LIB = liblua.a
 
 include $(PSPSDK)/lib/build.mak

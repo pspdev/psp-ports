@@ -2,7 +2,7 @@ TARGET = luatest
 OBJS = main.o
 
 INCDIR = 
-CFLAGS = -O2 -G0 -Wall
+CFLAGS = -O2 -G0 -Wall -DLUA_32BITS
 CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS = $(CFLAGS)
 
