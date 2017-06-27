@@ -78,7 +78,7 @@ int name(lua_State *L) \
 	if (argc != 1) return luaL_error(L, "wrong number of arguments"); \
 \
 	/* get first argument as int */ \
-	int argument = luaL_checkint(L, 1); \
+	int argument = luaL_checknumber(L, 1); \
 \
 	/* push result */ \
 	lua_pushboolean(L, (argument & bit) == bit); \
@@ -131,8 +131,11 @@ int main(int argc, char** argv)
 	strcat(scriptFilename, scriptName);
 
 	// init Lua and load all libraries
+printf("new lua state\n");
 	lua_State *L = luaL_newstate();
+printf("open libs\n");
 	luaL_openlibs(L);
+printf("registering funcs\n");
 	
 	// register our own functions
 	lua_register(L, "ctrlRead", lua_ctrlRead);
@@ -155,7 +158,12 @@ int main(int argc, char** argv)
 	lua_register(L, "waitVblankStart", lua_waitVblankStart);
 
 	// load script
-	int status = luaL_loadfile(L, scriptFilename);
+	printf("loading file\n");
+	int status = luaL_loadfile(L, "script.lua");
+	if(status == 0)
+		printf("loaded file okay!\n");
+	else
+		printf("file didn't load\n");
 	
 	// call script
 	if (status == 0) status = lua_pcall(L, 0, LUA_MULTRET, 0);
