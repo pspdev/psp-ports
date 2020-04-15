@@ -168,7 +168,7 @@ void GLAPI
 gluCylinder(GLUquadric *qobj, GLdouble baseRadius, GLdouble topRadius, 
 		GLdouble height, GLint slices, GLint stacks)
 {
-    GLint i,j,max;
+    GLint i,j;
     GLfloat sinCache[CACHE_SIZE];
     GLfloat cosCache[CACHE_SIZE];
     GLfloat sinCache2[CACHE_SIZE];
@@ -176,7 +176,7 @@ gluCylinder(GLUquadric *qobj, GLdouble baseRadius, GLdouble topRadius,
     GLfloat sinCache3[CACHE_SIZE];
     GLfloat cosCache3[CACHE_SIZE];
     GLfloat angle;
-    GLfloat x, y, zLow, zHigh;
+    GLfloat zLow, zHigh;
     GLfloat sintemp, costemp;
     GLfloat length;
     GLfloat deltaRadius;
@@ -450,11 +450,10 @@ gluPartialDisk(GLUquadric *qobj, GLdouble innerRadius,
 		   GLdouble outerRadius, GLint slices, GLint loops,
 		   GLdouble startAngle, GLdouble sweepAngle)
 {
-    GLint i,j,max;
+    GLint i,j;
     GLfloat sinCache[CACHE_SIZE];
     GLfloat cosCache[CACHE_SIZE];
     GLfloat angle;
-    GLfloat x, y;
     GLfloat sintemp, costemp;
     GLfloat deltaRadius;
     GLfloat radiusLow, radiusHigh;
@@ -712,7 +711,7 @@ gluPartialDisk(GLUquadric *qobj, GLdouble innerRadius,
 void GLAPI
 gluSphere(GLUquadric *qobj, GLdouble radius, GLint slices, GLint stacks)
 {
-    GLint i,j,max;
+    GLint i,j;
     GLfloat sinCache1a[CACHE_SIZE];
     GLfloat cosCache1a[CACHE_SIZE];
     GLfloat sinCache2a[CACHE_SIZE];
@@ -726,11 +725,9 @@ gluSphere(GLUquadric *qobj, GLdouble radius, GLint slices, GLint stacks)
     GLfloat sinCache3b[CACHE_SIZE];
     GLfloat cosCache3b[CACHE_SIZE];
     GLfloat angle;
-    GLfloat x, y, zLow, zHigh;
+    GLfloat zLow, zHigh;
     GLfloat sintemp1, sintemp2, sintemp3, sintemp4;
     GLfloat costemp1, costemp2, costemp3, costemp4;
-    GLfloat zNormal;
-    GLfloat xyNormalRatio;
     GLboolean needCache2, needCache3;
     GLint start, finish;
 
@@ -1271,3 +1268,4 @@ glutSolidCone(GLdouble base, GLdouble height,
      with gluQuadricTexture and/or gluQuadricOrientation. */
   gluCylinder(quadObj, base, 0.0, height, slices, stacks);
 }
+
