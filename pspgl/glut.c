@@ -5,6 +5,7 @@
 #include <pspkerneltypes.h>
 #include <pspctrl.h>
 #include <psploadexec.h>
+#include "glut_shapes.c" // Disable this if you don't want GLUT shapes support
 
 #include "pspgl_misc.h"
 
