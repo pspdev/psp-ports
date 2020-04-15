@@ -168,6 +168,8 @@ libGLU.a_OBJS = \
 
 libglut.a_OBJS = \
 	glut.o
+	glut_shapes.o
+	# remove that if you don't want GLUT Shapes support for X or Y reason
 
 all: $(DEPDIR) $(libGL.a_OBJS) $(libGLU.a_OBJS) $(libglut.a_OBJS) libGL.a libGLU.a libglut.a
 
