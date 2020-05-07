@@ -1,4 +1,4 @@
-.TH LIBMIKMOD 1 "Version @VERSION@, 3rd Januark 2000"
+.TH LIBMIKMOD 1 "Version @LIBMIKMOD_VERSION@, 20 June 2017"
 
 .SH NAME
 libmikmod-config - script to get information about the installed version of
@@ -10,13 +10,13 @@ libmikmod.
 
 .SH DESCRIPTION
 .PP
-\fIlibmikmod-config\fP is a tool that is used to configure to determine
-the compiler and linker flags that should be used to compile
-and link programs that use \fIlibmikmod\fP. It is also used internally
-to the .m4 macros for GNU autoconf that are included with \fIlibmikmod\fP.
+\fIlibmikmod-config\fP is a tool that is used to determine the compiler
+and linker flags that should be used to compile and link programs that
+use \fIlibmikmod\fP. It is also used internally by the libmikmod.m4
+macro for GNU autoconf that is included with \fIlibmikmod\fP.
 
 .SH OPTIONS
-.l
+
 \fIlibmikmod-config\fP accepts the following options:
 .TP 8
 .B  \-\-version
@@ -55,5 +55,3 @@ A full list of people having worked on libmikmod can be found in the libmikmod
 source package.
 
 This man page was inspired by the gtk-config man page written by Owen Taylor.
-
-The k in ``Januark'' is not a typo. It's a genuine Y2K bug.

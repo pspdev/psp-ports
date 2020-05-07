@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_dart.c,v 1.2 2004/01/31 22:39:40 raph Exp $
+  $Id$
 
   Driver for output on OS/2 MMPM/2 using direct audio (DART)
 
@@ -63,30 +63,30 @@ static ULONG BufferSize = (ULONG)-1;	/* autodetect buffer size */
 static ULONG BufferCount = 2;			/* use two buffers */
 static ULONG DeviceID = 0;
 
-static void Dart_CommandLine(CHAR *cmdline)
+static void Dart_CommandLine(const CHAR *cmdline)
 {
 	char *ptr;
 	int buf;
 
-	if ((ptr = MD_GetAtom("buffer", cmdline, 0))) {
+	if ((ptr = MD_GetAtom("buffer", cmdline, 0)) != NULL) {
 		buf = atoi(ptr);
 		if (buf >= 12 && buf <= 16)
 			BufferSize = 1 << buf;
-		free(ptr);
+		MikMod_free(ptr);
 	}
-	
-	if ((ptr = MD_GetAtom("count", cmdline, 0))) {
+
+	if ((ptr = MD_GetAtom("count", cmdline, 0)) != NULL) {
 		buf = atoi(ptr);
 		if (buf >= 2 && buf <= MAX_BUFFERCOUNT)
 			BufferCount = buf;
-		free(ptr);
+		MikMod_free(ptr);
 	}
-	
-	if ((ptr = MD_GetAtom("device", cmdline, 0))) {
+
+	if ((ptr = MD_GetAtom("device", cmdline, 0)) != NULL) {
 		buf = atoi(ptr);
 		if (buf >= 0 && buf <= 8)
 			DeviceIndex = buf;
-		free(ptr);
+		MikMod_free(ptr);
 	}
 }
 
@@ -99,7 +99,7 @@ static LONG APIENTRY Dart_UpdateBuffers(ULONG ulStatus, PMCI_MIX_BUFFER pBuffer,
 	/* sanity check */
 	if (!pBuffer)
 		return TRUE;
-	
+
 	/* if we have finished a buffer, we're ready to play a new one */
 	if ((ulFlags == MIX_WRITE_COMPLETE) ||
 		((ulFlags == (MIX_WRITE_COMPLETE | MIX_STREAM_ERROR)) &&
@@ -136,7 +136,7 @@ static BOOL Dart_IsPresent(void)
 	return 1;
 }
 
-static BOOL Dart_Init(void)
+static int Dart_Init(void)
 {
 	MCI_AMP_OPEN_PARMS AmpOpenParms;
 	MCI_GENERIC_PARMS GenericParms;
@@ -182,7 +182,7 @@ static BOOL Dart_Init(void)
 		/* DART suggested buffer size is somewhat too big. We compute a size
 		   for circa 1/4" of playback. */
 		int bit;
-		
+
 		BufferSize = md_mixfreq >> 2;
 		if (md_mode & DMODE_STEREO)
 			BufferSize <<= 1;
@@ -217,7 +217,6 @@ static void Dart_Exit(void)
 {
 	MCI_GENERIC_PARMS GenericParms;
 
-	VC_Exit();
 	if (MixBuffers[0].pBuffer) {
 		mciSendCommand(DeviceID, MCI_BUFFER, MCI_WAIT | MCI_DEALLOCATE_MEMORY,
 					   &BufferParms, 0);
@@ -227,9 +226,10 @@ static void Dart_Exit(void)
 		mciSendCommand(DeviceID, MCI_CLOSE, MCI_WAIT, (PVOID) &GenericParms, 0);
 		DeviceID = 0;
 	}
+	VC_Exit();
 }
 
-static BOOL Dart_PlayStart(void)
+static int Dart_PlayStart(void)
 {
 	MCI_GENERIC_PARMS GenericParms;
 	int i;

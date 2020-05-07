@@ -6,21 +6,21 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 	02111-1307, USA.
 */
-  
+
 /*==============================================================================
 
-  $Id: drv_AF.c,v 1.2 2004/01/31 22:39:40 raph Exp $
+  $Id$
 
   Driver for output on AF audio server.
 
@@ -29,7 +29,7 @@
 /*
 
 	Written by Roine Gustafsson <e93_rog@e.kth.se>
-  
+
 	Portability:
 	Unixes running Digital AudioFile library, available from
 	ftp://crl.dec.com/pub/DEC/AF
@@ -41,7 +41,7 @@
 
 	I have a version which uses 2 computers for stereo.
 	Contact me if you want it.
-  
+
 */
 
 #ifdef HAVE_CONFIG_H
@@ -70,19 +70,20 @@ static	AC AFac;
 static	AFDeviceDescriptor *AFdesc;
 static	CHAR *soundbox=NULL;
 
-static void AF_CommandLine(CHAR *cmdline)
+static void AF_CommandLine(const CHAR *cmdline)
 {
 	CHAR *machine=MD_GetAtom("machine",cmdline,0);
 
 	if(machine) {
-		if(soundbox) free(soundbox);
+		MikMod_free(soundbox);
 		soundbox=machine;
 	}
 }
 
 static BOOL AF_IsThere(void)
 {
-	if ((AFaud=AFOpenAudioConn(soundbox)))
+	AFaud=AFOpenAudioConn(soundbox);
+	if (AFaud) {
 		AFCloseAudioConn(AFaud);
 		AFaud=NULL;
 		return 1;
@@ -90,14 +91,14 @@ static BOOL AF_IsThere(void)
 		return 0;
 }
 
-static BOOL AF_Init(void)
+static int AF_Init(void)
 {
 	unsigned long mask;
 	AFSetACAttributes attributes;
 	int srate;
 	ADevice device;
 	int n;
-  
+
 	if (!(AFaud=AFOpenAudioConn(soundbox))) {
 		_mm_errno=MMERR_OPENING_AUDIO;
 		return 1;
@@ -137,17 +138,17 @@ static BOOL AF_Init(void)
 	md_mixfreq=srate;				/* set mixing freq */
 
 	if (md_mode&DMODE_STEREO) {
-		if (!(audiobuffer=(SBYTE*)_mm_malloc(2*2*AFFragmentSize))) 
+		if (!(audiobuffer=(SBYTE*)MikMod_malloc(2*2*AFFragmentSize)))
 			return 1;
 	} else {
-		if (!(audiobuffer=(SBYTE*)_mm_malloc(2*AFFragmentSize))) 
+		if (!(audiobuffer=(SBYTE*)MikMod_malloc(2*AFFragmentSize)))
 			return 1;
 	}
-  
+
 	return VC_Init();
 }
 
-static BOOL AF_PlayStart(void)
+static int AF_PlayStart(void)
 {
 	AFtime=AFGetTime(AFac);
 	return VC_PlayStart();
@@ -156,7 +157,8 @@ static BOOL AF_PlayStart(void)
 static void AF_Exit(void)
 {
 	VC_Exit();
-	_mm_free(audiobuffer);
+	MikMod_free(audiobuffer);
+	audiobuffer=NULL;
 	if (AFaud) {
 		AFCloseAudioConn(AFaud);
 		AFaud=NULL;
@@ -166,7 +168,7 @@ static void AF_Exit(void)
 static void AF_Update(void)
 {
 	ULONG done;
-  
+
 	done=VC_WriteBytes(audiobuffer,AFFragmentSize);
 	if (md_mode&DMODE_STEREO) {
 		AFPlaySamples(AFac,AFtime,done,(unsigned char*)audiobuffer);
@@ -186,7 +188,7 @@ MIKMODAPI MDRIVER drv_AF={
 	0,255,
 	"audiofile",
 	"machine:t::Audio server machine (hostname:port)\n",
-	AF_CommandLine,	
+	AF_CommandLine,
 	AF_IsThere,
 	VC_SampleLoad,
 	VC_SampleUnload,

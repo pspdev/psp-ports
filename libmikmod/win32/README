@@ -1,7 +1,7 @@
   Hello folks !
 
 
-This is libmikmod, version 3.2.0-beta1, a portable sound library for Unix.
+This is libmikmod, version 3.3.11, a portable sound library for Unix.
 Check out the file 'NEWS' for more history information.
 
 
@@ -14,9 +14,10 @@ Check out the file 'NEWS' for more history information.
 So, you're on an angry fruit salad Windows system, aren't you ? With
 those so cute icons and an overflowed system tray ?
 
-Currently, libmikmod can be build under Windows only with the Microsoft
-compiler (but I suppose that the Watcom compiler and Metrowerks
+Currently, libmikmod can be build under Windows with the Microsoft
+compiler, lcc-win32 and MinGW (I suppose that the Watcom compiler and Metrowerks
 Codewarrior could be used as well).
+
 You'll need the DirectX SDK (if not included with the compiler) to
 compile the DirectSound driver; version 5 or better is required. The
 standard Win32 SDK is enough for the winmm driver.
@@ -24,35 +25,25 @@ standard Win32 SDK is enough for the winmm driver.
 Oh, I almost forgot: you need long filenames to compile libmikmod, but
 that should not be a problem nowadays.
 
-You might want to edit one of the files 'Makefile.dynamic' and
-'Makefile.static' located in the 'win32' directory to suit your
-particular compiler setup. Then, in the 'win32' directory, run
 
-	nmake -f Makefile.static
+-- Instructions for Microsoft Compiler
 
-to build a static library, or
-
-	nmake -f Makefile.dynamic
-
-to build a DLL with its import library. 
-If the build fails, I'd like to hear from you to correct the problem.
-
-Be warned that both Makefiles put their object files in the same
-directory. If you want to switch between the two makefiles, don't forget
-to do a make clean first:
-  
-	nmake -f Makefile.dynamic clean
-	
-(or the same command with Makefile.static).
-
-To make your library ready to use, copy the file '..\include\mikmod.h'
-to your compiler include directory, and 'mikmod.lib` to your compiler
-library directory. If you built a DLL, you'll also have to put
-'mikmod.dll' somewhere in your PATH.
+Use one of the project files to build a dll and an import library: MSVC6
+for the old Visual C 6, or VS2005 for Visual Studio 2005 and newer.
+To make your library ready to use, copy the file 'mikmod.h' to your
+compiler include directory, and 'mikmod.lib` to your compiler libraries
+directory. You also have to put 'libmikmod.dll' somewhere in your PATH.
 
 HTML documentation of the library, for programmers, is located in the
 doc directory.
 
+-- Instructions for lcc-win32
+
+Use Makefile.lcc
+
+-- Instructions for MingGW
+
+Use Makefile.mingw
 
 >> THANKS
 ---------
@@ -82,7 +73,7 @@ package written by Lance Norskog and Jef Poskanzer. The following
 copyright notice applies to these parts:
 
   Copyright (C) 1989 by Jef Poskanzer.
-   
+
   Permission to use, copy, modify, and distribute this software and its
   documentation for any purpose and without fee is hereby granted, provided
   that the above copyright notice appear in all copies and that both that
@@ -97,20 +88,14 @@ libmikmod library.
 >> CONTACT AND DOWNLOAD INFO
 ----------------------------
 
-* email:
-  Please send all your libmikmod related e-mail to me, at:
-  miod@mikmod.org
+libmikmod home page is located at SourceForge:
 
-* web:
-  libmikmod home page is located at:
-    http://www.mikmod.org
+    http://mikmod.sourceforge.net/
+    http://sourceforge.net/projects/mikmod/
 
-* ftp:
-  Latest releases of libmikmod can be found:
-  - on the web site
-    htp://www.mikmod.org/files
-  - on ibiblio (formerly known as metalab, formerly sunsite) and its mirrors
-    ftp://metalab.unc.edu/pub/Linux/apps/sound/libs
+There's a mailing list (mikmod-public) for discussing the development
+of MikMod (new features, bugs, ideas...) Look for more information on
+the web site.
 
 
 >> LAST NOTES

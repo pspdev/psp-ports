@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_stdout.c,v 1.3 2004/01/31 22:39:40 raph Exp $
+  $Id$
 
   Output data to stdout
 
@@ -29,6 +29,8 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+
+#ifdef DRV_STDOUT
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -47,9 +49,10 @@ static BOOL stdout_IsThere(void)
 	return 1-isatty(1);
 }
 
-static BOOL stdout_Init(void)
+static int stdout_Init(void)
 {
-	if(!(audiobuffer=(SBYTE*)_mm_malloc(BUFFERSIZE))) return 1;
+	if(!(audiobuffer=(SBYTE*)MikMod_malloc(BUFFERSIZE)))
+		return 1;
 #ifdef __EMX__
 	_fsetmode(stdout,"b");
 #endif
@@ -62,15 +65,13 @@ static void stdout_Exit(void)
 #ifdef __EMX__
 	_fsetmode(stdout,"t");
 #endif
-	if (audiobuffer) {
-		free(audiobuffer);
-		audiobuffer=NULL;
-	}
+	MikMod_free(audiobuffer);
+	audiobuffer=NULL;
 }
 
 static void stdout_Update(void)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	_write
 #else
 	write
@@ -78,7 +79,7 @@ static void stdout_Update(void)
 	     (1,audiobuffer,VC_WriteBytes((SBYTE*)audiobuffer,BUFFERSIZE));
 }
 
-static BOOL stdout_Reset(void)
+static int stdout_Reset(void)
 {
 	VC_Exit();
 	return VC_Init();
@@ -117,5 +118,12 @@ MIKMODAPI MDRIVER drv_stdout={
 	VC_VoiceGetPosition,
 	VC_VoiceRealVolume
 };
+
+#else
+
+#include "mikmod_internals.h"
+MISSING(drv_stdout);
+
+#endif
 
 /* ex:set ts=4: */

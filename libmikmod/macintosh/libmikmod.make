@@ -33,7 +33,6 @@ LibStubPPC		= "libmikmodPPC.lib"
 LibNameFat		= "libmikmod"
 StubNameFat		= "libmikmodStub"
 
-Header          = "mikmod.h"
 Export          = "libmikmod.exp"
 
 #------------------------------------------------------------------------------
@@ -59,6 +58,7 @@ Headers    = -i "{MikModDir}include:" ¶
 		     -i ":"
 			   
 Sources      =	"{MikModDir}playercode:" ¶
+				"{MikModDir}depackers:" ¶
 				"{MikModDir}loaders:" ¶
 				"{MikModDir}drivers:" ¶
 				"{MikModDir}mmio:" ¶
@@ -93,7 +93,7 @@ Warnings        =   -w 2,6,7,35
                     # avoid Warning 6: value of expression is not used
                     # avoid Warning 35: Parameter '*' is not used within function '*'
 
-Options         =   -d DRV_MAC -d HAVE_FCNTL_H
+Options         =   -d MIKMOD_BUILD -d DRV_MAC -d HAVE_FCNTL_H
 
 SymOptions		=	-sym off		# turn this on to debug with SADE/R2Db
 Debug68KOptions	=	-opt speed		# turn this off to build debug 680x0 code
@@ -135,7 +135,6 @@ CCPPCOptions	=	{CCOptions} {DebugPPCOptions} -longlong on -prefix mpwmikmodheade
 #------------------------------------------------------------------------------
 
 LibObjects68K		=	¶
-					{obj68k}strdup.c.o ¶
 					{obj68k}strcasecmp.c.o ¶
 					{obj68k}mmalloc.c.o ¶
 					{obj68k}mmerror.c.o ¶
@@ -153,6 +152,10 @@ LibObjects68K		=	¶
 					{obj68k}virtch_common.c.o ¶
 					{obj68k}virtch.c.o ¶
 					{obj68k}virtch2.c.o ¶
+					{obj68k}mmcmp.c.o ¶
+					{obj68k}pp20.c.o ¶
+					{obj68k}s404.c.o ¶
+					{obj68k}xpk.c.o ¶
 					{obj68k}load_669.c.o ¶
 					{obj68k}load_amf.c.o ¶
 					{obj68k}load_asy.c.o ¶
@@ -170,6 +173,7 @@ LibObjects68K		=	¶
 					{obj68k}load_stm.c.o ¶
 					{obj68k}load_stx.c.o ¶
 					{obj68k}load_ult.c.o ¶
+					{obj68k}load_umx.c.o ¶
 					{obj68k}load_uni.c.o ¶
 					{obj68k}load_xm.c.o ¶
 					{obj68k}drv_nos.c.o ¶
@@ -180,7 +184,6 @@ LibObjects68K		=	¶
 					#
 
 LibObjectsPPC	=	¶
-					{objppc}strdup.c.x ¶
 					{objppc}strcasecmp.c.x ¶
 					{objppc}mmalloc.c.x ¶
 					{objppc}mmerror.c.x ¶
@@ -198,6 +201,10 @@ LibObjectsPPC	=	¶
 					{objppc}virtch_common.c.x ¶
 					{objppc}virtch.c.x ¶
 					{objppc}virtch2.c.x ¶
+					{objppc}mmcmp.c.x ¶
+					{objppc}pp20.c.x ¶
+					{objppc}s404.c.x ¶
+					{objppc}xpk.c.x ¶
 					{objppc}load_669.c.x ¶
 					{objppc}load_amf.c.x ¶
 					{objppc}load_asy.c.x ¶
@@ -215,6 +222,7 @@ LibObjectsPPC	=	¶
 					{objppc}load_stm.c.x ¶
 					{objppc}load_stx.c.x ¶
 					{objppc}load_ult.c.x ¶
+					{objppc}load_umx.c.x ¶
 					{objppc}load_uni.c.x ¶
 					{objppc}load_xm.c.x ¶
 					{objppc}drv_nos.c.x ¶
@@ -232,11 +240,8 @@ LibObjectsPPC	=	¶
                     # Avoid building 68K by default, due to missing long-longs:
 All				    Ä PPC
 
-68K				    Ä {LibStatic68K} {LibShared68K} {LibStub68K} {Header}
-PPC				    Ä {LibStaticPPC} {LibSharedPPC} {LibStubPPC} {Header}
-
-{Header}		    Ä
-	Duplicate -y 'mikmod_build.h' {Header}
+68K				    Ä {LibStatic68K} {LibShared68K} {LibStub68K}
+PPC				    Ä {LibStaticPPC} {LibSharedPPC} {LibStubPPC}
 
 {LibStatic68K}		ÄÄ {LibObjects68K}
 	Echo "# Building 680X0 static library"

@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: load_imf.c,v 1.2 2004/02/06 19:29:03 raph Exp $
+  $Id$
 
   Imago Orpheus (IMF) module loader
 
@@ -125,30 +125,56 @@ static	IMFHEADER *mh=NULL;
 
 /*========== Loader code */
 
-BOOL IMF_Test(void)
+static BOOL IMF_Test(void)
 {
-	UBYTE id[4];
+	UBYTE buf[512], *p;
+	int t, chn;
 
 	_mm_fseek(modreader,0x3c,SEEK_SET);
-	if(!_mm_read_UBYTES(id,4,modreader)) return 0;
-	if(!memcmp(id,"IM10",4)) return 1;
-	return 0;
-}
+	if (!_mm_read_UBYTES(buf,4,modreader)) return 0;
+	if (memcmp(buf,"IM10",4) != 0) return 0;	/* no magic */
 
-BOOL IMF_Init(void)
-{
-	if(!(imfpat=(IMFNOTE*)_mm_malloc(32*256*sizeof(IMFNOTE)))) return 0;
-	if(!(mh=(IMFHEADER*)_mm_malloc(sizeof(IMFHEADER)))) return 0;
+	_mm_fseek(modreader,32,SEEK_SET);
+	if (_mm_read_I_UWORD(modreader) > 256) return 0;/* bad ordnum */
+	if (_mm_read_I_UWORD(modreader) > 256) return 0;/* bad patnum */
+	if (_mm_read_I_UWORD(modreader) > 256) return 0;/* bad insnum */
+
+	_mm_fseek(modreader,64,SEEK_SET);
+	if(!_mm_read_UBYTES(buf,512,modreader)) return 0;
+	/* verify channel status */
+	for (t = 0, chn = 0, p = &buf[15]; t < 512; t += 16, p += 16) {
+		switch (*p) {
+		case  0:		/* channel enabled */
+		case  1:		/* channel muted */
+			chn++;
+			break;
+		case  2:		/* channel disabled */
+			break;
+		default:		/* bad status value */
+			return 0;
+		}
+	}
+	if(!chn) return 0;		/* no channels found */
 
 	return 1;
 }
 
-void IMF_Cleanup(void)
+static BOOL IMF_Init(void)
+{
+	if(!(imfpat=(IMFNOTE*)MikMod_malloc(32*256*sizeof(IMFNOTE)))) return 0;
+	if(!(mh=(IMFHEADER*)MikMod_malloc(sizeof(IMFHEADER)))) return 0;
+
+	return 1;
+}
+
+static void IMF_Cleanup(void)
 {
 	FreeLinear();
 
-	_mm_free(imfpat);
-	_mm_free(mh);
+	MikMod_free(imfpat);
+	MikMod_free(mh);
+	imfpat=NULL;
+	mh=NULL;
 }
 
 static BOOL IMF_ReadPattern(SLONG size,UWORD rows)
@@ -377,7 +403,7 @@ static UBYTE* IMF_ConvertTrack(IMFNOTE* tr,UWORD rows)
 	return UniDup();
 }
 
-BOOL IMF_Load(BOOL curious)
+static BOOL IMF_Load(BOOL curious)
 {
 #define IMF_SMPINCR 64
 	int t,u,track=0,oldnumsmp;
@@ -409,7 +435,7 @@ BOOL IMF_Load(BOOL curious)
 
 	/* set module variables */
 	of.songname=DupStr(mh->songname,31,1);
-	of.modtype=strdup(IMF_Version);
+	of.modtype=MikMod_strdup(IMF_Version);
 	of.numpat=mh->patnum;
 	of.numins=mh->insnum;
 	of.reppos=0;
@@ -515,9 +541,9 @@ BOOL IMF_Load(BOOL curious)
 		ih. name##beg=_mm_read_UBYTE(modreader);		\
 		ih. name##end=_mm_read_UBYTE(modreader);		\
 		ih. name##flg=_mm_read_UBYTE(modreader);		\
-		_mm_read_UBYTE(modreader);						\
-		_mm_read_UBYTE(modreader);						\
-		_mm_read_UBYTE(modreader)
+		_mm_skip_BYTE(modreader);						\
+		_mm_skip_BYTE(modreader);						\
+		_mm_skip_BYTE(modreader)
 #else
 #define IMF_FinishLoadingEnvelope(name)				\
 		ih. name/**/pts=_mm_read_UBYTE(modreader);	\
@@ -525,9 +551,9 @@ BOOL IMF_Load(BOOL curious)
 		ih. name/**/beg=_mm_read_UBYTE(modreader);	\
 		ih. name/**/end=_mm_read_UBYTE(modreader);	\
 		ih. name/**/flg=_mm_read_UBYTE(modreader);	\
-		_mm_read_UBYTE(modreader);					\
-		_mm_read_UBYTE(modreader);					\
-		_mm_read_UBYTE(modreader)
+		_mm_skip_BYTE(modreader);					\
+		_mm_skip_BYTE(modreader);					\
+		_mm_skip_BYTE(modreader)
 #endif
 
 		IMF_FinishLoadingEnvelope(vol);
@@ -540,10 +566,10 @@ BOOL IMF_Load(BOOL curious)
 		_mm_read_UBYTES(id,4,modreader);
 		/* Looks like Imago Orpheus forgets the signature for empty
 		   instruments following a multi-sample instrument... */
-		if(memcmp(id,"II10",4) && 
+		if(memcmp(id,"II10",4) &&
 		   (oldnumsmp && memcmp(id,"\x0\x0\x0\x0",4))) {
-			if(nextwav) free(nextwav);
-			if(wh) free(wh);
+			if(nextwav) MikMod_free(nextwav);
+			if(wh) MikMod_free(wh);
 			_mm_errno=MMERR_LOADING_SAMPLEINFO;
 			return 0;
 		}
@@ -551,8 +577,8 @@ BOOL IMF_Load(BOOL curious)
 
 		if((ih.numsmp>16)||(ih.volpts>IMFENVCNT/2)||(ih.panpts>IMFENVCNT/2)||
 		   (ih.pitpts>IMFENVCNT/2)||(_mm_eof(modreader))) {
-			if(nextwav) free(nextwav);
-			if(wh) free(wh);
+			if(nextwav) MikMod_free(nextwav);
+			if(wh) MikMod_free(wh);
 			_mm_errno=MMERR_LOADING_SAMPLEINFO;
 			return 0;
 		}
@@ -612,13 +638,13 @@ BOOL IMF_Load(BOOL curious)
 			/* allocate more room for sample information if necessary */
 			if(of.numsmp+u==wavcnt) {
 				wavcnt+=IMF_SMPINCR;
-				if(!(nextwav=realloc(nextwav,wavcnt*sizeof(ULONG)))) {
-					if(wh) free(wh);
+				if(!(nextwav=(ULONG*)MikMod_realloc(nextwav,wavcnt*sizeof(ULONG)))) {
+					if(wh) MikMod_free(wh);
 					_mm_errno=MMERR_OUT_OF_MEMORY;
 					return 0;
 				}
-				if(!(wh=realloc(wh,wavcnt*sizeof(IMFWAVHEADER)))) {
-					free(nextwav);
+				if(!(wh=(IMFWAVHEADER*)MikMod_realloc(wh,wavcnt*sizeof(IMFWAVHEADER)))) {
+					MikMod_free(nextwav);
 					_mm_errno=MMERR_OUT_OF_MEMORY;
 					return 0;
 				}
@@ -626,7 +652,7 @@ BOOL IMF_Load(BOOL curious)
 			}
 
 			_mm_read_string(s->samplename,13,modreader);
-			_mm_read_UBYTE(modreader);_mm_read_UBYTE(modreader);_mm_read_UBYTE(modreader);
+			_mm_skip_BYTE(modreader);_mm_skip_BYTE(modreader);_mm_skip_BYTE(modreader);
 			s->length    =_mm_read_I_ULONG(modreader);
 			s->loopstart =_mm_read_I_ULONG(modreader);
 			s->loopend   =_mm_read_I_ULONG(modreader);
@@ -639,7 +665,7 @@ BOOL IMF_Load(BOOL curious)
 			_mm_read_UBYTES(id,4,modreader);
 			if(((memcmp(id,"IS10",4))&&(memcmp(id,"IW10",4)))||
 			   (_mm_eof(modreader))) {
-				free(nextwav);free(wh);
+				MikMod_free(nextwav);MikMod_free(wh);
 				_mm_errno=MMERR_LOADING_SAMPLEINFO;
 				return 0;
 			}
@@ -653,19 +679,19 @@ BOOL IMF_Load(BOOL curious)
 
 	/* sanity check */
 	if(!of.numsmp) {
-		if(nextwav) free(nextwav);
-		if(wh) free(wh);
+		if(nextwav) MikMod_free(nextwav);
+		if(wh) MikMod_free(wh);
 		_mm_errno=MMERR_LOADING_SAMPLEINFO;
 		return 0;
 	}
 
 	/* load samples */
 	if(!AllocSamples()) {
-		free(nextwav);free(wh);
+		MikMod_free(nextwav);MikMod_free(wh);
 		return 0;
 	}
 	if(!AllocLinear()) {
-		free(nextwav);free(wh);
+		MikMod_free(nextwav);MikMod_free(wh);
 		return 0;
 	}
 	q=of.samples;
@@ -708,11 +734,11 @@ BOOL IMF_Load(BOOL curious)
 		}
 	}
 
-	free(wh);free(nextwav);
+	MikMod_free(wh);MikMod_free(nextwav);
 	return 1;
 }
 
-CHAR *IMF_LoadTitle(void)
+static CHAR *IMF_LoadTitle(void)
 {
 	CHAR s[31];
 

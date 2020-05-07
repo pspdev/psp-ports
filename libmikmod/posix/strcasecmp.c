@@ -2,20 +2,22 @@
 #include "config.h"
 #endif
 
-#include <ctype.h>
+#include "mikmod_internals.h"
+#include "mikmod_ctype.h"
 
-int strcasecmp(const char *__s1, const char *__s2)
+int _mm_strcasecmp(const char *__s1, const char *__s2)
 {
-	register unsigned char c1, c2;
+	const char *p1 = __s1;
+	const char *p2 = __s2;
+	char c1, c2;
 
-	while (*__s1 && *__s2) {
-		c1 = tolower(*__s1);
-		c2 = tolower(*__s2);
-		if (c1 != c2)
-			return (int)(c1 - c2);
-		__s1++;
-		__s2++;
-	}
+	if (p1 == p2) return 0;
 
-	return (int)(*__s1 - *__s2);
+	do {
+		c1 = mik_tolower(*p1++);
+		c2 = mik_tolower(*p2++);
+		if (c1 == '\0') break;
+	} while (c1 == c2);
+
+	return (int)(c1 - c2);
 }

@@ -1,17 +1,15 @@
-%define version     3.2.0
-%define release     0.2beta2
+%define version 3.3.11.1
+%define release 1
 
-# This should empty for release
-%define prerelease  -beta2
-
-Summary:    sound library
+Summary:    sound library for module files
 Name:       libmikmod
 Version:    %{version}
 Release:    %{release}
 License:    LGPL
 Group:      System Environment/Libraries
-URL:        http://mikmod.raphnet.net/
-Source:     http://mikmod.raphnet.net/files/%{name}-%{version}%{prerelease}.tar.gz
+URL:        http://mikmod.sourceforge.net/
+#Source:    http://mikmod.sourceforge.net/files/%{name}-%{version}.tar.gz
+Source:     http://download.sourceforge.net/mikmod/%{name}-%{version}.tar.gz
 BuildRoot:  %{_tmppath}/%{name}-%{version}-root
 
 %description
@@ -28,10 +26,10 @@ Install the libmikmod-devel package if you want to develop applications
 that will use the libmikmod library.
 
 %prep
-%setup -q -n %{name}-%{version}%{prerelease}
+%setup -q -n %{name}-%{version}
 
 %build
-%configure --disable-esd --disable-alsa
+%configure
 make
 
 %install
@@ -48,17 +46,20 @@ rm -f $RPM_BUILD_ROOT/%{_infodir}/dir
 %post devel
 if [ "$1" = "1" ]; then # first install
   if [ -x /sbin/install-info ]; then
-    /sbin/install-info %{_infodir}/mikmod.info* %{_infodir}/dir
+    for infofile in %{_infodir}/mikmod.info*; do
+      /sbin/install-info $infofile %{_infodir}/dir
+    done
   fi
 fi
 
 %preun devel
 if [ "$1" = "0" ]; then # last uninstall
   if [ -x /sbin/install-info ]; then
-    /sbin/install-info --delete %{_infodir}/mikmod.info* %{_infodir}/dir
+    for infofile in %{_infodir}/mikmod.info*; do
+      /sbin/install-info --delete $infofile %{_infodir}/dir
+    done
   fi
 fi
-
 
 %ifos darwin
 %define __defattr %defattr(-,root,wheel)
@@ -86,5 +87,6 @@ fi
 %{_libdir}/libmikmod.a
 %{_libdir}/libmikmod.la
 %{_libdir}/libmikmod.%{__soext}
+%{_libdir}/pkgconfig/libmikmod.pc
 %{_infodir}/mikmod.info*
 %{_datadir}/aclocal/*

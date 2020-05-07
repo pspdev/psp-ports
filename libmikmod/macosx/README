@@ -1,7 +1,7 @@
   Hello folks !
 
 
-This is libmikmod, version 3.2.0-beta1, a portable sound library for Unix.
+This is libmikmod, version 3.3.11, a portable sound library for Unix.
 Check out the file 'NEWS' for more history information.
 
 
@@ -13,13 +13,18 @@ Check out the file 'NEWS' for more history information.
 
 - If you are building for classic Mac OS, you might want to look at the
   top-level "macintosh" directory instead which has the old CFM stuff ?
-  
 
 libmikmod can be built using Apple's "Developer Tools" environments.
-(or you can use the commandline UNIX stuff, just go up one directory)
+Or you can use the commandline UNIX stuff, just go up one directory.
+You can also play with the stand-alone Makefile.darwin file in this
+directory.
 
 Read the file INSTALL in this directory for compilation instructions.
 The projects will generate code for Mac OS X versions 10.1 - 10.3
+
+There is also a standalone Makefile.darwin here in this directory
+for building the library in unix way, e.g.: make -f Makefile.darwin
+Edit it if necessary to meet your needs/environment.
 
 HTML documentation of the library, for programmers, is located in the
 doc directory.
@@ -56,14 +61,14 @@ package written by Lance Norskog and Jef Poskanzer. The following
 copyright notice applies to these parts:
 
   Copyright (C) 1989 by Jef Poskanzer.
-   
+
   Permission to use, copy, modify, and distribute this software and its
   documentation for any purpose and without fee is hereby granted, provided
   that the above copyright notice appear in all copies and that both that
   copyright notice and this permission notice appear in supporting
   documentation.  This software is provided "as is" without express or
   implied warranty.
-  
+
 Note that none of these parts are used in the MacOS X version of the
 libmikmod library.
 
@@ -71,13 +76,14 @@ libmikmod library.
 >> CONTACT AND DOWNLOAD INFO
 ----------------------------
 
-* email:
-  Please send all your libmikmod related e-mail to me, at:
-  raph@mikmod.org
+libmikmod home page is located at SourceForge:
 
-* web:
-  libmikmod home page is located at:
-    http://mikmod.raphnet.net
+    http://mikmod.sourceforge.net/
+    http://sourceforge.net/projects/mikmod/
+
+There's a mailing list (mikmod-public) for discussing the development
+of MikMod (new features, bugs, ideas...) Look for more information on
+the web site.
 
 
 >> LAST NOTES

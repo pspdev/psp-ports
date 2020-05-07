@@ -8,7 +8,7 @@ dnl AM_PATH_LIBMIKMOD([MINIMUM-VERSION, [ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND 
 dnl Test for libmikmod, and define LIBMIKMOD_CFLAGS, LIBMIKMOD_LIBS and
 dnl LIBMIKMOD_LDADD
 dnl
-AC_DEFUN(AM_PATH_LIBMIKMOD,
+AC_DEFUN([AM_PATH_LIBMIKMOD],
 [dnl 
 dnl Get the cflags and libraries from the libmikmod-config script
 dnl
@@ -61,16 +61,17 @@ dnl checks the results of libmikmod-config to some extent
 dnl
       rm -f conf.mikmodtest
       AC_TRY_RUN([
-#include <mikmod.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <mikmod.h>
 
 char* my_strdup (char *str)
 {
   char *new_str;
 
   if (str) {
-    new_str = malloc ((strlen (str) + 1) * sizeof(char));
+    new_str = (char *) malloc ((strlen (str) + 1) * sizeof(char));
     strcpy (new_str, str);
   } else
     new_str = NULL;

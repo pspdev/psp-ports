@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: load_gdm.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id$
 
   General DigiMusic (GDM) module loader
 
@@ -114,9 +114,9 @@ typedef struct GDMSAMPLE {
 static GDMHEADER *mh=NULL;	/* pointer to GDM header */
 static GDMNOTE *gdmbuf=NULL;	/* pointer to a complete GDM pattern */
 
-CHAR GDM_Version[]="General DigiMusic 1.xx";
+static CHAR GDM_Version[]="General DigiMusic 1.xx";
 
-BOOL GDM_Test(void)
+static BOOL GDM_Test(void)
 {
 	/* test for gdm magic numbers */
 	UBYTE id[4];
@@ -134,48 +134,57 @@ BOOL GDM_Test(void)
 	return 0;
 }
 
-BOOL GDM_Init(void)
+static BOOL GDM_Init(void)
 {
-	if (!(gdmbuf=(GDMNOTE*)_mm_malloc(32*64*sizeof(GDMNOTE)))) return 0;
-	if (!(mh=(GDMHEADER*)_mm_malloc(sizeof(GDMHEADER)))) return 0;
+	if (!(gdmbuf=(GDMNOTE*)MikMod_malloc(32*64*sizeof(GDMNOTE)))) return 0;
+	if (!(mh=(GDMHEADER*)MikMod_malloc(sizeof(GDMHEADER)))) return 0;
 
 	return 1;
 }
 
-void GDM_Cleanup(void)
+static void GDM_Cleanup(void)
 {
-	_mm_free(mh);
-	_mm_free(gdmbuf);
+	MikMod_free(mh);
+	MikMod_free(gdmbuf);
+	mh=NULL;
+	gdmbuf=NULL;
 }
 
-BOOL GDM_ReadPattern(void)
+static BOOL GDM_ReadPattern(void)
 {
-	int pos,flag,ch,i,maxch;
+	int pos,flag,ch,i;
 	GDMNOTE n;
-	UWORD length,x=0;
+	SLONG length,x=0;
 
 	/* get pattern length */
-	length=_mm_read_I_UWORD(modreader)-2;
+	length=(SLONG)_mm_read_I_UWORD(modreader);
+	length-=2;
 
 	/* clear pattern data */
 	memset(gdmbuf,255,32*64*sizeof(GDMNOTE));
 	pos=0;
-	maxch=0;
 
 	while (x<length) {
 		memset(&n,255,sizeof(GDMNOTE));
 		flag=_mm_read_UBYTE(modreader);
 		x++;
 
-		if (_mm_eof(modreader)) {
-			_mm_errno=MMERR_LOADING_PATTERN;
+		if (_mm_eof(modreader))
 			return 0;
-		}
 
 		ch=flag&31;
-		if (ch>maxch) maxch=ch;
+		if (ch > of.numchn)
+			return 0;
+
 		if (!flag) {
 			pos++;
+			if (x==length) {
+				if (pos > 64)
+				    return 0;
+			} else {
+				if (pos >= 64)
+				    return 0;
+			}
 			continue;
 		}
 		if (flag&0x60) {
@@ -200,7 +209,7 @@ BOOL GDM_ReadPattern(void)
 	return 1;
 }
 
-UBYTE *GDM_ConvertTrack(GDMNOTE*tr)
+static UBYTE *GDM_ConvertTrack(GDMNOTE*tr)
 {
 	int t,i=0;
 	UBYTE note,ins,inf;
@@ -337,7 +346,7 @@ UBYTE *GDM_ConvertTrack(GDMNOTE*tr)
 	return UniDup();
 }
 
-BOOL GDM_Load(BOOL curious)
+static BOOL GDM_Load(BOOL curious)
 {
 	int i,x,u,track;
 	SAMPLE *q;
@@ -389,7 +398,7 @@ BOOL GDM_Load(BOOL curious)
 	}
 
 	/* now we fill */
-	of.modtype=strdup(GDM_Version);
+	of.modtype=MikMod_strdup(GDM_Version);
 	of.modtype[18]=mh->majorver+'0';
 	of.modtype[20]=mh->minorver/10+'0';
 	of.modtype[21]=mh->minorver%10+'0';
@@ -533,7 +542,7 @@ BOOL GDM_Load(BOOL curious)
 	return 1;
 }
 
-CHAR *GDM_LoadTitle(void)
+static CHAR *GDM_LoadTitle(void)
 {
 	CHAR s[32];
 

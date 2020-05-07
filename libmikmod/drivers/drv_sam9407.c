@@ -19,11 +19,11 @@
 */
 
 /*==============================================================================
-  
-  $Id: drv_sam9407.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
-  
+
+  $Id$
+
   Driver for the Linux sam9407 driver
-  
+
 ==============================================================================*/
 
 /*
@@ -100,13 +100,13 @@ static Voice voices[SAM_NUM_VOICES];
 static int card=0;
 static int modfd=-1;
 
-static void commandLine(CHAR *cmdline)
+static void commandLine(const CHAR *cmdline)
 {
 	CHAR *ptr;
 
-	if((ptr=MD_GetAtom("card", cmdline, 0))) {
+	if((ptr=MD_GetAtom("card", cmdline, 0)) != NULL) {
 		card=atoi(ptr);
-		free(ptr);
+		MikMod_free(ptr);
 	}
 }
 
@@ -139,7 +139,12 @@ static SWORD sampleLoad(SAMPLOAD *s, int type)
 	SamModSamples modSamples;
 	SWORD handle;
 	SWORD *samples;
-int rc;
+	int rc;
+
+	if(s->sample->length > MAX_SAMPLE_SIZE) {
+		_mm_errno = MMERR_NOT_A_STREAM; /* better error? */
+		return -1;
+	}
 
 	for(handle=0; handle<SAM_NUM_BANKS; handle++)
 		if(!banks[handle].inUse)
@@ -161,14 +166,14 @@ int rc;
 	bankP->loopend=s->sample->loopend ? s->sample->loopend : s->sample->length;
 	bankP->flags=s->sample->flags;
 
-	if(!(samples=(SWORD *)malloc((bankP->length+NO_LOOP_SAMPLES)<<1))) {
+	if(!(samples=(SWORD *)MikMod_malloc((bankP->length+NO_LOOP_SAMPLES)<<1))) {
 		bankP->inUse=0;
 		_mm_errno=MMERR_SAMPLE_TOO_BIG;
 		return -1;
 	}
 
 	if(SL_Load(samples, s, bankP->length)) {
-		free(samples);
+		MikMod_free(samples);
 		bankP->inUse=0;
 		_mm_errno=MMERR_SAMPLE_TOO_BIG;
 		return -1;
@@ -182,16 +187,16 @@ int rc;
 	}
 
 	modSamples.handle=handle;
-	modSamples.data=samples;
+	modSamples.data=(unsigned short *)samples;
 	modSamples.size=bankP->length;
 	if((rc=ioctl(modfd, SAM_IOC_MOD_SAMPLES_LOAD, &modSamples))<0) {
-		free(samples);
+		MikMod_free(samples);
 		bankP->inUse=0;
 		_mm_errno=MMERR_SAMPLE_TOO_BIG;
 		return -1;
 	}
 
-	free(samples);
+	MikMod_free(samples);
 
 	return handle;
 }
@@ -216,7 +221,7 @@ static ULONG realSampleLength(int type, SAMPLE *s)
 	return s->length<<1;
 }
 
-static BOOL init(void)
+static int init(void)
 {
 	int i;
 	Voice *voiceP;
@@ -255,7 +260,7 @@ static void exitHook(void)
 	}
 }
 
-static BOOL reset(void)
+static int reset(void)
 {
 	if(ioctl(modfd, SAM_IOC_MOD_RESET)<0)
 		return 1;
@@ -263,12 +268,12 @@ static BOOL reset(void)
 	return 0;
 }
 
-static BOOL setNumVoices(void)
+static int setNumVoices(void)
 {
 	return 0;
 }
 
-static BOOL playStart(void)
+static int playStart(void)
 {
 	ioctl(modfd, SAM_IOC_MOD_TIMER_START);
 	return 0;
@@ -457,10 +462,7 @@ static void voiceStop(UBYTE voice)
 
 static BOOL voiceStopped(UBYTE voice)
 {
-	if(voice>=SAM_NUM_VOICES)
-		return 1;
-
-	return voice<SAM_NUM_VOICES ? !voices[voice].playing : 1;
+	return (voice<SAM_NUM_VOICES)? !voices[voice].playing : 1;
 }
 
 static SLONG voiceGetPosition(UBYTE voice)
@@ -479,7 +481,7 @@ MIKMODAPI MDRIVER drv_sam9407={
 	"Linux sam9407 driver v1.0",
 	SAM_NUM_VOICES, 0,
 	"sam9407",
-
+	NULL,
 	commandLine,
 	isPresent,
 	sampleLoad,

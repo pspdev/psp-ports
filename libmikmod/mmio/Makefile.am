@@ -1,1 +1,1 @@
-EXTRA_DIST = mmalloc.c mmerror.c mmio.c
+EXTRA_DIST = mmalloc.c mmerror.c mmio.c CMakeLists.txt

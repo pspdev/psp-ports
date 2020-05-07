@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: munitrk.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id$
 
   All routines dealing with the manipulation of UNITRK streams
 
@@ -37,7 +37,7 @@
 /* Unibuffer chunk size */
 #define BUFPAGE  128
 
-UWORD unioperands[UNI_LAST]={
+const UWORD unioperands[UNI_LAST] = {
 	0, /* not used */
 	1, /* UNI_NOTE */
 	1, /* UNI_INSTRUMENT */
@@ -207,14 +207,14 @@ static BOOL UniExpand(int wanted)
 		UBYTE *newbuf;
 
 		/* Expand the buffer by BUFPAGE bytes */
-		newbuf=(UBYTE*)realloc(unibuf,(unimax+BUFPAGE)*sizeof(UBYTE));
+		newbuf=(UBYTE*)MikMod_realloc(unibuf,(unimax+BUFPAGE)*sizeof(UBYTE));
 
-		/* Check if realloc succeeded */
+		/* Check if MikMod_realloc succeeded */
 		if(newbuf) {
 			unibuf = newbuf;
 			unimax+=BUFPAGE;
 			return 1;
-		} else 
+		} else
 			return 0;
 	}
 	return 1;
@@ -236,7 +236,7 @@ void UniWriteWord(UWORD data)
 	}
 }
 
-static BOOL MyCmp(UBYTE* a,UBYTE* b,UWORD l)
+static BOOL MyCmp(const UBYTE* a,const UBYTE* b,UWORD l)
 {
 	UWORD t;
 
@@ -275,28 +275,28 @@ void UniNewline(void)
    stream. */
 UBYTE* UniDup(void)
 {
-	UBYTE *d;
+	void *d;
 
-	if (!UniExpand(unitt-unipc)) return NULL;
+	if (!UniExpand(unipc-unitt)) return NULL;
 	unibuf[unitt] = 0;
 
-	if(!(d=(UBYTE *)_mm_malloc(unipc))) return NULL;
+	if(!(d=MikMod_malloc(unipc))) return NULL;
 	memcpy(d,unibuf,unipc);
 
-	return d;
+	return (UBYTE *)d;
 }
 
 BOOL UniInit(void)
 {
 	unimax = BUFPAGE;
 
-	if(!(unibuf=(UBYTE*)_mm_malloc(unimax*sizeof(UBYTE)))) return 0;
+	if(!(unibuf=(UBYTE*)MikMod_malloc(unimax*sizeof(UBYTE)))) return 0;
 	return 1;
 }
 
 void UniCleanup(void)
 {
-	if(unibuf) free(unibuf);
+	MikMod_free(unibuf);
 	unibuf = NULL;
 }
 

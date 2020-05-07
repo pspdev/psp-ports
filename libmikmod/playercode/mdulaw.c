@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: mdulaw.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id$
 
   Mu-law routines
 
@@ -48,7 +48,7 @@
 
 #include "mikmod_internals.h"
 
-static unsigned char ulaw_comp_table[16384] = {
+static const unsigned char ulaw_comp_table[16384] = {
 	0xff, 0xfe, 0xfe, 0xfd, 0xfd, 0xfc, 0xfc, 0xfb,
 	0xfb, 0xfa, 0xfa, 0xf9, 0xf9, 0xf8, 0xf8, 0xf7,
 	0xf7, 0xf6, 0xf6, 0xf5, 0xf5, 0xf4, 0xf4, 0xf3,

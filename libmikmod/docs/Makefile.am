@@ -1,5 +1,7 @@
-info_TEXINFOS=mikmod.texi
+AM_MAKEINFOFLAGS = --no-split
 
-man_MANS=libmikmod-config.1
+info_TEXINFOS = mikmod.texi
 
-EXTRA_DIST=mikmod.html mikmod.info libmikmod-config.1.in
+man_MANS = libmikmod-config.1
+
+EXTRA_DIST = mikmod.html mikmod.info libmikmod-config.1.in CMakeLists.txt

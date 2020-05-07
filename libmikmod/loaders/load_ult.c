@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: load_ult.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id$
 
   Ultratracker (ULT) module loader
 
@@ -80,13 +80,13 @@ typedef struct ULTEVENT {
 #define ULTS_REVERSE    16
 
 #define ULT_VERSION_LEN 18
-static	CHAR ULT_Version[ULT_VERSION_LEN]="Ultra Tracker v1.x";
+static	CHAR ULT_Version[ULT_VERSION_LEN+1]="Ultra Tracker v1.x";
 
 static	ULTEVENT ev;
 
 /*========== Loader code */
 
-BOOL ULT_Test(void)
+static BOOL ULT_Test(void)
 {
 	CHAR id[16];
 
@@ -96,12 +96,12 @@ BOOL ULT_Test(void)
 	return 1;
 }
 
-BOOL ULT_Init(void)
+static BOOL ULT_Init(void)
 {
 	return 1;
 }
 
-void ULT_Cleanup(void)
+static void ULT_Cleanup(void)
 {
 }
 
@@ -124,7 +124,7 @@ static UBYTE ReadUltEvent(ULTEVENT* event)
 	return rep;
 }
 
-BOOL ULT_Load(BOOL curious)
+static BOOL ULT_Load(BOOL curious)
 {
 	int t,u,tracks=0;
 	SAMPLE *q;
@@ -225,6 +225,10 @@ BOOL ULT_Load(BOOL curious)
 		for(t=0;t<of.numpat;t++)
 			of.patterns[(t*of.numchn)+u]=tracks++;
 
+	/* Secunia SA37775 / CVE-2009-3996 */
+	if (of.numchn>=UF_MAXCHAN)
+		of.numchn=UF_MAXCHAN - 1;
+
 	/* read pan position table for v1.5 and higher */
 	if(mh.id[14]>='3') {
 		for(t=0;t<of.numchn;t++) of.panning[t]=_mm_read_UBYTE(modreader)<<4;
@@ -308,7 +312,7 @@ BOOL ULT_Load(BOOL curious)
 	return 1;
 }
 
-CHAR *ULT_LoadTitle(void)
+static CHAR * ULT_LoadTitle(void)
 {
 	CHAR s[32];
 

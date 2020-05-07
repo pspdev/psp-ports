@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: load_stx.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id$
 
   STMIK 0.2 (STX) module loader
 
@@ -120,7 +120,7 @@ static BOOL STX_Test(void)
 
 	_mm_fseek(modreader,0x14,SEEK_SET);
 	if(!_mm_read_UBYTES(id,8,modreader)) return 0;
-	
+
 	for(t=0;t<STM_NTRACKERS;t++)
 		if(!memcmp(id,STM_Signatures[t],8)) return 1;
 
@@ -129,9 +129,9 @@ static BOOL STX_Test(void)
 
 static BOOL STX_Init(void)
 {
-	if(!(stxbuf=(STXNOTE*)_mm_malloc(4*64*sizeof(STXNOTE)))) return 0;
-	if(!(mh=(STXHEADER*)_mm_malloc(sizeof(STXHEADER)))) return 0;
-	if(!(poslookup=(UBYTE*)_mm_malloc(sizeof(UBYTE)*256))) return 0;
+	if(!(stxbuf=(STXNOTE*)MikMod_malloc(4*64*sizeof(STXNOTE)))) return 0;
+	if(!(mh=(STXHEADER*)MikMod_malloc(sizeof(STXHEADER)))) return 0;
+	if(!(poslookup=(UBYTE*)MikMod_malloc(sizeof(UBYTE)*256))) return 0;
 	memset(poslookup,-1,256);
 
 	return 1;
@@ -139,10 +139,14 @@ static BOOL STX_Init(void)
 
 static void STX_Cleanup(void)
 {
-	_mm_free(stxbuf);
-	_mm_free(paraptr);
-	_mm_free(poslookup);
-	_mm_free(mh);
+	MikMod_free(stxbuf);
+	MikMod_free(paraptr);
+	MikMod_free(poslookup);
+	MikMod_free(mh);
+	stxbuf=NULL;
+	paraptr=NULL;
+	poslookup=NULL;
+	mh=NULL;
 }
 
 static BOOL STX_ReadPattern(void)
@@ -297,6 +301,10 @@ static BOOL STX_Load(BOOL curious)
 		_mm_errno = MMERR_LOADING_HEADER;
 		return 0;
 	}
+	if(mh->ordnum > 256 || mh->insnum > 256 || mh->patnum > 254) {
+		_mm_errno = MMERR_NOT_A_MODULE;
+		return 0;
+	}
 
 	/* set module variables */
 	of.songname    = DupStr(mh->songname,20,1);
@@ -309,7 +317,7 @@ static BOOL STX_Load(BOOL curious)
 	of.flags      |= UF_S3MSLIDES;
 	of.bpmlimit    = 32;
 
-	if(!(paraptr=(UWORD*)_mm_malloc((of.numins+of.numpat)*sizeof(UWORD))))
+	if(!(paraptr=(UWORD*)MikMod_malloc((of.numins+of.numpat)*sizeof(UWORD))))
 		return 0;
 
 	/* read the instrument+pattern parapointers */
@@ -323,10 +331,10 @@ static BOOL STX_Load(BOOL curious)
 	version=_mm_read_I_UWORD(modreader);
 	if(version==mh->patsize) {
 		version    = 0x10;
-		of.modtype = strdup("STMIK 0.2 (STM2STX 1.0)");
+		of.modtype = MikMod_strdup("STMIK 0.2 (STM2STX 1.0)");
 	} else {
 		version    = 0x11;
-		of.modtype = strdup("STMIK 0.2 (STM2STX 1.1)");
+		of.modtype = MikMod_strdup("STMIK 0.2 (STM2STX 1.1)");
 	}
 
 	/* read the order data */
@@ -343,7 +351,7 @@ static BOOL STX_Load(BOOL curious)
 		if(order==255) order=LAST_PATTERN;
 		of.positions[of.numpos]=order;
 		poslookup[t]=of.numpos;	/* bug fix for freaky S3Ms */
-		if(of.positions[t]<254) of.numpos++;        
+		if(of.positions[t]<254) of.numpos++;
 		else
 		  /* special end of song pattern */
 		  if((order==LAST_PATTERN)&&(!curious)) break;
@@ -389,7 +397,7 @@ static BOOL STX_Load(BOOL curious)
 		q->loopstart  = s.loopbeg;
 		q->loopend    = s.loopend;
 		q->volume     = s.volume;
-		q->seekpos    = (((long)s.memsegh)<<16|s.memsegl)<<4;
+		q->seekpos    = (((ULONG)s.memsegh)<<16|s.memsegl)<<4;
 		q->flags     |= SF_SIGNED;
 
 		if(s.flags&1) q->flags |= SF_LOOP;

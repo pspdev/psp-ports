@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_pipe.c,v 1.3 2004/01/31 22:39:40 raph Exp $
+  $Id$
 
   Driver for output via a pipe to another command
 
@@ -45,7 +45,7 @@
 #endif
 #include <stdio.h>
 #include <stdlib.h>
-#if defined unix || (defined __APPLE__ && defined __MACH__)
+#if (MIKMOD_UNIX)
 #include <errno.h>
 #include <sys/wait.h>
 #endif
@@ -58,7 +58,7 @@ extern int fclose(FILE *);
 
 static	MWRITER *pipeout=NULL;
 static	FILE *pipefile=NULL;
-#if defined unix || (defined __APPLE__ && defined __MACH__)
+#if (MIKMOD_UNIX)
 static	int pipefd[2]={-1,-1};
 static	pid_t pid;
 #endif
@@ -66,12 +66,12 @@ static	SBYTE *audiobuffer=NULL;
 
 static	CHAR *target=NULL;
 
-static void pipe_CommandLine(CHAR *cmdline)
+static void pipe_CommandLine(const CHAR *cmdline)
 {
 	CHAR *ptr=MD_GetAtom("pipe",cmdline,0);
 
 	if(ptr) {
-		_mm_free(target);
+		MikMod_free(target);
 		target=ptr;
 	}
 }
@@ -81,13 +81,13 @@ static BOOL pipe_IsThere(void)
 	return 1;
 }
 
-static BOOL pipe_Init(void)
+static int pipe_Init(void)
 {
 	if(!target) {
 		_mm_errno=MMERR_OPENING_FILE;
 		return 1;
 	}
-#if !defined unix && (!defined __APPLE__ || !defined __MACH__)
+#if !(MIKMOD_UNIX)
 #ifdef __EMX__
 	_fsetmode(stdout, "b");
 #endif
@@ -131,7 +131,7 @@ static BOOL pipe_Init(void)
 #endif
 	if(!(pipeout=_mm_new_file_writer(pipefile)))
 		return 1;
-	if(!(audiobuffer=(SBYTE*)_mm_malloc(BUFFERSIZE)))
+	if(!(audiobuffer=(SBYTE*)MikMod_malloc(BUFFERSIZE)))
 		return 1;
 
 	md_mode|=DMODE_SOFT_MUSIC|DMODE_SOFT_SNDFX;
@@ -141,19 +141,20 @@ static BOOL pipe_Init(void)
 
 static void pipe_Exit(void)
 {
-#if defined unix || (defined __APPLE__ && defined __MACH__)
+#if (MIKMOD_UNIX)
 	int pstat;
 	pid_t pid2;
 #endif
 
 	VC_Exit();
-	_mm_free(audiobuffer);
+	MikMod_free(audiobuffer);
+	audiobuffer=NULL;
 	if(pipeout) {
 		_mm_delete_file_writer(pipeout);
 		pipeout=NULL;
 	}
 	if(pipefile) {
-#if !defined unix && (!defined __APPLE__ || !defined __MACH__)
+#if !(MIKMOD_UNIX)
 #ifdef __WATCOMC__
 		_pclose(pipefile);
 #else
@@ -162,7 +163,7 @@ static void pipe_Exit(void)
 #ifdef __EMX__
 		_fsetmode(stdout,"t");
 #endif
-#else
+#else /* unix: */
 		fclose(pipefile);
 		do {
 			pid2=waitpid(pid,&pstat,0);
@@ -214,7 +215,7 @@ MIKMODAPI MDRIVER drv_pipe={
 #else
 
 MISSING(drv_pipe);
-		
+
 #endif
 
 /* ex:set ts=4: */

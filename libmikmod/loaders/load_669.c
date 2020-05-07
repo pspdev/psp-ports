@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: load_669.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id$
 
   Composer 669 module loader
 
@@ -49,7 +49,7 @@ extern int fprintf(FILE *, const char *, ...);
 /*========== Module structure */
 
 /* header */
-typedef struct S69HEADER {   
+typedef struct S69HEADER {
 	UBYTE	marker[2];
 	CHAR	message[108];
 	UBYTE	nos;
@@ -81,14 +81,14 @@ static	S69NOTE* s69pat=NULL;
 static	S69HEADER* mh=NULL;
 
 /* file type identification */
-static	CHAR* S69_Version[]={
+static	const CHAR* S69_Version[]={
 	"Composer 669",
 	"Extended 669"
 };
 
 /*========== Loader code */
 
-BOOL S69_Test(void)
+static BOOL S69_Test(void)
 {
 	UBYTE buf[0x80];
 
@@ -122,18 +122,20 @@ BOOL S69_Test(void)
 	return 1;
 }
 
-BOOL S69_Init(void)
+static BOOL S69_Init(void)
 {
-	if(!(s69pat=(S69NOTE *)_mm_malloc(64*8*sizeof(S69NOTE)))) return 0;
-	if(!(mh=(S69HEADER *)_mm_malloc(sizeof(S69HEADER)))) return 0;
+	if(!(s69pat=(S69NOTE *)MikMod_malloc(64*8*sizeof(S69NOTE)))) return 0;
+	if(!(mh=(S69HEADER *)MikMod_malloc(sizeof(S69HEADER)))) return 0;
 
 	return 1;
 }
 
-void S69_Cleanup(void)
+static void S69_Cleanup(void)
 {
-	_mm_free(s69pat);
-	_mm_free(mh);
+	MikMod_free(s69pat);
+	MikMod_free(mh);
+	mh=NULL;
+	s69pat=NULL;
 }
 
 static BOOL S69_LoadPatterns(void)
@@ -142,7 +144,7 @@ static BOOL S69_LoadPatterns(void)
 	UBYTE note,inst,vol,effect,lastfx,lastval;
 	S69NOTE *cur;
 	int tracks=0;
-	
+
 	if(!AllocPatterns()) return 0;
 	if(!AllocTracks()) return 0;
 
@@ -226,7 +228,7 @@ static BOOL S69_LoadPatterns(void)
 						case 5: /* set speed */
 							if (effect)
 								UniPTEffect(0xf,effect);
-							else 
+							else
 							  if(mh->marker[0]!=0x69) {
 #ifdef MIKMOD_DEBUG
 								fprintf(stderr,"\r669: unsupported super fast tempo at pat=%d row=%d chan=%d\n",
@@ -245,7 +247,7 @@ static BOOL S69_LoadPatterns(void)
 	return 1;
 }
 
-BOOL S69_Load(BOOL curious)
+static BOOL S69_Load(BOOL curious)
 {
 	int i;
 	SAMPLE *current;
@@ -280,7 +282,7 @@ BOOL S69_Load(BOOL curious)
 	of.initspeed=4;
 	of.inittempo=78;
 	of.songname=DupStr(mh->message,36,1);
-	of.modtype=strdup(S69_Version[memcmp(mh->marker,"JN",2)==0]);
+	of.modtype=MikMod_strdup(S69_Version[memcmp(mh->marker,"JN",2)==0]);
 	of.numchn=8;
 	of.numpat=mh->nop;
 	of.numins=of.numsmp=mh->nos;
@@ -291,7 +293,7 @@ BOOL S69_Load(BOOL curious)
 	for(i=36+35;(i>=36+0)&&(mh->message[i]==' ');i--) mh->message[i]=0;
 	for(i=72+35;(i>=72+0)&&(mh->message[i]==' ');i--) mh->message[i]=0;
 	if((mh->message[0])||(mh->message[36])||(mh->message[72]))
-		if((of.comment=(CHAR*)_mm_malloc(3*(36+1)+1))) {
+		if((of.comment=(CHAR*)MikMod_malloc(3*(36+1)+1)) != NULL) {
 			strncpy(of.comment,mh->message,36);
 			strcat(of.comment,"\r");
 			if (mh->message[36]) strncat(of.comment,mh->message+36,36);
@@ -342,7 +344,7 @@ BOOL S69_Load(BOOL curious)
 	return 1;
 }
 
-CHAR *S69_LoadTitle(void)
+static CHAR *S69_LoadTitle(void)
 {
 	CHAR s[36];
 
