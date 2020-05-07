@@ -81,17 +81,6 @@ install-data-local : install-zzipHEADERS
 	sed -e 's|zzip.h|zzip-io.h|' -e 's|zzip/lib.h|zzip/plugin.h|' \
 	$(DESTDIR)$(includedir)/zzip.h >$(DESTDIR)$(includedir)/zzip-io.h
 
-install-exec-local:
-	@ for i in . $(DESTDIR)$(libdir)/libzzip*.so.13 \
-        ; do test -d $$i && continue ; lib=`basename "$$i" .so.13` \
-        ; echo "$(DESTDIR)$(libdir): ln -s $$lib.so.13 $$lib.so.10" \
-        ; (cd $(DESTDIR)$(libdir) && ln -s $$lib.so.13 $$lib.so.10) \
-        ; echo "$(DESTDIR)$(libdir): ln -s $$lib.so.13 $$lib.so.11" \
-        ; (cd $(DESTDIR)$(libdir) && ln -s $$lib.so.13 $$lib.so.11) \
-        ; echo "$(DESTDIR)$(libdir): ln -s $$lib.so.13 $$lib.so.12" \
-        ; (cd $(DESTDIR)$(libdir) && ln -s $$lib.so.13 $$lib.so.12) \
-	; done ; true
-
 uninstall-local :
 	(cd $(DESTDIR)$(includedir) && rm zziplib.h  zzip.h  zzip-io.h)
 
