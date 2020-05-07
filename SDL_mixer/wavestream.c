@@ -1,26 +1,25 @@
 /*
-    SDL_mixer:  An audio mixer library based on the SDL library
-    Copyright (C) 1997-2009 Sam Lantinga
+  SDL_mixer:  An audio mixer library based on the SDL library
+  Copyright (C) 1997-2012 Sam Lantinga <slouken@libsdl.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-    Sam Lantinga
-    slouken@libsdl.org
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
 */
 
-/* $Id: wavestream.c 5214 2009-11-08 17:11:09Z slouken $ */
+/* $Id$ */
 
 /* This file supports streaming WAV files, without volume adjustment */
 
@@ -114,37 +113,23 @@ void WAVStream_SetVolume(int volume)
 	wavestream_volume = volume;
 }
 
-WAVStream *WAVStream_LoadSong(const char *file, const char *magic)
-{
-	SDL_RWops *rw;
-	WAVStream *wave;
-
-	rw = SDL_RWFromFile(file, "rb");
-	if ( rw == NULL ) {
-		SDL_SetError("Couldn't open %s", file);
-		return NULL;
-	}
-	wave = WAVStream_LoadSong_RW(rw, magic);
-	if ( wave == NULL ) {
-		SDL_FreeRW(rw);
-		return NULL;
-	}
-	return wave;
-}
-
-/* Load a WAV stream from the given file */
-WAVStream *WAVStream_LoadSong_RW(SDL_RWops *rw, const char *magic)
+/* Load a WAV stream from the given RWops object */
+WAVStream *WAVStream_LoadSong_RW(SDL_RWops *rw, const char *magic, int freerw)
 {
 	WAVStream *wave;
 	SDL_AudioSpec wavespec;
 
 	if ( ! mixer.format ) {
 		Mix_SetError("WAV music output not started");
+		if ( freerw ) {
+			SDL_RWclose(rw);
+		}
 		return(NULL);
 	}
-	wave = (WAVStream *)malloc(sizeof *wave);
+	wave = (WAVStream *)SDL_malloc(sizeof *wave);
 	if ( wave ) {
 		memset(wave, 0, (sizeof *wave));
+		wave->freerw = freerw;
 		if ( strcmp(magic, "RIFF") == 0 ) {
 			wave->rw = LoadWAVStream(rw, &wavespec,
 					&wave->start, &wave->stop);
@@ -156,12 +141,21 @@ WAVStream *WAVStream_LoadSong_RW(SDL_RWops *rw, const char *magic)
 			Mix_SetError("Unknown WAVE format");
 		}
 		if ( wave->rw == NULL ) {
-			free(wave);
+			SDL_free(wave);
+			if ( freerw ) {
+				SDL_RWclose(rw);
+			}
 			return(NULL);
 		}
 		SDL_BuildAudioCVT(&wave->cvt,
 			wavespec.format, wavespec.channels, wavespec.freq,
 			mixer.format, mixer.channels, mixer.freq);
+	} else {
+		SDL_OutOfMemory();
+		if ( freerw ) {
+			SDL_RWclose(rw);
+		}
+		return(NULL);
 	}
 	return(wave);
 }
@@ -187,10 +181,10 @@ int WAVStream_PlaySome(Uint8 *stream, int len)
 			if ( music->cvt.len != original_len ) {
 				int worksize;
 				if ( music->cvt.buf != NULL ) {
-					free(music->cvt.buf);
+					SDL_free(music->cvt.buf);
 				}
 				worksize = original_len*music->cvt.len_mult;
-				music->cvt.buf=(Uint8 *)malloc(worksize);
+				music->cvt.buf=(Uint8 *)SDL_malloc(worksize);
 				if ( music->cvt.buf == NULL ) {
 					return 0;
 				}
@@ -243,13 +237,13 @@ void WAVStream_FreeSong(WAVStream *wave)
 {
 	if ( wave ) {
 		/* Clean up associated data */
-		if ( wave->freerw ) {
-			SDL_FreeRW(wave->rw);
-		}
 		if ( wave->cvt.buf ) {
-			free(wave->cvt.buf);
+			SDL_free(wave->cvt.buf);
 		}
-		free(wave);
+		if ( wave->freerw ) {
+			SDL_RWclose(wave->rw);
+		}
+		SDL_free(wave);
 	}
 }
 
@@ -270,14 +264,14 @@ static int ReadChunk(SDL_RWops *src, Chunk *chunk, int read_data)
 	chunk->magic	= SDL_ReadLE32(src);
 	chunk->length	= SDL_ReadLE32(src);
 	if ( read_data ) {
-		chunk->data = (Uint8 *)malloc(chunk->length);
+		chunk->data = (Uint8 *)SDL_malloc(chunk->length);
 		if ( chunk->data == NULL ) {
 			Mix_SetError("Out of memory");
 			return(-1);
 		}
 		if ( SDL_RWread(src, chunk->data, chunk->length, 1) != 1 ) {
 			Mix_SetError("Couldn't read chunk");
-			free(chunk->data);
+			SDL_free(chunk->data);
 			return(-1);
 		}
 	} else {
@@ -318,7 +312,7 @@ static SDL_RWops *LoadWAVStream (SDL_RWops *src, SDL_AudioSpec *spec,
 	do {
 		/* FIXME! Add this logic to SDL_LoadWAV_RW() */
 		if ( chunk.data ) {
-			free(chunk.data);
+			SDL_free(chunk.data);
 		}
 		lenread = ReadChunk(src, &chunk, 1);
 		if ( lenread < 0 ) {
@@ -330,7 +324,7 @@ static SDL_RWops *LoadWAVStream (SDL_RWops *src, SDL_AudioSpec *spec,
 	/* Decode the audio data format */
 	format = (WaveFMT *)chunk.data;
 	if ( chunk.magic != FMT ) {
-		free(chunk.data);
+		SDL_free(chunk.data);
 		Mix_SetError("Complex WAVE files not supported");
 		was_error = 1;
 		goto done;
@@ -375,7 +369,7 @@ static SDL_RWops *LoadWAVStream (SDL_RWops *src, SDL_AudioSpec *spec,
 
 done:
 	if ( format != NULL ) {
-		free(format);
+		SDL_free(format);
 	}
 	if ( was_error ) {
 		return NULL;

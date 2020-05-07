@@ -24,7 +24,7 @@
     This file by Torbjörn Andersson (torbjorn.andersson@eurotime.se)
 */
 
-/* $Id: load_aiff.h 4211 2008-12-08 00:27:32Z slouken $ */
+/* $Id$ */
 
 /* Don't call this directly; use Mix_LoadWAV_RW() for now. */
 SDL_AudioSpec *Mix_LoadAIFF_RW (SDL_RWops *src, int freesrc,

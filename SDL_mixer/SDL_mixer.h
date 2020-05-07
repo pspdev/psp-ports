@@ -1,26 +1,25 @@
 /*
-    SDL_mixer:  An audio mixer library based on the SDL library
-    Copyright (C) 1997-2009 Sam Lantinga
+  SDL_mixer:  An audio mixer library based on the SDL library
+  Copyright (C) 1997-2012 Sam Lantinga <slouken@libsdl.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-    Sam Lantinga
-    slouken@libsdl.org
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
 */
 
-/* $Id: SDL_mixer.h 5252 2009-11-15 09:41:26Z slouken $ */
+/* $Id$ */
 
 #ifndef _SDL_MIXER_H
 #define _SDL_MIXER_H
@@ -41,7 +40,7 @@ extern "C" {
 */
 #define SDL_MIXER_MAJOR_VERSION	1
 #define SDL_MIXER_MINOR_VERSION	2
-#define SDL_MIXER_PATCHLEVEL    11
+#define SDL_MIXER_PATCHLEVEL    12
 
 /* This macro can be used to fill a version structure with the compile-time
  * version of the SDL_mixer library.
@@ -67,10 +66,11 @@ extern DECLSPEC const SDL_version * SDLCALL Mix_Linked_Version(void);
 
 typedef enum
 {
-    MIX_INIT_FLAC = 0x00000001,
-    MIX_INIT_MOD  = 0x00000002,
-    MIX_INIT_MP3  = 0x00000004,
-    MIX_INIT_OGG  = 0x00000008
+    MIX_INIT_FLAC        = 0x00000001,
+    MIX_INIT_MOD         = 0x00000002,
+    MIX_INIT_MP3         = 0x00000004,
+    MIX_INIT_OGG         = 0x00000008,
+    MIX_INIT_FLUIDSYNTH  = 0x00000010
 } MIX_InitFlags;
 
 /* Loads dynamic libraries and prepares them for use.  Flags should be
@@ -122,7 +122,8 @@ typedef enum {
 	MUS_OGG,
 	MUS_MP3,
 	MUS_MP3_MAD,
-	MUS_FLAC
+	MUS_FLAC,
+	MUS_MODPLUG
 } Mix_MusicType;
 
 /* The internal format for a music chunk interpreted via mikmod */
@@ -152,6 +153,9 @@ extern DECLSPEC Mix_Music * SDLCALL Mix_LoadMUS(const char *file);
 /* Load a music file from an SDL_RWop object (Ogg and MikMod specific currently)
    Matt Campbell (matt@campbellhome.dhs.org) April 2000 */
 extern DECLSPEC Mix_Music * SDLCALL Mix_LoadMUS_RW(SDL_RWops *rw);
+
+/* Load a music file from an SDL_RWop object assuming a specific format */
+extern DECLSPEC Mix_Music * SDLCALL Mix_LoadMUSType_RW(SDL_RWops *rw, Mix_MusicType type, int freesrc);
 
 /* Load a wave file of the mixer format from a memory buffer */
 extern DECLSPEC Mix_Chunk * SDLCALL Mix_QuickLoad_WAV(Uint8 *mem);
@@ -586,8 +590,8 @@ extern DECLSPEC int SDLCALL Mix_PausedMusic(void);
 /* Set the current position in the music stream.
    This returns 0 if successful, or -1 if it failed or isn't implemented.
    This function is only implemented for MOD music formats (set pattern
-   order number) and for OGG music (set position in seconds), at the
-   moment.
+   order number) and for OGG, FLAC, MP3_MAD, and MODPLUG music (set 
+   position in seconds), at the moment.
 */
 extern DECLSPEC int SDLCALL Mix_SetMusicPosition(double position);
 
@@ -603,6 +607,11 @@ extern DECLSPEC int SDLCALL Mix_SetMusicCMD(const char *command);
 /* Synchro value is set by MikMod from modules while playing */
 extern DECLSPEC int SDLCALL Mix_SetSynchroValue(int value);
 extern DECLSPEC int SDLCALL Mix_GetSynchroValue(void);
+
+/* Set/Get/Iterate SoundFonts paths to use by supported MIDI backends */
+extern DECLSPEC int SDLCALL Mix_SetSoundFonts(const char *paths);
+extern DECLSPEC const char* SDLCALL Mix_GetSoundFonts(void);
+extern DECLSPEC int SDLCALL Mix_EachSoundFont(int (*function)(const char*, void*), void *data);
 
 /* Get the Mix_Chunk currently associated with a mixer channel
     Returns NULL if it's an invalid channel, or there's no chunk associated.

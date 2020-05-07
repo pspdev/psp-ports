@@ -1,28 +1,30 @@
 /*
-    SDL_mixer:  An audio mixer library based on the SDL library
-    Copyright (C) 1997-2009 Sam Lantinga
+  SDL_mixer:  An audio mixer library based on the SDL library
+  Copyright (C) 1997-2012 Sam Lantinga <slouken@libsdl.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
 
-    This file by Ryan C. Gordon (icculus@icculus.org)
+  This file by Ryan C. Gordon (icculus@icculus.org)
 
-    These are some internally supported special effects that use SDL_mixer's
-    effect callback API. They are meant for speed over quality.  :)
+  These are some internally supported special effects that use SDL_mixer's
+  effect callback API. They are meant for speed over quality.  :)
 */
 
-/* $Id: effect_position.c 5045 2009-10-11 02:59:12Z icculus $ */
+/* $Id$ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,14 +85,14 @@ void _Eff_PositionDeinit(void)
 {
     int i;
     for (i = 0; i < position_channels; i++) {
-        free(pos_args_array[i]);
+        SDL_free(pos_args_array[i]);
     }
 
     position_channels = 0;
 
-    free(pos_args_global);
+    SDL_free(pos_args_global);
     pos_args_global = NULL;
-    free(pos_args_array);
+    SDL_free(pos_args_array);
     pos_args_array = NULL;
 }
 
@@ -100,13 +102,13 @@ static void _Eff_PositionDone(int channel, void *udata)
 {
     if (channel < 0) {
         if (pos_args_global != NULL) {
-            free(pos_args_global);
+            SDL_free(pos_args_global);
             pos_args_global = NULL;
         }
     }
 
     else if (pos_args_array[channel] != NULL) {
-        free(pos_args_array[channel]);
+        SDL_free(pos_args_array[channel]);
         pos_args_array[channel] = NULL;
     }
 }
@@ -1147,7 +1149,7 @@ static position_args *get_position_arg(int channel)
 
     if (channel < 0) {
         if (pos_args_global == NULL) {
-            pos_args_global = malloc(sizeof (position_args));
+            pos_args_global = SDL_malloc(sizeof (position_args));
             if (pos_args_global == NULL) {
                 Mix_SetError("Out of memory");
                 return(NULL);
@@ -1159,7 +1161,7 @@ static position_args *get_position_arg(int channel)
     }
 
     if (channel >= position_channels) {
-        rc = realloc(pos_args_array, (channel + 1) * sizeof (position_args *));
+        rc = SDL_realloc(pos_args_array, (channel + 1) * sizeof (position_args *));
         if (rc == NULL) {
             Mix_SetError("Out of memory");
             return(NULL);
@@ -1172,7 +1174,7 @@ static position_args *get_position_arg(int channel)
     }
 
     if (pos_args_array[channel] == NULL) {
-        pos_args_array[channel] = (position_args *)malloc(sizeof(position_args));
+        pos_args_array[channel] = (position_args *)SDL_malloc(sizeof(position_args));
         if (pos_args_array[channel] == NULL) {
             Mix_SetError("Out of memory");
             return(NULL);
