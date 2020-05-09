@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: load_uni.c,v 1.2 2004/02/06 19:29:03 raph Exp $
+  $Id$
 
   UNIMOD (libmikmod's and APlayer's internal module format) loader
 
@@ -94,21 +94,21 @@ static UNISMP05 *wh=NULL,*s=NULL;
 
 /*========== Loader code */
 
-static char* readstring(void)
+static char * readstring(void)
 {
-	char *s=NULL;
+	char *str=NULL;
 	UWORD len;
-	
+
 	len=_mm_read_I_UWORD(modreader);
 	if(len) {
-		s=_mm_malloc(len+1);
-		_mm_read_UBYTES(s,len,modreader);
-		s[len]=0;
+		str=(char *) MikMod_malloc(len+1);
+		_mm_read_UBYTES(str,len,modreader);
+		str[len]=0;
 	}
-	return s;
+	return str;
 }
 
-BOOL UNI_Test(void)
+static BOOL UNI_Test(void)
 {
 	char id[6];
 
@@ -125,15 +125,15 @@ BOOL UNI_Test(void)
 	return 0;
 }
 
-BOOL UNI_Init(void)
+static BOOL UNI_Init(void)
 {
 	return 1;
 }
 
-void UNI_Cleanup(void)
+static void UNI_Cleanup(void)
 {
-	_mm_free(wh);
-	s=NULL;
+	MikMod_free(wh);
+	wh = s = NULL;
 }
 
 static UBYTE* readtrack(void)
@@ -148,7 +148,7 @@ static UBYTE* readtrack(void)
 		len=_mm_read_I_UWORD(modreader);
 
 	if(!len) return NULL;
-	if(!(t=_mm_malloc(len))) return NULL;
+	if(!(t=(UBYTE*)MikMod_malloc(len))) return NULL;
 	_mm_read_UBYTES(t,len,modreader);
 
 	/* Check if the track is correct */
@@ -160,7 +160,7 @@ static UBYTE* readtrack(void)
 			int opcode,oplen;
 
 			if(cur>=len) {
-				free(t);
+				MikMod_free(t);
 				return NULL;
 			}
 			opcode=t[cur];
@@ -168,7 +168,7 @@ static UBYTE* readtrack(void)
 			/* Remap opcodes */
 			if (universion <= 5) {
 				if (opcode > 29) {
-					free(t);
+					MikMod_free(t);
 					return NULL;
 				}
 				switch (opcode) {
@@ -202,7 +202,7 @@ static UBYTE* readtrack(void)
 			}
 
 			if((!opcode)||(opcode>=UNI_LAST)) {
-				free(t);
+				MikMod_free(t);
 				return NULL;
 			}
 			t[cur]=opcode;
@@ -211,7 +211,7 @@ static UBYTE* readtrack(void)
 			chunk-=oplen;
 		}
 		if((chunk<0)||(cur>=len)) {
-			free(t);
+			MikMod_free(t);
 			return NULL;
 		}
 	}
@@ -221,65 +221,65 @@ static UBYTE* readtrack(void)
 static BOOL loadsmp6(void)
 {
 	int t;
-	SAMPLE *s;
+	SAMPLE *sptr;
 
-	s=of.samples;
-	for(t=0;t<of.numsmp;t++,s++) {
+	sptr=of.samples;
+	for(t=0;t<of.numsmp;t++,sptr++) {
 		int flags;
 
 		flags         = _mm_read_M_UWORD(modreader);
-		s->flags=0;
-		if(flags&0x0004) s->flags|=SF_STEREO;
-		if(flags&0x0002) s->flags|=SF_SIGNED;
-		if(flags&0x0001) s->flags|=SF_16BITS;
+		sptr->flags=0;
+		if(flags&0x0004) sptr->flags|=SF_STEREO;
+		if(flags&0x0002) sptr->flags|=SF_SIGNED;
+		if(flags&0x0001) sptr->flags|=SF_16BITS;
 		/* convert flags */
 		if(universion>=0x104) {
-			if(flags&0x2000) s->flags|=SF_UST_LOOP;
-			if(flags&0x1000) s->flags|=SF_OWNPAN;
-			if(flags&0x0800) s->flags|=SF_SUSTAIN;
-			if(flags&0x0400) s->flags|=SF_REVERSE;
-			if(flags&0x0200) s->flags|=SF_BIDI;
-			if(flags&0x0100) s->flags|=SF_LOOP;
-			if(flags&0x0020) s->flags|=SF_ITPACKED;
-			if(flags&0x0010) s->flags|=SF_DELTA;
-			if(flags&0x0008) s->flags|=SF_BIG_ENDIAN;
+			if(flags&0x2000) sptr->flags|=SF_UST_LOOP;
+			if(flags&0x1000) sptr->flags|=SF_OWNPAN;
+			if(flags&0x0800) sptr->flags|=SF_SUSTAIN;
+			if(flags&0x0400) sptr->flags|=SF_REVERSE;
+			if(flags&0x0200) sptr->flags|=SF_BIDI;
+			if(flags&0x0100) sptr->flags|=SF_LOOP;
+			if(flags&0x0020) sptr->flags|=SF_ITPACKED;
+			if(flags&0x0010) sptr->flags|=SF_DELTA;
+			if(flags&0x0008) sptr->flags|=SF_BIG_ENDIAN;
 		} else if(universion>=0x102) {
-			if(flags&0x0800) s->flags|=SF_UST_LOOP;
-			if(flags&0x0400) s->flags|=SF_OWNPAN;
-			if(flags&0x0200) s->flags|=SF_SUSTAIN;
-			if(flags&0x0100) s->flags|=SF_REVERSE;
-			if(flags&0x0080) s->flags|=SF_BIDI;
-			if(flags&0x0040) s->flags|=SF_LOOP;
-			if(flags&0x0020) s->flags|=SF_ITPACKED;
-			if(flags&0x0010) s->flags|=SF_DELTA;
-			if(flags&0x0008) s->flags|=SF_BIG_ENDIAN;
+			if(flags&0x0800) sptr->flags|=SF_UST_LOOP;
+			if(flags&0x0400) sptr->flags|=SF_OWNPAN;
+			if(flags&0x0200) sptr->flags|=SF_SUSTAIN;
+			if(flags&0x0100) sptr->flags|=SF_REVERSE;
+			if(flags&0x0080) sptr->flags|=SF_BIDI;
+			if(flags&0x0040) sptr->flags|=SF_LOOP;
+			if(flags&0x0020) sptr->flags|=SF_ITPACKED;
+			if(flags&0x0010) sptr->flags|=SF_DELTA;
+			if(flags&0x0008) sptr->flags|=SF_BIG_ENDIAN;
 		} else {
-			if(flags&0x400) s->flags|=SF_UST_LOOP;
-			if(flags&0x200) s->flags|=SF_OWNPAN;
-			if(flags&0x100) s->flags|=SF_REVERSE;
-			if(flags&0x080) s->flags|=SF_SUSTAIN;
-			if(flags&0x040) s->flags|=SF_BIDI;
-			if(flags&0x020) s->flags|=SF_LOOP;
-			if(flags&0x010) s->flags|=SF_BIG_ENDIAN;
-			if(flags&0x008) s->flags|=SF_DELTA;
+			if(flags&0x400) sptr->flags|=SF_UST_LOOP;
+			if(flags&0x200) sptr->flags|=SF_OWNPAN;
+			if(flags&0x100) sptr->flags|=SF_REVERSE;
+			if(flags&0x080) sptr->flags|=SF_SUSTAIN;
+			if(flags&0x040) sptr->flags|=SF_BIDI;
+			if(flags&0x020) sptr->flags|=SF_LOOP;
+			if(flags&0x010) sptr->flags|=SF_BIG_ENDIAN;
+			if(flags&0x008) sptr->flags|=SF_DELTA;
 		}
 
-		s->speed      = _mm_read_M_ULONG(modreader);
-		s->volume     = _mm_read_UBYTE(modreader);
-		s->panning    = _mm_read_M_UWORD(modreader);
-		s->length     = _mm_read_M_ULONG(modreader);
-		s->loopstart  = _mm_read_M_ULONG(modreader);
-		s->loopend    = _mm_read_M_ULONG(modreader);
-		s->susbegin   = _mm_read_M_ULONG(modreader);
-		s->susend     = _mm_read_M_ULONG(modreader);
-		s->globvol    = _mm_read_UBYTE(modreader);
-		s->vibflags   = _mm_read_UBYTE(modreader);
-		s->vibtype    = _mm_read_UBYTE(modreader);
-		s->vibsweep   = _mm_read_UBYTE(modreader);
-		s->vibdepth   = _mm_read_UBYTE(modreader);
-		s->vibrate    = _mm_read_UBYTE(modreader);
+		sptr->speed      = _mm_read_M_ULONG(modreader);
+		sptr->volume     = _mm_read_UBYTE(modreader);
+		sptr->panning    = _mm_read_M_UWORD(modreader);
+		sptr->length     = _mm_read_M_ULONG(modreader);
+		sptr->loopstart  = _mm_read_M_ULONG(modreader);
+		sptr->loopend    = _mm_read_M_ULONG(modreader);
+		sptr->susbegin   = _mm_read_M_ULONG(modreader);
+		sptr->susend     = _mm_read_M_ULONG(modreader);
+		sptr->globvol    = _mm_read_UBYTE(modreader);
+		sptr->vibflags   = _mm_read_UBYTE(modreader);
+		sptr->vibtype    = _mm_read_UBYTE(modreader);
+		sptr->vibsweep   = _mm_read_UBYTE(modreader);
+		sptr->vibdepth   = _mm_read_UBYTE(modreader);
+		sptr->vibrate    = _mm_read_UBYTE(modreader);
 
-		s->samplename=readstring();
+		sptr->samplename=readstring();
 
 		if(_mm_eof(modreader)) {
 			_mm_errno = MMERR_LOADING_SAMPLEINFO;
@@ -415,7 +415,7 @@ static BOOL loadinstr5(void)
 			/* Allocate more room for sample information if necessary */
 			if(of.numsmp+u==wavcnt) {
 				wavcnt+=UNI_SMPINCR;
-				if(!(wh=realloc(wh,wavcnt*sizeof(UNISMP05)))) {
+				if(!(wh=(UNISMP05*)MikMod_realloc(wh,wavcnt*sizeof(UNISMP05)))) {
 					_mm_errno=MMERR_OUT_OF_MEMORY;
 					return 0;
 				}
@@ -438,7 +438,7 @@ static BOOL loadinstr5(void)
 			s->vibrate =vibrate;
 
 			if(_mm_eof(modreader)) {
-				free(wh);wh=NULL;
+				MikMod_free(wh);wh=NULL;
 				_mm_errno=MMERR_LOADING_SAMPLEINFO;
 				return 0;
 			}
@@ -447,7 +447,7 @@ static BOOL loadinstr5(void)
 
 	/* sanity check */
 	if(!of.numsmp) {
-		if(wh) { free(wh);wh=NULL; }
+		MikMod_free(wh);wh=NULL;
 		_mm_errno=MMERR_LOADING_SAMPLEINFO;
 		return 0;
 	}
@@ -493,18 +493,18 @@ static BOOL loadsmp5(void)
 			d->samplenote[t]=(d->samplenumber[t]>=of.numsmp)?
 			  255:(t+s[d->samplenumber[t]].transpose);
 
-	free(wh);wh=NULL;
+	MikMod_free(wh);wh=NULL;
 
 	return 1;
 }
 
-BOOL UNI_Load(BOOL curious)
+static BOOL UNI_Load(BOOL curious)
 {
 	int t;
 	char *modtype,*oldtype=NULL;
 	INSTRUMENT *d;
 	SAMPLE *q;
-	
+
 	/* read module header */
 	_mm_read_UBYTES(mh.id,4,modreader);
 	if(mh.id[3]!='N')
@@ -513,11 +513,11 @@ BOOL UNI_Load(BOOL curious)
 		universion=0x100;
 
 	if(universion>=6) {
-		if (universion==6)
-			_mm_read_UBYTE(modreader);
-		else
+		if (universion==6) {
+			_mm_skip_BYTE(modreader);
+		} else {
 			universion=_mm_read_M_UWORD(modreader);
-
+		}
 		mh.flags     =_mm_read_M_UWORD(modreader);
 		mh.numchn    =_mm_read_UBYTE(modreader);
 		mh.numvoices =_mm_read_UBYTE(modreader);
@@ -555,7 +555,7 @@ BOOL UNI_Load(BOOL curious)
 		mh.flags &= UF_XMPERIODS | UF_LINEAR;
 		mh.flags |= UF_INST | UF_NOWRAP | UF_PANNING;
 	}
-	
+
 	/* set module parameters */
 	of.flags     =mh.flags;
 	of.numchn    =mh.numchn;
@@ -576,23 +576,23 @@ BOOL UNI_Load(BOOL curious)
 	if(universion<0x102)
 		oldtype=readstring();
 	if(oldtype) {
-		int len=strlen(oldtype)+20;
-		if(!(modtype=_mm_malloc(len))) return 0;
+		size_t len=strlen(oldtype)+20;
+		if(!(modtype=(char*)MikMod_malloc(len))) return 0;
 #ifdef HAVE_SNPRINTF
 		snprintf(modtype,len,"%s (was %s)",(universion>=0x100)?"APlayer":"MikCvt2",oldtype);
 #else
 		sprintf(modtype,"%s (was %s)",(universion>=0x100)?"APlayer":"MikCvt2",oldtype);
 #endif
 	} else {
-		if(!(modtype=_mm_malloc(10))) return 0;
+		if(!(modtype=(char*)MikMod_malloc(10))) return 0;
 #ifdef HAVE_SNPRINTF
 		snprintf(modtype,10,"%s",(universion>=0x100)?"APlayer":"MikCvt3");
 #else
 		sprintf(modtype,"%s",(universion>=0x100)?"APlayer":"MikCvt3");
 #endif
 	}
-	of.modtype=strdup(modtype);
-	free(modtype);free(oldtype);
+	of.modtype=MikMod_strdup(modtype);
+	MikMod_free(modtype);MikMod_free(oldtype);
 	of.comment=readstring();
 
 	if(universion>=6) {
@@ -641,7 +641,7 @@ BOOL UNI_Load(BOOL curious)
 		if(!AllocInstruments()) return 0;
 		if(!loadinstr5()) return 0;
 		if(!AllocSamples()) {
-			if(wh) { free(wh);wh=NULL; }
+			MikMod_free(wh);wh=NULL;
 			return 0;
 		}
 		if(!loadsmp5()) return 0;
@@ -688,7 +688,7 @@ BOOL UNI_Load(BOOL curious)
 	return 1;
 }
 
-CHAR *UNI_LoadTitle(void)
+static CHAR *UNI_LoadTitle(void)
 {
 	UBYTE ver;
 	int posit[3]={304,306,26};

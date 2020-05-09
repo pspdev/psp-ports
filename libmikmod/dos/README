@@ -1,27 +1,8 @@
   Hello folks !
 
 
-This is libmikmod, version 3.2.0-beta1, a portable sound library for DOS.
-DOS support is new in this version, your comments and critics are welcome.
-
-
->> BETA WARNING
----------------
-
-This is a *beta* version of libmikmod. Although it should work fine on
-almost all systems, there are likely a few last-minute errors or typos
-in the source, and some parts have not received enough hours of testing yet.
-
-Also, please note that all features planned for the final 3.2.0 release are not
-available yet. Some structures or functions may change. This release is mainly
-intended to the libmikmod developers to share a common base for adding new
-features...
-
-The library programming documentation (in docs/) is mostly up-to-date... It
-lacks the Player_QueryVoices documentation, though.
-
-If you're not scared, then you can proceed and enjoy fewer bugs than in the
-previous version (-;
+This is libmikmod, version 3.3.11, a portable sound library for DOS.
+Comments & feedback are welcome.
 
 
 >> BUILDING LIBMIKMOD
@@ -38,17 +19,7 @@ things manually ...
 
 If you have all proper tools installed, just type
 
-	make -fMakefile.dj
-
-There is a catch if you have some PC-like GREP (i.e. Borland GREP) somewhere on
-your path before actual GNU grep... you can check this by just typing "grep".
-GNU grep should output:
-
-	Usage: grep [OPTION]... PATTERN [FILE]...
-	Try `grep --help' for more information.
-
-If you see something other, place your djgpp/bin path earlier in PATH list.
-After this the build process should complete painlessly.
+	make -f Makefile.dj
 
 To make your library ready to use, copy the files 'libmikmod.a' and
 'include/mikmod.h' to your '%DJGPP%/lib' and '%DJGPP%/include' directories
@@ -75,10 +46,7 @@ Currently three brands of sound cards are supported under DOS:
 	+ SB Pro (8-bit 22KHz stereo, 8-bit 44KHz mono)
 	+ SB 16+ (8- and 16-bit stereo, up to 44Khz both)
 
-  Note that SB16 should cover AWE32/64 as well... however, the code for SB16
-  has not been tested (although there is little SB16-specific code, but
-  anyway...). If someone can test/debug it, please notify us (or at least
-  report what doesn't work).
+  Note that SB16 should cover AWE32/64 as well...
 
 - Windows Sound System and compatibles. Most today SoundBlaster clones
   (including the CS4236B card used for testing) emulates (in hardware) WSS.
@@ -116,21 +84,17 @@ people who will embed libmikmod in their application as a shared library.
 >> CONTACT AND DOWNLOAD INFO
 ----------------------------
 
-* email:
-  Please send all your libmikmod related e-mail to the maintainer, Raphael
-  Assenat, at:
-  mikmod@raphnet.net
+libmikmod home page is located at SourceForge:
 
-  Things related to the DOS port should also be forwarded to the DOS
-  ``portmaster'', Andrew Zabolotny, at:
-  bit@eltech.ru
+    http://mikmod.sourceforge.net/
+    http://sourceforge.net/projects/mikmod/
 
-  There's a mailing list for discussing the development of libmikmod (new
-  features, bugs, ideas...). Look for more information on the web site.
+There's a mailing list (mikmod-public) for discussing the development
+of MikMod (new features, bugs, ideas...) Look for more information on
+the web site.
 
-* web:
-  libmikmod home page is located at:
-    http://mikmod.raphnet.net
+Things related to the DOS port should also be forwarded to the DOS
+``portmaster'', Andrew Zabolotny, at: bit@eltech.ru
 
 
 >> LAST NOTES

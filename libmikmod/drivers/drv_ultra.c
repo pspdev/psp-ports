@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_ultra.c,v 1.4 2004/02/05 17:34:49 raph Exp $
+  $Id$
 
   Driver for Gravis Ultrasound cards using libGUS.
   A subset of libGUS is provided for DOS/DJGPP and OS/2
@@ -66,8 +66,16 @@
 
 #include <libgus.h>
 
+#if !defined(GUS_INSTR_SIMPLE) || !defined(GUS_WAVE_BIDIR)
+#error libgus version is too old
+#endif
+/* just in case */
+#ifndef LIBGUS_VERSION_MAJOR
+#define LIBGUS_VERSION_MAJOR 0x0003
+#endif
+
 /* DOS/DJGPP and OS/2 libGUS'es have gus_get_voice_status() */
-#if defined (__EMX__) || defined (__DJGPP__)
+#if defined(__EMX__) || defined(__DJGPP__)
 #define HAVE_VOICE_STATUS
 #else
 #include <time.h>
@@ -76,78 +84,170 @@
 
 #ifdef MIKMOD_DYNAMIC
 /* runtime link with libgus */
-static int (*libgus_cards) (void);
-static int (*libgus_close) (int);
-static int (*libgus_do_flush) (void);
-static void (*libgus_do_tempo) (unsigned int);
-static void (*libgus_do_voice_frequency) (unsigned char, unsigned int);
-static void (*libgus_do_voice_pan) (unsigned char, unsigned short);
-static void (*libgus_do_voice_start) (unsigned char, unsigned int,
-									  unsigned int, unsigned short,
-									  unsigned short);
-static void (*libgus_do_voice_start_position) (unsigned char, unsigned int,
-											   unsigned int, unsigned short,
-											   unsigned short, unsigned int);
-static void (*libgus_do_voice_stop) (unsigned char, unsigned char);
-static void (*libgus_do_voice_volume) (unsigned char, unsigned short);
-static void (*libgus_do_wait) (unsigned int);
-static int (*libgus_get_handle) (void);
-static int (*libgus_info) (gus_info_t *, int);
-static int (*libgus_memory_alloc) (gus_instrument_t *);
-static int (*libgus_memory_free) (gus_instrument_t *);
-static int (*libgus_memory_free_size) (void);
-static int (*libgus_memory_pack) (void);
-static int (*libgus_open) (int, size_t, int);
-static int (*libgus_queue_flush) (void);
-static int (*libgus_queue_read_set_size) (int);
-static int (*libgus_queue_write_set_size) (int);
-static int (*libgus_reset) (int, unsigned int);
-static int (*libgus_select) (int);
-static int (*libgus_timer_start) (void);
-static int (*libgus_timer_stop) (void);
-static int (*libgus_timer_tempo) (int);
-static void *libgus = NULL;
-#ifndef HAVE_RTLD_GLOBAL
-#define RTLD_GLOBAL 0
+static int (*_libgus_cards) (void);
+
+#if LIBGUS_VERSION_MAJOR < 0x0004
+static int (*_libgus_close) (int);
+static int (*_libgus_do_flush) (void);
+static void (*_libgus_do_tempo) (unsigned int);
+static void (*_libgus_do_voice_frequency) (unsigned char, unsigned int);
+static void (*_libgus_do_voice_pan) (unsigned char, unsigned short);
+static void (*_libgus_do_voice_start) (unsigned char, unsigned int,
+					unsigned int, unsigned short,
+					unsigned short);
+static void (*_libgus_do_voice_start_position) (unsigned char, unsigned int,
+						unsigned int, unsigned short,
+						unsigned short, unsigned int);
+static void (*_libgus_do_voice_stop) (unsigned char, unsigned char);
+static void (*_libgus_do_voice_volume) (unsigned char, unsigned short);
+static void (*_libgus_do_wait) (unsigned int);
+static int (*_libgus_get_handle) (void);
+static int (*_libgus_info) (gus_info_t *, int);
+static int (*_libgus_memory_alloc) (gus_instrument_t *);
+static int (*_libgus_memory_free) (gus_instrument_t *);
+static int (*_libgus_memory_free_size) (void);
+static int (*_libgus_memory_pack) (void);
+static int (*_libgus_open) (int, size_t, int);
+static int (*_libgus_queue_flush) (void);
+static int (*_libgus_queue_read_set_size) (int);
+static int (*_libgus_queue_write_set_size) (int);
+static int (*_libgus_reset) (int, unsigned int);
+static int (*_libgus_select) (int);
+static int (*_libgus_timer_start) (void);
+static int (*_libgus_timer_stop) (void);
+static int (*_libgus_timer_tempo) (int);
+#else
+static int (*_libgus_close) (void*);
+static int (*_libgus_do_flush) (void*);
+static void (*_libgus_do_tempo) (void*, unsigned int);
+static void (*_libgus_do_voice_frequency) (void*, unsigned char, unsigned int);
+static void (*_libgus_do_voice_pan) (void*, unsigned char,unsigned short);
+static void (*_libgus_do_voice_start) (void*, unsigned char, unsigned int,
+					unsigned int, unsigned short,
+					unsigned short);
+static void (*_libgus_do_voice_start_position) (void*, unsigned char, unsigned int,
+						unsigned int,unsigned short,
+						unsigned short, unsigned int);
+static void (*_libgus_do_voice_stop) (void*, unsigned char, unsigned char);
+static void (*_libgus_do_voice_volume) (void*, unsigned char, unsigned short);
+static void (*_libgus_do_wait) (void*, unsigned int);
+static int (*_libgus_get_file_descriptor) (void*);
+static int (*_libgus_info) (void*, gus_info_t*, int);
+static int (*_libgus_memory_alloc) (void*, gus_instrument_t*);
+static int (*_libgus_memory_free) (void*, gus_instrument_t*);
+static int (*_libgus_memory_free_size) (void*);
+static int (*_libgus_memory_pack) (void*);
+static int (*_libgus_open) (void**, int, int, size_t, int);
+static int (*_libgus_queue_flush) (void*);
+static int (*_libgus_queue_read_set_size) (void*, int);
+static int (*_libgus_queue_write_set_size) (void*, int);
+static int (*_libgus_reset) (void*, int, unsigned int);
+static int (*_libgus_timer_start)(void*);
+static int (*_libgus_timer_stop) (void*);
+static int (*_libgus_timer_tempo) (void*, int);
 #endif
+#ifndef HAVE_RTLD_GLOBAL
+#define RTLD_GLOBAL (0)
+#endif
+static void *libgus = NULL;
+
 #else
 /* compile-time link with libgus */
-#define libgus_cards					gus_cards
-#define libgus_close					gus_close
-#define libgus_do_flush					gus_do_flush
-#define libgus_do_tempo					gus_do_tempo
-#define libgus_do_voice_frequency		gus_do_voice_frequency
-#define libgus_do_voice_pan				gus_do_voice_pan
-#define libgus_do_voice_start			gus_do_voice_start
-#define libgus_do_voice_start_position	gus_do_voice_start_position
-#define libgus_do_voice_stop            gus_do_voice_stop
-#define libgus_do_voice_volume			gus_do_voice_volume
-#define libgus_do_wait					gus_do_wait
-#define libgus_get_handle				gus_get_handle
-#define libgus_info						gus_info
-#define libgus_memory_alloc				gus_memory_alloc
-#define libgus_memory_free				gus_memory_free
-#define libgus_memory_free_size			gus_memory_free_size
-#define libgus_memory_pack				gus_memory_pack
-#define libgus_open						gus_open
-#define libgus_queue_flush				gus_queue_flush
-#define libgus_queue_read_set_size		gus_queue_read_set_size
-#define libgus_queue_write_set_size		gus_queue_write_set_size
-#define libgus_reset					gus_reset
-#define libgus_select					gus_select
-#define libgus_timer_start				gus_timer_start
-#define libgus_timer_stop				gus_timer_stop
-#define libgus_timer_tempo				gus_timer_tempo
+#define _libgus_cards				gus_cards
+#define _libgus_close				gus_close
+#define _libgus_do_flush			gus_do_flush
+#define _libgus_do_tempo			gus_do_tempo
+#define _libgus_do_voice_frequency		gus_do_voice_frequency
+#define _libgus_do_voice_pan			gus_do_voice_pan
+#define _libgus_do_voice_start			gus_do_voice_start
+#define _libgus_do_voice_start_position		gus_do_voice_start_position
+#define _libgus_do_voice_stop			gus_do_voice_stop
+#define _libgus_do_voice_volume			gus_do_voice_volume
+#define _libgus_do_wait				gus_do_wait
+#if LIBGUS_VERSION_MAJOR < 0x0004
+#define _libgus_get_handle			gus_get_handle
+#else
+#define _libgus_get_file_descriptor		gus_get_file_descriptor
+#endif
+#define _libgus_info				gus_info
+#define _libgus_memory_alloc			gus_memory_alloc
+#define _libgus_memory_free			gus_memory_free
+#define _libgus_memory_free_size		gus_memory_free_size
+#define _libgus_memory_pack			gus_memory_pack
+#define _libgus_open				gus_open
+#define _libgus_queue_flush			gus_queue_flush
+#define _libgus_queue_read_set_size		gus_queue_read_set_size
+#define _libgus_queue_write_set_size		gus_queue_write_set_size
+#define _libgus_reset				gus_reset
+#if LIBGUS_VERSION_MAJOR < 0x0004
+#define _libgus_select				gus_select
+#endif
+#define _libgus_timer_start			gus_timer_start
+#define _libgus_timer_stop			gus_timer_stop
+#define _libgus_timer_tempo			gus_timer_tempo
 #endif
 
-#define GUS_SAMPLES			256 /* Max. GUS samples loadable */
-#define GUS_CHANNELS		32	/* Max. GUS channels available */
+#define libgus_cards				_libgus_cards	/* same between v3 and v4 */
+#define libgus_open				_libgus_open	/* different between v3 and v4: must use #ifdef */
+#define libgus_close				_libgus_close	/* different between v3 and v4: must use #ifdef */
+/* the following can be handled easily by macros: v4 only adds them the handle as the first param */
+#if LIBGUS_VERSION_MAJOR < 0x0004
+#define libgus_get_handle			_libgus_get_handle /* only in v3 */
+#define libgus_do_flush				_libgus_do_flush
+#define libgus_do_tempo				_libgus_do_tempo
+#define libgus_do_voice_frequency		_libgus_do_voice_frequency
+#define libgus_do_voice_pan			_libgus_do_voice_pan
+#define libgus_do_voice_start			_libgus_do_voice_start
+#define libgus_do_voice_start_position		_libgus_do_voice_start_position
+#define libgus_do_voice_stop			_libgus_do_voice_stop
+#define libgus_do_voice_volume			_libgus_do_voice_volume
+#define libgus_do_wait				_libgus_do_wait
+#define libgus_info				_libgus_info
+#define libgus_memory_alloc			_libgus_memory_alloc
+#define libgus_memory_free			_libgus_memory_free
+#define libgus_memory_free_size			_libgus_memory_free_size
+#define libgus_memory_pack			_libgus_memory_pack
+#define libgus_queue_flush			_libgus_queue_flush
+#define libgus_queue_read_set_size		_libgus_queue_read_set_size
+#define libgus_queue_write_set_size		_libgus_queue_write_set_size
+#define libgus_reset				_libgus_reset
+#define libgus_select				_libgus_select
+#define libgus_timer_start			_libgus_timer_start
+#define libgus_timer_stop			_libgus_timer_stop
+#define libgus_timer_tempo			_libgus_timer_tempo
+#else
+#define libgus_get_file_descriptor		_libgus_get_file_descriptor /* only in v4 */
+#define libgus_do_flush()			_libgus_do_flush(ultra_h)
+#define libgus_do_tempo(t)			_libgus_do_tempo(ultra_h,t)
+#define libgus_do_voice_frequency(a,b)		_libgus_do_voice_frequency(ultra_h,a,b)
+#define libgus_do_voice_pan(a,b)		_libgus_do_voice_pan(ultra_h,a,b)
+#define libgus_do_voice_start(a,b,c,d,e)	_libgus_do_voice_start(ultra_h,a,b,c,d,e)
+#define libgus_do_voice_start_position(a,b,c,d,e,f) _libgus_do_voice_start_position(ultra_h,a,b,c,d,e,f)
+#define libgus_do_voice_stop(a,b)		_libgus_do_voice_stop(ultra_h,a,b)
+#define libgus_do_voice_volume(a,b)		_libgus_do_voice_volume(ultra_h,a,b)
+#define libgus_do_wait(a)			_libgus_do_wait(ultra_h,a)
+#define libgus_info(a,b)			_libgus_info(ultra_h,a,b)
+#define libgus_memory_alloc(a)			_libgus_memory_alloc(ultra_h,a)
+#define libgus_memory_free(a)			_libgus_memory_free(ultra_h,a)
+#define libgus_memory_free_size()		_libgus_memory_free_size(ultra_h)
+#define libgus_memory_pack()			_libgus_memory_pack(ultra_h)
+#define libgus_queue_flush()			_libgus_queue_flush(ultra_h)
+#define libgus_queue_read_set_size(a)		_libgus_queue_read_set_size(ultra_h,a)
+#define libgus_queue_write_set_size(a)		_libgus_queue_write_set_size(ultra_h,a)
+#define libgus_reset(a,b)			_libgus_reset(ultra_h,a,b)
+#define libgus_timer_start()			_libgus_timer_start(ultra_h)
+#define libgus_timer_stop()			_libgus_timer_stop(ultra_h)
+#define libgus_timer_tempo(a)			_libgus_timer_tempo(ultra_h,a)
+#endif
+
+#define GUS_SAMPLES			256	/* Max. GUS samples loadable */
+#define GUS_CHANNELS			32	/* Max. GUS channels available */
 #define SIZE_OF_SEQBUF		(8 * 1024)	/* Size of the sequence buffer */
 #define ULTRA_PAN_MIDDLE	(16383 >> 1)	/* Middle balance position */
 
-#define	CH_FREQ 1
-#define CH_VOL  2
-#define	CH_PAN  4
+#define CH_FREQ	1
+#define CH_VOL	2
+#define CH_PAN	4
 
 /*	This structure holds the current state of a GUS voice channel. */
 typedef struct GUS_VOICE {
@@ -176,50 +276,88 @@ static SAMPLE *samples[GUS_SAMPLES];	/* sample handles */
 static GUS_VOICE voices[GUS_CHANNELS];	/* channel status */
 
 static int ultra_dev = 0;	/* GUS index, if more than one card */
-static int ultra_handle = -1;	/* GUS handle */
+#if LIBGUS_VERSION_MAJOR < 0x0004
+static int ultra_card = -1;	/* returned by gus_open(ultra_dev,,) - must be same as ultra_dev */
+#else
+static void* ultra_h = NULL;	/* GUS handle */
+#endif
 static int ultra_fd = -1;	/* GUS file descriptor */
 
+
 #ifdef MIKMOD_DYNAMIC
-static BOOL Ultra_Link(void)
+static int Ultra_Link(void)
 {
 	if (libgus)
 		return 0;
 
 	/* load libgus.so */
-	libgus = dlopen("libgus.so", RTLD_LAZY | RTLD_GLOBAL);
+#if LIBGUS_VERSION_MAJOR < 0x0004
+	libgus = dlopen("libgus.so.3", RTLD_LAZY | RTLD_GLOBAL);
+#else
+	libgus = dlopen("libgus.so.4", RTLD_LAZY | RTLD_GLOBAL);
+#endif
+	if (!libgus) /* then this won't succeed either, but whatever.. */
+		libgus = dlopen("libgus.so", RTLD_LAZY | RTLD_GLOBAL);
 	if (!libgus)
 		return 1;
 
 	/* resolve function references */
-#define IMPORT_SYMBOL(x) \
-	if (!(lib##x = dlsym(libgus, #x))) return 1
+#define IMPORT_SYMBOL(x,ret,params) \
+	if (!(_lib##x = (ret (*)params) dlsym(libgus, #x))) return 1
 
-	IMPORT_SYMBOL(gus_cards);
-	IMPORT_SYMBOL(gus_close);
-	IMPORT_SYMBOL(gus_do_flush);
-	IMPORT_SYMBOL(gus_do_tempo);
-	IMPORT_SYMBOL(gus_do_voice_frequency);
-	IMPORT_SYMBOL(gus_do_voice_pan);
-	IMPORT_SYMBOL(gus_do_voice_start);
-	IMPORT_SYMBOL(gus_do_voice_start_position);
-	IMPORT_SYMBOL(gus_do_voice_stop);
-	IMPORT_SYMBOL(gus_do_voice_volume);
-	IMPORT_SYMBOL(gus_do_wait);
-	IMPORT_SYMBOL(gus_get_handle);
-	IMPORT_SYMBOL(gus_info);
-	IMPORT_SYMBOL(gus_memory_alloc);
-	IMPORT_SYMBOL(gus_memory_free);
-	IMPORT_SYMBOL(gus_memory_free_size);
-	IMPORT_SYMBOL(gus_memory_pack);
-	IMPORT_SYMBOL(gus_open);
-	IMPORT_SYMBOL(gus_queue_flush);
-	IMPORT_SYMBOL(gus_queue_read_set_size);
-	IMPORT_SYMBOL(gus_queue_write_set_size);
-	IMPORT_SYMBOL(gus_reset);
-	IMPORT_SYMBOL(gus_select);
-	IMPORT_SYMBOL(gus_timer_start);
-	IMPORT_SYMBOL(gus_timer_stop);
-	IMPORT_SYMBOL(gus_timer_tempo);
+	IMPORT_SYMBOL(gus_cards, int, (void));
+#if LIBGUS_VERSION_MAJOR < 0x0004
+	IMPORT_SYMBOL(gus_close, int, (int));
+	IMPORT_SYMBOL(gus_do_flush, int, (void));
+	IMPORT_SYMBOL(gus_do_tempo, void, (unsigned int));
+	IMPORT_SYMBOL(gus_do_voice_frequency, void, (unsigned char, unsigned int));
+	IMPORT_SYMBOL(gus_do_voice_pan, void, (unsigned char, unsigned short));
+	IMPORT_SYMBOL(gus_do_voice_start, void, (unsigned char, unsigned int, unsigned int, unsigned short, unsigned short));
+	IMPORT_SYMBOL(gus_do_voice_start_position, void, (unsigned char, unsigned int, unsigned int, unsigned short, unsigned short, unsigned int));
+	IMPORT_SYMBOL(gus_do_voice_stop, void, (unsigned char, unsigned char));
+	IMPORT_SYMBOL(gus_do_voice_volume, void, (unsigned char, unsigned short));
+	IMPORT_SYMBOL(gus_do_wait, void, (unsigned int));
+	IMPORT_SYMBOL(gus_get_handle, int, (void));
+	IMPORT_SYMBOL(gus_info, int, (gus_info_t *, int));
+	IMPORT_SYMBOL(gus_memory_alloc, int, (gus_instrument_t *));
+	IMPORT_SYMBOL(gus_memory_free, int, (gus_instrument_t *));
+	IMPORT_SYMBOL(gus_memory_free_size, int, (void));
+	IMPORT_SYMBOL(gus_memory_pack, int, (void));
+	IMPORT_SYMBOL(gus_open, int, (int, size_t, int));
+	IMPORT_SYMBOL(gus_queue_flush, int, (void));
+	IMPORT_SYMBOL(gus_queue_read_set_size, int, (int));
+	IMPORT_SYMBOL(gus_queue_write_set_size, int, (int));
+	IMPORT_SYMBOL(gus_reset, int, (int, unsigned int));
+	IMPORT_SYMBOL(gus_select, int, (int));
+	IMPORT_SYMBOL(gus_timer_start, int, (void));
+	IMPORT_SYMBOL(gus_timer_stop, int, (void));
+	IMPORT_SYMBOL(gus_timer_tempo, int, (int));
+#else
+	IMPORT_SYMBOL(gus_close, int, (void*));
+	IMPORT_SYMBOL(gus_do_flush, int, (void*));
+	IMPORT_SYMBOL(gus_do_tempo, void, (void*, unsigned int));
+	IMPORT_SYMBOL(gus_do_voice_frequency, void, (void*, unsigned char, unsigned int));
+	IMPORT_SYMBOL(gus_do_voice_pan, void, (void*, unsigned char, unsigned short));
+	IMPORT_SYMBOL(gus_do_voice_start, void, (void*, unsigned char, unsigned int, unsigned int, unsigned short, unsigned short));
+	IMPORT_SYMBOL(gus_do_voice_start_position, void, (void*, unsigned char, unsigned int, unsigned int, unsigned short, unsigned short, unsigned int));
+	IMPORT_SYMBOL(gus_do_voice_stop, void, (void*, unsigned char, unsigned char));
+	IMPORT_SYMBOL(gus_do_voice_volume, void, (void*, unsigned char, unsigned short));
+	IMPORT_SYMBOL(gus_do_wait, void, (void*, unsigned int));
+	IMPORT_SYMBOL(gus_get_file_descriptor, int, (void*));
+	IMPORT_SYMBOL(gus_info, int, (void*, gus_info_t *, int));
+	IMPORT_SYMBOL(gus_memory_alloc, int, (void*, gus_instrument_t *));
+	IMPORT_SYMBOL(gus_memory_free, int, (void*, gus_instrument_t *));
+	IMPORT_SYMBOL(gus_memory_free_size, int, (void*));
+	IMPORT_SYMBOL(gus_memory_pack, int, (void*));
+	IMPORT_SYMBOL(gus_open, int, (void**, int, int, size_t, int));
+	IMPORT_SYMBOL(gus_queue_flush, int, (void*));
+	IMPORT_SYMBOL(gus_queue_read_set_size, int, (void*, int));
+	IMPORT_SYMBOL(gus_queue_write_set_size, int, (void*, int));
+	IMPORT_SYMBOL(gus_reset, int, (void*, int, unsigned int));
+	IMPORT_SYMBOL(gus_timer_start, int, (void*));
+	IMPORT_SYMBOL(gus_timer_stop, int, (void*));
+	IMPORT_SYMBOL(gus_timer_tempo, int, (void*, int));
+#endif
 #undef IMPORT_SYMBOL
 
 	return 0;
@@ -227,32 +365,38 @@ static BOOL Ultra_Link(void)
 
 static void Ultra_Unlink(void)
 {
-	libgus_cards = NULL;
-	libgus_close = NULL;
-	libgus_do_flush = NULL;
-	libgus_do_tempo = NULL;
-	libgus_do_voice_frequency = NULL;
-	libgus_do_voice_pan = NULL;
-	libgus_do_voice_start = NULL;
-	libgus_do_voice_start_position = NULL;
-	libgus_do_voice_stop = NULL;
-	libgus_do_voice_volume = NULL;
-	libgus_do_wait = NULL;
-	libgus_get_handle = NULL;
-	libgus_info = NULL;
-	libgus_memory_alloc = NULL;
-	libgus_memory_free = NULL;
-	libgus_memory_free_size = NULL;
-	libgus_memory_pack = NULL;
-	libgus_open = NULL;
-	libgus_queue_flush = NULL;
-	libgus_queue_read_set_size = NULL;
-	libgus_queue_write_set_size = NULL;
-	libgus_reset = NULL;
-	libgus_select = NULL;
-	libgus_timer_start = NULL;
-	libgus_timer_stop = NULL;
-	libgus_timer_tempo = NULL;
+	_libgus_cards = NULL;
+	_libgus_close = NULL;
+	_libgus_do_flush = NULL;
+	_libgus_do_tempo = NULL;
+	_libgus_do_voice_frequency = NULL;
+	_libgus_do_voice_pan = NULL;
+	_libgus_do_voice_start = NULL;
+	_libgus_do_voice_start_position = NULL;
+	_libgus_do_voice_stop = NULL;
+	_libgus_do_voice_volume = NULL;
+	_libgus_do_wait = NULL;
+#if LIBGUS_VERSION_MAJOR < 0x0004
+	_libgus_get_handle = NULL;
+#else
+	_libgus_get_file_descriptor = NULL;
+#endif
+	_libgus_info = NULL;
+	_libgus_memory_alloc = NULL;
+	_libgus_memory_free = NULL;
+	_libgus_memory_free_size = NULL;
+	_libgus_memory_pack = NULL;
+	_libgus_open = NULL;
+	_libgus_queue_flush = NULL;
+	_libgus_queue_read_set_size = NULL;
+	_libgus_queue_write_set_size = NULL;
+	_libgus_reset = NULL;
+#if LIBGUS_VERSION_MAJOR < 0x0004
+	_libgus_select = NULL;
+#endif
+	_libgus_timer_start = NULL;
+	_libgus_timer_stop = NULL;
+	_libgus_timer_tempo = NULL;
 
 	if (libgus) {
 		dlclose(libgus);
@@ -261,21 +405,22 @@ static void Ultra_Unlink(void)
 }
 #endif
 
-static void Ultra_CommandLine(CHAR *cmdline)
+static void Ultra_CommandLine(const CHAR *cmdline)
 {
 	CHAR *ptr = MD_GetAtom("card", cmdline, 0);
-	
+
 	if (ptr) {
 		int buf = atoi(ptr);
-		
+
 		if (buf >= 0 && buf <= 8)
 			ultra_dev = buf;
-		free(ptr);
+		MikMod_free(ptr);
 	}
 #ifdef __DJGPP__
-	if ((ptr = MD_GetAtom("dma", cmdline, 0))) {
+	ptr = MD_GetAtom("dma", cmdline, 0);
+	if (ptr) {
 		gus_dma_usage (atoi(ptr));
-		free(ptr);
+		MikMod_free(ptr);
 	}
 #endif
 }
@@ -283,7 +428,7 @@ static void Ultra_CommandLine(CHAR *cmdline)
 /* Checks for the presence of GUS cards */
 static BOOL Ultra_IsThere(void)
 {
-	int retval;
+	BOOL retval;
 
 #ifdef MIKMOD_DYNAMIC
 	if (Ultra_Link())
@@ -297,7 +442,7 @@ static BOOL Ultra_IsThere(void)
 }
 
 /* Load a new sample directly into GUS DRAM and return a handle */
-static SWORD Ultra_SampleLoad(struct SAMPLOAD *sload)
+static SWORD Ultra_SampleLoad(struct SAMPLOAD *sload, int type)
 {
 	int handle;
 	SAMPLE *s = sload->sample;
@@ -306,6 +451,11 @@ static SWORD Ultra_SampleLoad(struct SAMPLOAD *sload)
 	gus_wave_t wave;
 	unsigned char *buffer;
 	unsigned int length, loopstart, loopend;
+
+	if (s->length > MAX_SAMPLE_SIZE) {
+		_mm_errno = MMERR_NOT_A_STREAM;/* better error? */
+		return -1;
+	}
 
 	/* Find empty slot to put sample in */
 	for (handle = 0; handle < GUS_SAMPLES; handle++)
@@ -337,13 +487,13 @@ static SWORD Ultra_SampleLoad(struct SAMPLOAD *sload)
 	}
 
 	/* Load sample into normal memory */
-	if (!(buffer = _mm_malloc(length))) {
+	if (!(buffer = (unsigned char *) MikMod_malloc(length))) {
 		_mm_errno = MMERR_SAMPLE_TOO_BIG;
 		return -1;
 	}
 
 	if (SL_Load(buffer, sload, s->length)) {
-		free(buffer);
+		MikMod_free(buffer);
 		return -1;
 	}
 
@@ -372,12 +522,12 @@ static SWORD Ultra_SampleLoad(struct SAMPLOAD *sload)
 
 	/* Download the sample to GUS RAM */
 	if (libgus_memory_alloc(&instrument)) {
-		free(buffer);
+		MikMod_free(buffer);
 		_mm_errno = MMERR_SAMPLE_TOO_BIG;
 		return -1;
 	}
 
-	free(buffer);
+	MikMod_free(buffer);
 	return handle;
 }
 
@@ -397,14 +547,14 @@ static void Ultra_SampleUnload(SWORD handle)
 }
 
 /* Reports available sample space */
-static ULONG Ultra_SampleSpace(void)
+static ULONG Ultra_SampleSpace(int type)
 {
 	libgus_memory_pack();
 	return (libgus_memory_free_size());
 }
 
 /* Reports the size of a sample */
-static ULONG Ultra_SampleLength(SAMPLE *s)
+static ULONG Ultra_SampleLength(int type, SAMPLE *s)
 {
 	if (!s)
 		return 0;
@@ -416,21 +566,24 @@ static ULONG Ultra_SampleLength(SAMPLE *s)
 }
 
 /* Initializes the driver */
-static BOOL Ultra_Init_internal(void)
+static int Ultra_Init_internal(void)
 {
 	gus_info_t info;
 
-	/* Open the GUS card */
-	if ((ultra_handle = libgus_open(ultra_dev, SIZE_OF_SEQBUF, 0)) < 0) {
-		_mm_errno =
-		  (errno == ENOMEM) ? MMERR_OUT_OF_MEMORY : MMERR_INVALID_DEVICE;
+#if LIBGUS_VERSION_MAJOR < 0x0004
+	if ((ultra_card = libgus_open(ultra_dev, SIZE_OF_SEQBUF, 0)) < 0) {
+		_mm_errno = (errno == ENOMEM)? MMERR_OUT_OF_MEMORY : MMERR_INVALID_DEVICE;
 		return 1;
 	}
-	libgus_select(ultra_handle);
+	libgus_select(ultra_card);
 	ultra_fd = libgus_get_handle();
-
-	/* Get card information */
-	libgus_info(&info, 0);
+#else
+	if (libgus_open(&ultra_h, ultra_dev, 0, SIZE_OF_SEQBUF, GUS_OPEN_FLAG_NONE) < 0) {
+		_mm_errno = (errno == ENOMEM)? MMERR_OUT_OF_MEMORY : MMERR_INVALID_DEVICE;
+		return 1;
+	}
+	ultra_fd = libgus_get_file_descriptor(ultra_h);
+#endif
 
 	/* We support only 16-bit stereo with 44K mixing frequency. On UltraSound
 	   Classic mixing frequency depends on number of channels, on Interwave it
@@ -438,6 +591,7 @@ static BOOL Ultra_Init_internal(void)
 	md_mode |= DMODE_16BITS | DMODE_STEREO;
 	md_mixfreq = info.mixing_freq;
 
+	libgus_info(&info, 0);
 #ifdef MIKMOD_DEBUG
 	switch (info.version) {
 	  case 0x24:
@@ -475,7 +629,7 @@ static BOOL Ultra_Init_internal(void)
 	return 0;
 }
 
-static BOOL Ultra_Init(void)
+static int Ultra_Init(void)
 {
 #ifdef MIKMOD_DYNAMIC
 	if (Ultra_Link()) {
@@ -489,10 +643,17 @@ static BOOL Ultra_Init(void)
 /* Closes the driver */
 static void Ultra_Exit_internal(void)
 {
-	if (ultra_handle >= 0) {
-		ultra_handle = -1;
+#if LIBGUS_VERSION_MAJOR < 0x0004
+	if (ultra_card >= 0) {
+		ultra_card = -1;
 		libgus_close(ultra_dev);
 	}
+#else
+	if (ultra_h) {
+		libgus_close(ultra_h);
+		ultra_h = NULL;
+	}
+#endif
 	ultra_fd = -1;
 }
 
@@ -505,13 +666,13 @@ static void Ultra_Exit(void)
 }
 
 /* Poor man's reset function */
-static BOOL Ultra_Reset(void)
+static int Ultra_Reset(void)
 {
 	Ultra_Exit_internal();
 	return Ultra_Init_internal();
 }
 
-static BOOL Ultra_SetNumVoices(void)
+static int Ultra_SetNumVoices(void)
 {
 	return 0;
 }
@@ -564,8 +725,7 @@ static void UltraPlayer(void)
 }
 
 /* Play sound */
-#if defined (__DJGPP__) || defined (__EMX__)
-
+#if defined(__DJGPP__) || defined(__EMX__)
 static void Ultra_Callback(void)
 {
 	UltraPlayer();
@@ -584,12 +744,11 @@ static void Ultra_Update(void)
 }
 
 #else
-
 static void Ultra_Update(void)
 {
 	fd_set write_fds;
 	int need_write;
-	static UWORD ultra_bpm = 0;		/* current GUS tempo */
+	static UWORD ultra_bpm = 0;	/* current GUS tempo */
 
 	if (ultra_bpm != md_bpm) {
 		libgus_do_tempo((md_bpm * 50) / 125);
@@ -616,7 +775,7 @@ static void Ultra_Update(void)
 #endif
 
 /* Start playback */
-static BOOL Ultra_PlayStart(void)
+static int Ultra_PlayStart(void)
 {
 	int t;
 	gus_info_t info;
@@ -636,7 +795,9 @@ static BOOL Ultra_PlayStart(void)
 		voices[t].active = 0;
 	}
 
-	libgus_select(ultra_handle);
+#if LIBGUS_VERSION_MAJOR < 0x0004
+	libgus_select(ultra_card);
+#endif
 	if (libgus_reset(md_numchn, 0) < 0) {
 		_mm_errno = MMERR_GUS_RESET;
 		return 1;
@@ -654,7 +815,7 @@ static BOOL Ultra_PlayStart(void)
 		return 1;
 	}
 
-#if defined (__DJGPP__) || defined (__EMX__)
+#if defined(__DJGPP__) || defined(__EMX__)
 	gus_timer_callback(Ultra_Callback);
 #endif
 
@@ -682,7 +843,7 @@ static void Ultra_PlayStop(void)
 	for(voice = 0; voice < md_numchn; voice++)
 		libgus_do_voice_stop(voice, 0);
 
-#if defined (__DJGPP__) || defined (__EMX__)
+#if defined(__DJGPP__) || defined(__EMX__)
 	gus_timer_callback(NULL);
 #endif
 
@@ -859,6 +1020,6 @@ MDRIVER drv_ultra = {
 
 MISSING(drv_ultra);
 
-#endif // DRV_ULTRA
+#endif /* DRV_ULTRA */
 
-/* ex:set ts=4: */
+/* ex:set ts=8: */

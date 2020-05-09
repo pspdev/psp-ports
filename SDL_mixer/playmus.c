@@ -1,37 +1,40 @@
 /*
-    PLAYMUS:  A test application for the SDL mixer library.
-    Copyright (C) 1997-2009 Sam Lantinga
+  PLAYMUS:  A test application for the SDL mixer library.
+  Copyright (C) 1997-2012 Sam Lantinga <slouken@libsdl.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-    Sam Lantinga
-    slouken@libsdl.org
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
 */
 
-/* $Id: playmus.c 4211 2008-12-08 00:27:32Z slouken $ */
+/* $Id$ */
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <signal.h>
+
 #ifdef unix
 #include <unistd.h>
 #endif
 
 #include "SDL.h"
 #include "SDL_mixer.h"
+
+#ifdef HAVE_SIGNAL_H
+#include <signal.h>
+#endif
 
 
 static int audio_open = 0;
@@ -67,24 +70,27 @@ void Menu(void)
 
 	printf("Available commands: (p)ause (r)esume (h)alt volume(v#) > ");
 	fflush(stdin);
-	scanf("%s",buf);
-	switch(buf[0]){
-	case 'p': case 'P':
-		Mix_PauseMusic();
-		break;
-	case 'r': case 'R':
-		Mix_ResumeMusic();
-		break;
-	case 'h': case 'H':
-		Mix_HaltMusic();
-		break;
-	case 'v': case 'V':
-		Mix_VolumeMusic(atoi(buf+1));
-		break;
+	if (scanf("%s",buf) == 1) {
+		switch(buf[0]){
+		case 'p': case 'P':
+			Mix_PauseMusic();
+			break;
+		case 'r': case 'R':
+			Mix_ResumeMusic();
+			break;
+		case 'h': case 'H':
+			Mix_HaltMusic();
+			break;
+		case 'v': case 'V':
+			Mix_VolumeMusic(atoi(buf+1));
+			break;
+		}
 	}
 	printf("Music playing: %s Paused: %s\n", Mix_PlayingMusic() ? "yes" : "no", 
 		   Mix_PausedMusic() ? "yes" : "no");
 }
+
+#ifdef HAVE_SIGNAL_H
 
 void IntHandler(int sig)
 {
@@ -95,9 +101,11 @@ void IntHandler(int sig)
 	}
 }
 
+#endif
+
 int main(int argc, char *argv[])
 {
-	SDL_RWops *rwfp;
+	SDL_RWops *rwfp = NULL;
 	int audio_rate;
 	Uint16 audio_format;
 	int audio_channels;
@@ -162,8 +170,10 @@ int main(int argc, char *argv[])
 		return(255);
 	}
 
+#ifdef HAVE_SIGNAL_H
 	signal(SIGINT, IntHandler);
 	signal(SIGTERM, CleanUp);
+#endif
 
 	/* Open the audio device */
 	if (Mix_OpenAudio(audio_rate, audio_format, audio_channels, audio_buffers) < 0) {
@@ -183,7 +193,7 @@ int main(int argc, char *argv[])
 	Mix_VolumeMusic(audio_volume);
 
 	/* Set the external music player, if any */
-	Mix_SetMusicCMD(getenv("MUSIC_CMD"));
+	Mix_SetMusicCMD(SDL_getenv("MUSIC_CMD"));
 
 	while (argv[i]) {
 		next_track = 0;
@@ -212,7 +222,7 @@ int main(int argc, char *argv[])
 		}
 		Mix_FreeMusic(music);
 		if ( rwops ) {
-			SDL_FreeRW(rwfp);
+			SDL_RWclose(rwfp);
 		}
 		music = NULL;
 

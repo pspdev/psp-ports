@@ -1,23 +1,25 @@
 /*
-    SDL_mixer:  An audio mixer library based on the SDL library
-    Copyright (C) 1997-2009 Sam Lantinga
+  SDL_mixer:  An audio mixer library based on the SDL library
+  Copyright (C) 1997-2012 Sam Lantinga <slouken@libsdl.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
 
-    This is the source needed to decode a FLAC into a waveform.
-    										~ Austen Dicken (admin@cvpcs.org).
+  This is the source needed to decode a FLAC into a waveform.
+  	~ Austen Dicken (admin@cvpcs.org).
 */
 
 #ifdef FLAC_MUSIC
@@ -174,7 +176,7 @@ static FLAC__StreamDecoderWriteStatus flac_write_load_cb(
 	if (frame->header.number.sample_number == 0) {
 		*(data->sdl_audio_len) = data->sdl_spec->size;
 		data->sdl_audio_read = 0;
-    	*(data->sdl_audio_buf) = malloc (*(data->sdl_audio_len));
+    	*(data->sdl_audio_buf) = SDL_malloc (*(data->sdl_audio_len));
 
     	if (*(data->sdl_audio_buf) == NULL) {
     		SDL_SetError
@@ -272,7 +274,7 @@ SDL_AudioSpec *Mix_LoadFLAC_RW (SDL_RWops *src, int freesrc,
 
 	// create the client data passing information
 	FLAC_SDL_Data* client_data;
-	client_data = (FLAC_SDL_Data *)malloc (sizeof (FLAC_SDL_Data));
+	client_data = (FLAC_SDL_Data *)SDL_malloc (sizeof (FLAC_SDL_Data));
 
 	if ((!src) || (!audio_buf) || (!audio_len))   /* sanity checks. */
 		goto done;
@@ -311,9 +313,9 @@ SDL_AudioSpec *Mix_LoadFLAC_RW (SDL_RWops *src, int freesrc,
 
 	was_error = 0;
 
-    /* Don't return a buffer that isn't a multiple of samplesize */
-    samplesize = ((spec->format & 0xFF) / 8) * spec->channels;
-    *audio_len &= ~(samplesize - 1);
+	/* Don't return a buffer that isn't a multiple of samplesize */
+	samplesize = ((spec->format & 0xFF) / 8) * spec->channels;
+	*audio_len &= ~(samplesize - 1);
 
 done:
 	if (was_init && decoder) {

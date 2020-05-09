@@ -1,37 +1,40 @@
 /*
-    PLAYWAVE:  A test application for the SDL mixer library.
-    Copyright (C) 1997-2009 Sam Lantinga
+  PLAYWAVE:  A test application for the SDL mixer library.
+  Copyright (C) 1997-2012 Sam Lantinga <slouken@libsdl.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-    Sam Lantinga
-    slouken@libsdl.org
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
 */
 
-/* $Id: playwave.c 5191 2009-11-05 00:02:50Z slouken $ */
+/* $Id$ */
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <signal.h>
+
 #ifdef unix
 #include <unistd.h>
 #endif
 
 #include "SDL.h"
 #include "SDL_mixer.h"
+
+#ifdef HAVE_SIGNAL_H
+#include <signal.h>
+#endif
 
 
 /*
@@ -363,8 +366,10 @@ int main(int argc, char *argv[])
 	int reverse_stereo = 0;
 	int reverse_sample = 0;
 
+#ifdef HAVE_SETBUF
 	setbuf(stdout, NULL);    /* rcg06132001 for debugging purposes. */
 	setbuf(stderr, NULL);    /* rcg06192001 for debugging purposes, too. */
+#endif
 	output_test_warnings();
 
 	/* Initialize variables */
@@ -411,8 +416,10 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Couldn't initialize SDL: %s\n",SDL_GetError());
 		return(255);
 	}
+#ifdef HAVE_SIGNAL_H
 	signal(SIGINT, CleanUp);
 	signal(SIGTERM, CleanUp);
+#endif
 
 	/* Open the audio device */
 	if (Mix_OpenAudio(audio_rate, audio_format, audio_channels, 4096) < 0) {

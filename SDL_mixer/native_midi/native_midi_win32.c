@@ -1,23 +1,22 @@
 /*
-    native_midi:  Hardware Midi support for the SDL_mixer library
-    Copyright (C) 2000,2001  Florian 'Proff' Schulze
+  native_midi:  Hardware Midi support for the SDL_mixer library
+  Copyright (C) 2000,2001  Florian 'Proff' Schulze <florian.proff.schulze@gmx.net>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-    Florian 'Proff' Schulze
-    florian.proff.schulze@gmx.net
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
 */
 #include "SDL_config.h"
 
@@ -37,9 +36,11 @@
 struct _NativeMidiSong {
   int MusicLoaded;
   int MusicPlaying;
-  MIDIHDR MidiStreamHdr;
+  int Loops;
+  int CurrentHdr;
+  MIDIHDR MidiStreamHdr[2];
   MIDIEVENT *NewEvents;
-	Uint16 ppqn;
+  Uint16 ppqn;
   int Size;
   int NewPos;
 };
@@ -52,11 +53,14 @@ static int BlockOut(NativeMidiSong *song)
 {
   MMRESULT err;
   int BlockSize;
+  MIDIHDR *hdr;
 
   if ((song->MusicLoaded) && (song->NewEvents))
   {
-    // proff 12/8/98: Added for savety
-    midiOutUnprepareHeader((HMIDIOUT)hMidiStream,&song->MidiStreamHdr,sizeof(MIDIHDR));
+    // proff 12/8/98: Added for safety
+    song->CurrentHdr = !song->CurrentHdr;
+    hdr = &song->MidiStreamHdr[song->CurrentHdr];
+    midiOutUnprepareHeader((HMIDIOUT)hMidiStream,hdr,sizeof(MIDIHDR));
     if (song->NewPos>=song->Size)
       return 0;
     BlockSize=(song->Size-song->NewPos);
@@ -64,15 +68,16 @@ static int BlockOut(NativeMidiSong *song)
       return 0;
     if (BlockSize>36000)
       BlockSize=36000;
-    song->MidiStreamHdr.lpData=(void *)((unsigned char *)song->NewEvents+song->NewPos);
+    hdr->lpData=(void *)((unsigned char *)song->NewEvents+song->NewPos);
     song->NewPos+=BlockSize;
-    song->MidiStreamHdr.dwBufferLength=BlockSize;
-    song->MidiStreamHdr.dwBytesRecorded=BlockSize;
-    song->MidiStreamHdr.dwFlags=0;
-    err=midiOutPrepareHeader((HMIDIOUT)hMidiStream,&song->MidiStreamHdr,sizeof(MIDIHDR));
+    hdr->dwBufferLength=BlockSize;
+    hdr->dwBytesRecorded=BlockSize;
+    hdr->dwFlags=0;
+    hdr->dwOffset=0;
+    err=midiOutPrepareHeader((HMIDIOUT)hMidiStream,hdr,sizeof(MIDIHDR));
     if (err!=MMSYSERR_NOERROR)
       return 0;
-    err=midiStreamOut(hMidiStream,&song->MidiStreamHdr,sizeof(MIDIHDR));
+    err=midiStreamOut(hMidiStream,hdr,sizeof(MIDIHDR));
       return 0;
   }
   return 1;
@@ -164,12 +169,19 @@ void CALLBACK MidiProc( HMIDIIN hMidi, UINT uMsg, DWORD_PTR dwInstance,
     switch( uMsg )
     {
     case MOM_DONE:
-      if ((currentsong->MusicLoaded) && (dwParam1 == (DWORD_PTR)&currentsong->MidiStreamHdr))
+      if ((currentsong->MusicLoaded) && (dwParam1 == (DWORD_PTR)&currentsong->MidiStreamHdr[currentsong->CurrentHdr]))
         BlockOut(currentsong);
       break;
     case MOM_POSITIONCB:
-      if ((currentsong->MusicLoaded) && (dwParam1 == (DWORD_PTR)&currentsong->MidiStreamHdr))
-        currentsong->MusicPlaying=0;
+      if ((currentsong->MusicLoaded) && (dwParam1 == (DWORD_PTR)&currentsong->MidiStreamHdr[currentsong->CurrentHdr])) {
+        if (currentsong->Loops) {
+          --currentsong->Loops;
+          currentsong->NewPos=0;
+          BlockOut(currentsong);
+        } else {
+          currentsong->MusicPlaying=0;
+        }
+      }
       break;
     default:
       break;
@@ -188,44 +200,18 @@ int native_midi_detect()
   return 1;
 }
 
-NativeMidiSong *native_midi_loadsong(const char *midifile)
+NativeMidiSong *native_midi_loadsong_RW(SDL_RWops *rw, int freerw)
 {
 	NativeMidiSong *newsong;
 	MIDIEvent		*evntlist = NULL;
-	SDL_RWops	*rw;
 
 	newsong=malloc(sizeof(NativeMidiSong));
-	if (!newsong)
-		return NULL;
-	memset(newsong,0,sizeof(NativeMidiSong));
-
-	/* Attempt to load the midi file */
-	rw = SDL_RWFromFile(midifile, "rb");
-	if (rw) {
-		evntlist = CreateMIDIEventList(rw, &newsong->ppqn);
-		SDL_RWclose(rw);
-		if (!evntlist)
-		{
-			free(newsong);
-			return NULL;
+	if (!newsong) {
+		if (freerw) {
+			SDL_RWclose(rw);
 		}
-	}
-
-	MIDItoStream(newsong, evntlist);
-
-	FreeMIDIEventList(evntlist);
-
-	return newsong;
-}
-
-NativeMidiSong *native_midi_loadsong_RW(SDL_RWops *rw)
-{
-	NativeMidiSong *newsong;
-	MIDIEvent		*evntlist = NULL;
-
-	newsong=malloc(sizeof(NativeMidiSong));
-	if (!newsong)
 		return NULL;
+	}
 	memset(newsong,0,sizeof(NativeMidiSong));
 
 	/* Attempt to load the midi file */
@@ -233,6 +219,9 @@ NativeMidiSong *native_midi_loadsong_RW(SDL_RWops *rw)
 	if (!evntlist)
 	{
 		free(newsong);
+		if (freerw) {
+			SDL_RWclose(rw);
+		}
 		return NULL;
 	}
 
@@ -240,6 +229,9 @@ NativeMidiSong *native_midi_loadsong_RW(SDL_RWops *rw)
 
 	FreeMIDIEventList(evntlist);
 
+	if (freerw) {
+		SDL_RWclose(rw);
+	}
 	return newsong;
 }
 
@@ -258,7 +250,7 @@ void native_midi_freesong(NativeMidiSong *song)
   }
 }
 
-void native_midi_start(NativeMidiSong *song)
+void native_midi_start(NativeMidiSong *song, int loops)
 {
   MMRESULT merr;
   MIDIPROPTIMEDIV mptd;
@@ -266,16 +258,17 @@ void native_midi_start(NativeMidiSong *song)
   native_midi_stop();
   if (!hMidiStream)
   {
-    merr=midiStreamOpen(&hMidiStream,&MidiDevice,1,(DWORD)&MidiProc,0,CALLBACK_FUNCTION);
+    merr=midiStreamOpen(&hMidiStream,&MidiDevice,(DWORD)1,(DWORD_PTR)MidiProc,(DWORD_PTR)0,CALLBACK_FUNCTION);
     if (merr!=MMSYSERR_NOERROR)
     {
-      hMidiStream=0;
+      hMidiStream = NULL; // should I do midiStreamClose(hMidiStream) before?
       return;
     }
     //midiStreamStop(hMidiStream);
     currentsong=song;
     currentsong->NewPos=0;
     currentsong->MusicPlaying=1;
+    currentsong->Loops=loops;
     mptd.cbStruct=sizeof(MIDIPROPTIMEDIV);
     mptd.dwTimeDiv=currentsong->ppqn;
     merr=midiStreamProperty(hMidiStream,(LPBYTE)&mptd,MIDIPROP_SET | MIDIPROP_TIMEDIV);
@@ -291,7 +284,7 @@ void native_midi_stop()
   midiStreamStop(hMidiStream);
   midiStreamClose(hMidiStream);
   currentsong=NULL;
-  hMidiStream = 0;
+  hMidiStream = NULL;
 }
 
 int native_midi_active()

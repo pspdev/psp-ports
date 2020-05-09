@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_sb.c,v 1.4 2004/02/10 17:52:18 raph Exp $
+  $Id$
 
   Driver for SoundBlaster/Pro/16/AWE32 under DOS
 
@@ -49,25 +49,25 @@
 
 #include "dossb.h"
 
-static void SB_CommandLine(CHAR *cmdline)
+static void SB_CommandLine(const CHAR *cmdline)
 {
 	char *ptr, *end;
 
-	if ((ptr=MD_GetAtom("port",cmdline,0))) {
+	if ((ptr=MD_GetAtom("port",cmdline,0)) != NULL) {
 		sb.port = strtol(ptr, &end, 16);
-		free(ptr);
+		MikMod_free(ptr);
 	}
-	if ((ptr=MD_GetAtom("irq",cmdline,0))) {
+	if ((ptr=MD_GetAtom("irq",cmdline,0)) != NULL) {
 		sb.irq = strtol(ptr, &end, 10);
-		free(ptr);
+		MikMod_free(ptr);
 	}
-	if ((ptr=MD_GetAtom("dma",cmdline,0))) {
+	if ((ptr=MD_GetAtom("dma",cmdline,0)) != NULL) {
 		sb.dma8 = strtol(ptr, &end, 10);
-		free(ptr);
+		MikMod_free(ptr);
 	}
-	if ((ptr=MD_GetAtom("hidma",cmdline,0))) {
+	if ((ptr=MD_GetAtom("hidma",cmdline,0)) != NULL) {
 		sb.dma16 = strtol(ptr, &end, 10);
-		free(ptr);
+		MikMod_free(ptr);
 	}
 }
 
@@ -76,7 +76,7 @@ static BOOL SB_IsThere(void)
 	return sb_detect();
 }
 
-static BOOL SB_Init(void)
+static int SB_Init(void)
 {
 	if (!sb_open()) {
 		_mm_errno = MMERR_INVALID_DEVICE;
@@ -131,15 +131,15 @@ static void SB_Callback(void)
 
 	/* If DMA pointer still didn't wrapped around ... */
 	if (dma_pos > buff_tail) {
-		buff_tail += mixer (sb.dma_buff->linear + buff_tail, dma_pos - buff_tail);
+		buff_tail += mixer ((SBYTE *)(sb.dma_buff->linear + buff_tail), dma_pos - buff_tail);
 		/* If we arrived right to the DMA buffer end, jump to the beginning */
 		if (buff_tail >= dma_size)
 			buff_tail = 0;
 	} else {
 		/* If wrapped around, fill first to the end of buffer */
-		mixer (sb.dma_buff->linear + buff_tail, dma_size - buff_tail);
+		mixer ((SBYTE *)(sb.dma_buff->linear + buff_tail), dma_size - buff_tail);
 		/* Now fill from buffer beginning to current DMA pointer */
-		buff_tail = mixer (sb.dma_buff->linear, dma_pos);
+		buff_tail = mixer ((SBYTE *)sb.dma_buff->linear, dma_pos);
 	}
 }
 
@@ -148,7 +148,7 @@ static void SB_Update(void)
 	/* Do nothing: the real update is done during SB interrupts */
 }
 
-static BOOL SB_PlayStart (void)
+static int SB_PlayStart (void)
 {
 	if (VC_PlayStart())
 		return 1;
@@ -171,7 +171,7 @@ static BOOL SB_PlayStart (void)
 	return 0;
 }
 
-static BOOL SB_Reset(void)
+static int SB_Reset(void)
 {
 	sb_reset();
 	VC_Exit();
@@ -225,8 +225,9 @@ MDRIVER drv_sb =
 	VC_VoiceRealVolume
 };
 
-#else // DRV_SB
+#else /* DRV_SB */
 
+#include "mikmod_internals.h"
 MISSING(drv_sb);
 
 #endif

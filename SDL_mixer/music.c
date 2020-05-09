@@ -1,26 +1,25 @@
 /*
-    SDL_mixer:  An audio mixer library based on the SDL library
-    Copyright (C) 1997-2009 Sam Lantinga
+  SDL_mixer:  An audio mixer library based on the SDL library
+  Copyright (C) 1997-2012 Sam Lantinga <slouken@libsdl.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-    Sam Lantinga
-    slouken@libsdl.org
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
 */
 
-/* $Id: music.c 5247 2009-11-14 20:44:30Z slouken $ */
+/* $Id$ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +37,9 @@
 #ifdef WAV_MUSIC
 #include "wavestream.h"
 #endif
+#ifdef MODPLUG_MUSIC
+#include "music_modplug.h"
+#endif
 #ifdef MOD_MUSIC
 #include "music_mod.h"
 #endif
@@ -45,13 +47,11 @@
 #  ifdef USE_TIMIDITY_MIDI
 #    include "timidity.h"
 #  endif
+#  ifdef USE_FLUIDSYNTH_MIDI
+#    include "fluidsynth.h"
+#  endif
 #  ifdef USE_NATIVE_MIDI
 #    include "native_midi.h"
-#  endif
-#  if defined(USE_TIMIDITY_MIDI) && defined(USE_NATIVE_MIDI)
-#    define MIDI_ELSE	else
-#  else
-#    define MIDI_ELSE
 #  endif
 #endif
 #ifdef OGG_MUSIC
@@ -88,12 +88,18 @@ struct _Mix_Music {
 #ifdef WAV_MUSIC
 		WAVStream *wave;
 #endif
+#ifdef MODPLUG_MUSIC
+		modplug_data *modplug;
+#endif
 #ifdef MOD_MUSIC
 		struct MODULE *module;
 #endif
 #ifdef MID_MUSIC
 #ifdef USE_TIMIDITY_MIDI
 		MidiSong *midi;
+#endif
+#ifdef USE_FLUIDSYNTH_MIDI
+		FluidSynthMidiSong *fluidsynthmidi;
 #endif
 #ifdef USE_NATIVE_MIDI
 		NativeMidiSong *nativemidi;
@@ -122,6 +128,9 @@ struct _Mix_Music {
 static int timidity_ok;
 static int samplesize;
 #endif
+#ifdef USE_FLUIDSYNTH_MIDI
+static int fluidsynth_ok;
+#endif
 #ifdef USE_NATIVE_MIDI
 static int native_midi_ok;
 #endif
@@ -133,6 +142,11 @@ static int ms_per_step;
 /* rcg06042009 report available decoders at runtime. */
 static const char **music_decoders = NULL;
 static int num_decoders = 0;
+
+/* Semicolon-separated SoundFont paths */
+#ifdef MID_MUSIC
+char* soundfont_paths = NULL;
+#endif
 
 int Mix_GetNumMusicDecoders(void)
 {
@@ -149,7 +163,7 @@ const char *Mix_GetMusicDecoder(int index)
 
 static void add_music_decoder(const char *decoder)
 {
-	void *ptr = realloc(music_decoders, (num_decoders + 1) * sizeof (const char **));
+	void *ptr = SDL_realloc(music_decoders, (num_decoders + 1) * sizeof (const char **));
 	if (ptr == NULL) {
 		return;  /* oh well, go on without it. */
 	}
@@ -185,10 +199,19 @@ static int music_halt_or_loop (void)
 	
 	if (!music_internal_playing()) 
 	{
+#ifdef USE_NATIVE_MIDI
+		/* Native MIDI handles looping internally */
+		if (music_playing->type == MUS_MID && native_midi_ok) {
+			music_loops = 0;
+		}
+#endif
+
 		/* Restart music if it has to loop at a high level */
-		if (music_loops && --music_loops)
+		if (music_loops)
 		{
-			Mix_Fading current_fade = music_playing->fading;
+			Mix_Fading current_fade;
+			--music_loops;
+			current_fade = music_playing->fading;
 			music_internal_play(music_playing, 0.0);
 			music_playing->fading = current_fade;
 		} 
@@ -238,10 +261,10 @@ void music_mixer(void *udata, Uint8 *stream, int len)
 			}
 		}
 		
-		if (music_halt_or_loop() == 0)
+		music_halt_or_loop();
+		if (!music_internal_playing())
 			return;
-		
-		
+
 		switch (music_playing->type) {
 #ifdef CMD_MUSIC
 			case MUS_CMD:
@@ -253,20 +276,38 @@ void music_mixer(void *udata, Uint8 *stream, int len)
 				left = WAVStream_PlaySome(stream, len);
 				break;
 #endif
+#ifdef MODPLUG_MUSIC
+			case MUS_MODPLUG:
+				left = modplug_playAudio(music_playing->data.modplug, stream, len);
+				break;
+#endif
 #ifdef MOD_MUSIC
 			case MUS_MOD:
 				left = MOD_playAudio(music_playing->data.module, stream, len);
 				break;
 #endif
 #ifdef MID_MUSIC
-#ifdef USE_TIMIDITY_MIDI
 			case MUS_MID:
+#ifdef USE_NATIVE_MIDI
+  				if ( native_midi_ok ) {
+					/* Native midi is handled asynchronously */
+					goto skip;
+	  			}
+#endif
+#ifdef USE_FLUIDSYNTH_MIDI
+				if ( fluidsynth_ok ) {
+					fluidsynth_playsome(music_playing->data.fluidsynthmidi, stream, len);
+					goto skip;
+				}
+#endif
+#ifdef USE_TIMIDITY_MIDI
 				if ( timidity_ok ) {
 					int samples = len / samplesize;
   					Timidity_PlaySome(stream, samples);
+					goto skip;
 				}
-				break;
 #endif
+				break;
 #endif
 #ifdef OGG_MUSIC
 			case MUS_OGG:
@@ -295,9 +336,12 @@ void music_mixer(void *udata, Uint8 *stream, int len)
 		}
 	}
 
+skip:
 	/* Handle seamless music looping */
-	if (left > 0 && left < len && music_halt_or_loop()) {
-		music_mixer(udata, stream+(len-left), left);
+	if (left > 0 && left < len) {
+		music_halt_or_loop();
+		if (music_internal_playing())
+			music_mixer(udata, stream+(len-left), left);
 	}
 }
 
@@ -307,6 +351,11 @@ int open_music(SDL_AudioSpec *mixer)
 #ifdef WAV_MUSIC
 	if ( WAVStream_Init(mixer) == 0 ) {
 		add_music_decoder("WAVE");
+	}
+#endif
+#ifdef MODPLUG_MUSIC
+	if ( modplug_init(mixer) == 0 ) {
+		add_music_decoder("MODPLUG");
 	}
 #endif
 #ifdef MOD_MUSIC
@@ -325,9 +374,21 @@ int open_music(SDL_AudioSpec *mixer)
 		timidity_ok = 0;
 	}
 #endif
+#ifdef USE_FLUIDSYNTH_MIDI
+	if ( fluidsynth_init(mixer) == 0 ) {
+		fluidsynth_ok = 1;
+		add_music_decoder("FLUIDSYNTH");
+	} else {
+		fluidsynth_ok = 0;
+	}
+#endif
 #ifdef USE_NATIVE_MIDI
+#ifdef USE_FLUIDSYNTH_MIDI
+	native_midi_ok = !fluidsynth_ok;
+	if ( native_midi_ok )
+#endif
 #ifdef USE_TIMIDITY_MIDI
-	native_midi_ok = !timidity_ok;
+		native_midi_ok = !timidity_ok;
 	if ( !native_midi_ok ) {
 		native_midi_ok = (getenv("SDL_NATIVE_MUSIC") != NULL);
 	}
@@ -377,130 +438,226 @@ int MIX_string_equals(const char *str1, const char *str2)
 	return (!*str1 && !*str2);
 }
 
+static int detect_mp3(Uint8 *magic)
+{
+	if ( strncmp((char *)magic, "ID3", 3) == 0 ) {
+		return 1;
+	}
+
+	/* Detection code lifted from SMPEG */
+	if(((magic[0] & 0xff) != 0xff) || // No sync bits
+	   ((magic[1] & 0xf0) != 0xf0) || //
+	   ((magic[2] & 0xf0) == 0x00) || // Bitrate is 0
+	   ((magic[2] & 0xf0) == 0xf0) || // Bitrate is 15
+	   ((magic[2] & 0x0c) == 0x0c) || // Frequency is 3
+	   ((magic[1] & 0x06) == 0x00)) { // Layer is 4
+		return(0);
+	}
+	return 1;
+}
+
+/* MUS_MOD can't be auto-detected. If no other format was detected, MOD is
+ * assumed and MUS_MOD will be returned, meaning that the format might not
+ * actually be MOD-based.
+ *
+ * Returns MUS_NONE in case of errors. */
+static Mix_MusicType detect_music_type(SDL_RWops *rw)
+{
+	Uint8 magic[5];
+	Uint8 moremagic[9];
+
+	int start = SDL_RWtell(rw);
+	if (SDL_RWread(rw, magic, 1, 4) != 4 || SDL_RWread(rw, moremagic, 1, 8) != 8 ) {
+		Mix_SetError("Couldn't read from RWops");
+		return MUS_NONE;
+	}
+	SDL_RWseek(rw, start, RW_SEEK_SET);
+	magic[4]='\0';
+	moremagic[8] = '\0';
+
+	/* WAVE files have the magic four bytes "RIFF"
+	   AIFF files have the magic 12 bytes "FORM" XXXX "AIFF" */
+	if (((strcmp((char *)magic, "RIFF") == 0) && (strcmp((char *)(moremagic+4), "WAVE") == 0)) ||
+		(strcmp((char *)magic, "FORM") == 0)) {
+		return MUS_WAV;
+	}
+
+	/* Ogg Vorbis files have the magic four bytes "OggS" */
+	if (strcmp((char *)magic, "OggS") == 0) {
+		return MUS_OGG;
+	}
+
+	/* FLAC files have the magic four bytes "fLaC" */
+	if (strcmp((char *)magic, "fLaC") == 0) {
+		return MUS_FLAC;
+	}
+
+	/* MIDI files have the magic four bytes "MThd" */
+	if (strcmp((char *)magic, "MThd") == 0) {
+		return MUS_MID;
+	}
+
+	if (detect_mp3(magic)) {
+		return MUS_MP3;
+	}
+
+	/* Assume MOD format.
+	 *
+	 * Apparently there is no way to check if the file is really a MOD,
+	 * or there are too many formats supported by MikMod/ModPlug, or
+	 * MikMod/ModPlug does this check by itself. */
+	return MUS_MOD;
+}
+
 /* Load a music file */
 Mix_Music *Mix_LoadMUS(const char *file)
 {
-	FILE *fp;
-	char *ext;
-	Uint8 magic[5], moremagic[9];
+	SDL_RWops *rw;
 	Mix_Music *music;
-
-	/* Figure out what kind of file this is */
-	fp = fopen(file, "rb");
-	if ( (fp == NULL) || !fread(magic, 4, 1, fp) ) {
-		if ( fp != NULL ) {
-			fclose(fp);
-		}
-		Mix_SetError("Couldn't read from '%s'", file);
-		return(NULL);
-	}
-	if (!fread(moremagic, 8, 1, fp)) {
-		Mix_SetError("Couldn't read from '%s'", file);
-		return(NULL);
-	}
-	magic[4] = '\0';
-	moremagic[8] = '\0';
-	fclose(fp);
-
-	/* Figure out the file extension, so we can determine the type */
-	ext = strrchr(file, '.');
-	if ( ext ) ++ext; /* skip the dot in the extension */
-
-	/* Allocate memory for the music structure */
-	music = (Mix_Music *)malloc(sizeof(Mix_Music));
-	if ( music == NULL ) {
-		Mix_SetError("Out of memory");
-		return(NULL);
-	}
-	music->error = 0;
+	Mix_MusicType type;
+	char *ext = strrchr(file, '.');
 
 #ifdef CMD_MUSIC
 	if ( music_cmd ) {
+		/* Allocate memory for the music structure */
+		music = (Mix_Music *)SDL_malloc(sizeof(Mix_Music));
+		if ( music == NULL ) {
+			Mix_SetError("Out of memory");
+			return(NULL);
+		}
+		music->error = 0;
 		music->type = MUS_CMD;
 		music->data.cmd = MusicCMD_LoadSong(music_cmd, file);
 		if ( music->data.cmd == NULL ) {
-			music->error = 1;
+			SDL_free(music);
+			music == NULL;
 		}
-	} else
+		return music;
+	}
 #endif
+
+	rw = SDL_RWFromFile(file, "rb");
+	if ( rw == NULL ) {
+		Mix_SetError("Couldn't open '%s'", file);
+		return NULL;
+	}
+
+	/* Use the extension as a first guess on the file type */
+	type = MUS_NONE;
+	ext = strrchr(file, '.');
+	/* No need to guard these with #ifdef *_MUSIC stuff,
+	 * since we simply call Mix_LoadMUSType_RW() later */
+	if ( ext ) {
+		++ext; /* skip the dot in the extension */
+		if ( MIX_string_equals(ext, "WAV") ) {
+			type = MUS_WAV;
+		} else if ( MIX_string_equals(ext, "MID") ||
+		            MIX_string_equals(ext, "MIDI") ||
+		            MIX_string_equals(ext, "KAR") ) {
+			type = MUS_MID;
+		} else if ( MIX_string_equals(ext, "OGG") ) {
+			type = MUS_OGG;
+		} else if ( MIX_string_equals(ext, "FLAC") ) {
+			type = MUS_FLAC;
+		} else 	if ( MIX_string_equals(ext, "MPG") ||
+		             MIX_string_equals(ext, "MPEG") ||
+		             MIX_string_equals(ext, "MP3") ||
+		             MIX_string_equals(ext, "MAD") ) {
+			type = MUS_MP3;
+		}
+	}
+	if ( type == MUS_NONE ) {
+		type = detect_music_type(rw);
+	}
+
+	/* We need to know if a specific error occurs; if not, we'll set a
+	 * generic one, so we clear the current one. */
+	Mix_SetError("");
+	music = Mix_LoadMUSType_RW(rw, type, SDL_TRUE);
+	if ( music == NULL && Mix_GetError()[0] == '\0' ) {
+		SDL_FreeRW(rw);
+		Mix_SetError("Couldn't open '%s'", file);
+	}
+	return music;
+}
+
+Mix_Music *Mix_LoadMUS_RW(SDL_RWops *rw)
+{
+	return Mix_LoadMUSType_RW(rw, MUS_NONE, SDL_FALSE);
+}
+
+Mix_Music *Mix_LoadMUSType_RW(SDL_RWops *rw, Mix_MusicType type, int freesrc)
+{
+	Mix_Music *music;
+
+	if (!rw) {
+		Mix_SetError("RWops pointer is NULL");
+		return NULL;
+	}
+
+	/* If the caller wants auto-detection, figure out what kind of file
+	 * this is. */
+	if (type == MUS_NONE) {
+		if ((type = detect_music_type(rw)) == MUS_NONE) {
+			/* Don't call Mix_SetError() here since detect_music_type()
+			 * does that. */
+			return NULL;
+		}
+	}
+
+	/* Allocate memory for the music structure */
+	music = (Mix_Music *)SDL_malloc(sizeof(Mix_Music));
+	if (music == NULL ) {
+		Mix_SetError("Out of memory");
+		return NULL;
+	}
+	music->error = 0;
+
+	switch (type) {
 #ifdef WAV_MUSIC
-	/* WAVE files have the magic four bytes "RIFF"
-	   AIFF files have the magic 12 bytes "FORM" XXXX "AIFF"
-	 */
-	if ( (ext && MIX_string_equals(ext, "WAV")) ||
-	     ((strcmp((char *)magic, "RIFF") == 0) && (strcmp((char *)(moremagic+4), "WAVE") == 0)) ||
-	     (strcmp((char *)magic, "FORM") == 0) ) {
-		music->type = MUS_WAV;
-		music->data.wave = WAVStream_LoadSong(file, (char *)magic);
-		if ( music->data.wave == NULL ) {
-		  	Mix_SetError("Unable to load WAV file");
+	case MUS_WAV:
+		/* The WAVE loader needs the first 4 bytes of the header */
+		{
+			Uint8 magic[5];
+			int start = SDL_RWtell(rw);
+			if (SDL_RWread(rw, magic, 1, 4) != 4) {
+				Mix_SetError("Couldn't read from RWops");
+				return MUS_NONE;
+			}
+			SDL_RWseek(rw, start, RW_SEEK_SET);
+			magic[4] = '\0';
+			music->type = MUS_WAV;
+			music->data.wave = WAVStream_LoadSong_RW(rw, (char *)magic, freesrc);
+		}
+		if (music->data.wave == NULL) {
 			music->error = 1;
 		}
-	} else
-#endif
-#ifdef MID_MUSIC
-	/* MIDI files have the magic four bytes "MThd" */
-	if ( (ext && MIX_string_equals(ext, "MID")) ||
-	     (ext && MIX_string_equals(ext, "MIDI")) ||
-	     strcmp((char *)magic, "MThd") == 0  ||
-	     ( strcmp((char *)magic, "RIFF") == 0  &&
-	  	strcmp((char *)(moremagic+4), "RMID") == 0 ) ) {
-		music->type = MUS_MID;
-#ifdef USE_NATIVE_MIDI
-  		if ( native_midi_ok ) {
-  			music->data.nativemidi = native_midi_loadsong(file);
-	  		if ( music->data.nativemidi == NULL ) {
-		  		Mix_SetError("%s", native_midi_error());
-			  	music->error = 1;
-			}
-	  	} MIDI_ELSE
-#endif
-#ifdef USE_TIMIDITY_MIDI
-		if ( timidity_ok ) {
-			music->data.midi = Timidity_LoadSong(file);
-			if ( music->data.midi == NULL ) {
-				Mix_SetError("%s", Timidity_Error());
-				music->error = 1;
-			}
-		} else {
-			Mix_SetError("%s", Timidity_Error());
-			music->error = 1;
-		}
-#endif
-	} else
+		break;
 #endif
 #ifdef OGG_MUSIC
-	/* Ogg Vorbis files have the magic four bytes "OggS" */
-	if ( (ext && MIX_string_equals(ext, "OGG")) ||
-	     strcmp((char *)magic, "OggS") == 0 ) {
+	case MUS_OGG:
 		music->type = MUS_OGG;
-		music->data.ogg = OGG_new(file);
+		music->data.ogg = OGG_new_RW(rw, freesrc);
 		if ( music->data.ogg == NULL ) {
 			music->error = 1;
 		}
-	} else
+		break;
 #endif
 #ifdef FLAC_MUSIC
-	/* FLAC files have the magic four bytes "fLaC" */
-	if ( (ext && MIX_string_equals(ext, "FLAC")) ||
-		 strcmp((char *)magic, "fLaC") == 0 ) {
+	case MUS_FLAC:
 		music->type = MUS_FLAC;
-		music->data.flac = FLAC_new(file);
+		music->data.flac = FLAC_new_RW(rw, freesrc);
 		if ( music->data.flac == NULL ) {
 			music->error = 1;
 		}
-	} else
+		break;
 #endif
 #ifdef MP3_MUSIC
-	if ( (ext && MIX_string_equals(ext, "MPG")) ||
-	     (ext && MIX_string_equals(ext, "MP3")) ||
-	     (ext && MIX_string_equals(ext, "MPEG")) ||
-	     (magic[0] == 0xFF && (magic[1] & 0xF0) == 0xF0) ||
-	     (strncmp((char *)magic, "ID3", 3) == 0) ) {
+	case MUS_MP3:
 		if ( Mix_Init(MIX_INIT_MP3) ) {
 			SMPEG_Info info;
 			music->type = MUS_MP3;
-			music->data.mp3 = smpeg.SMPEG_new(file, &info, 0);
+			music->data.mp3 = smpeg.SMPEG_new_rwops(rw, &info, 0);
 			if ( !info.has_audio ) {
 				Mix_SetError("MPEG file does not have any audio stream.");
 				music->error = 1;
@@ -510,39 +667,86 @@ Mix_Music *Mix_LoadMUS(const char *file)
 		} else {
 			music->error = 1;
 		}
-	} else
-#endif
-#ifdef MP3_MAD_MUSIC
-	if ( (ext && MIX_string_equals(ext, "MPG")) ||
-	     (ext && MIX_string_equals(ext, "MP3")) ||
-	     (ext && MIX_string_equals(ext, "MPEG")) ||
-	     (ext && MIX_string_equals(ext, "MAD")) ||
-	     (magic[0] == 0xFF && (magic[1] & 0xF0) == 0xF0) ||
-	     (strncmp((char *)magic, "ID3", 3) == 0) ) {
+		break;
+#elif defined(MP3_MAD_MUSIC)
+	case MUS_MP3:
 		music->type = MUS_MP3_MAD;
-		music->data.mp3_mad = mad_openFile(file, &used_mixer);
+		music->data.mp3_mad = mad_openFileRW(rw, &used_mixer, freesrc);
 		if (music->data.mp3_mad == 0) {
-		    Mix_SetError("Could not initialize MPEG stream.");
+			Mix_SetError("Could not initialize MPEG stream.");
 			music->error = 1;
 		}
-	} else
+		break;
+#endif
+#ifdef MID_MUSIC
+	case MUS_MID:
+		music->type = MUS_MID;
+#ifdef USE_NATIVE_MIDI
+		if ( native_midi_ok ) {
+			music->data.nativemidi = native_midi_loadsong_RW(rw, freesrc);
+	  		if ( music->data.nativemidi == NULL ) {
+		  		Mix_SetError("%s", native_midi_error());
+			  	music->error = 1;
+			}
+			break;
+		}
+#endif
+#ifdef USE_FLUIDSYNTH_MIDI
+		if ( fluidsynth_ok ) {
+			music->data.fluidsynthmidi = fluidsynth_loadsong_RW(rw, freesrc);
+			if ( music->data.fluidsynthmidi == NULL ) {
+				music->error = 1;
+			}
+			break;
+		}
+#endif
+#ifdef USE_TIMIDITY_MIDI
+		if ( timidity_ok ) {
+			music->data.midi = Timidity_LoadSong_RW(rw, freesrc);
+			if ( music->data.midi == NULL ) {
+				Mix_SetError("%s", Timidity_Error());
+				music->error = 1;
+			}
+		} else {
+			Mix_SetError("%s", Timidity_Error());
+			music->error = 1;
+		}
+#endif
+		break;
+#endif
+#if defined(MODPLUG_MUSIC) || defined(MOD_MUSIC)
+	case MUS_MOD:
+		music->error = 1;
+#ifdef MODPLUG_MUSIC
+		if ( music->error ) {
+			music->type = MUS_MODPLUG;
+			music->data.modplug = modplug_new_RW(rw, freesrc);
+			if ( music->data.modplug ) {
+				music->error = 0;
+			}
+		}
 #endif
 #ifdef MOD_MUSIC
-	if ( 1 ) {
-		music->type = MUS_MOD;
-		music->data.module = MOD_new(file);
-		if ( music->data.module == NULL ) {
-			music->error = 1;
+		if ( music->error ) {
+			music->type = MUS_MOD;
+			music->data.module = MOD_new_RW(rw, freesrc);
+			if ( music->data.module ) {
+				music->error = 0;
+			}
 		}
-	} else
 #endif
-	{
+		break;
+#endif
+
+	default:
 		Mix_SetError("Unrecognized music format");
-		music->error = 1;
-	}
-	if ( music->error ) {
-		free(music);
-		music = NULL;
+		music->error=1;
+	} /* switch (want) */
+
+
+	if (music->error) {
+		SDL_free(music);
+		music=NULL;
 	}
 	return(music);
 }
@@ -576,6 +780,11 @@ void Mix_FreeMusic(Mix_Music *music)
 				WAVStream_FreeSong(music->data.wave);
 				break;
 #endif
+#ifdef MODPLUG_MUSIC
+			case MUS_MODPLUG:
+				modplug_delete(music->data.modplug);
+				break;
+#endif
 #ifdef MOD_MUSIC
 			case MUS_MOD:
 				MOD_delete(music->data.module);
@@ -586,11 +795,19 @@ void Mix_FreeMusic(Mix_Music *music)
 #ifdef USE_NATIVE_MIDI
   				if ( native_midi_ok ) {
 					native_midi_freesong(music->data.nativemidi);
-				} MIDI_ELSE
+					goto skip;
+				}
+#endif
+#ifdef USE_FLUIDSYNTH_MIDI
+				if ( fluidsynth_ok ) {
+					fluidsynth_freesong(music->data.fluidsynthmidi);
+					goto skip;
+				}
 #endif
 #ifdef USE_TIMIDITY_MIDI
 				if ( timidity_ok ) {
 					Timidity_FreeSong(music->data.midi);
+					goto skip;
 				}
 #endif
 				break;
@@ -619,7 +836,9 @@ void Mix_FreeMusic(Mix_Music *music)
 				/* Unknown music type?? */
 				break;
 		}
-		free(music);
+
+    skip:
+		SDL_free(music);
 	}
 }
 
@@ -648,6 +867,17 @@ static int music_internal_play(Mix_Music *music, double position)
 {
 	int retval = 0;
 
+#if defined(__MACOSX__) && defined(USE_NATIVE_MIDI)
+	/* This fixes a bug with native MIDI on Mac OS X, where you
+	   can't really stop and restart MIDI from the audio callback.
+	*/
+	if ( music == music_playing && music->type == MUS_MID && native_midi_ok ) {
+		/* Just a seek suffices to restart playing */
+		music_internal_position(position);
+		return 0;
+	}
+#endif
+
 	/* Note the music we're playing */
 	if ( music_playing ) {
 		music_internal_halt();
@@ -671,6 +901,13 @@ static int music_internal_play(Mix_Music *music, double position)
 		WAVStream_Start(music->data.wave);
 		break;
 #endif
+#ifdef MODPLUG_MUSIC
+	    case MUS_MODPLUG:
+		/* can't set volume until file is loaded, so finally set it now */
+		music_internal_initialize_volume();
+		modplug_play(music->data.modplug);
+		break;
+#endif
 #ifdef MOD_MUSIC
 	    case MUS_MOD:
 		MOD_play(music->data.module);
@@ -682,12 +919,20 @@ static int music_internal_play(Mix_Music *music, double position)
 	    case MUS_MID:
 #ifdef USE_NATIVE_MIDI
 		if ( native_midi_ok ) {
-			native_midi_start(music->data.nativemidi);
-		} MIDI_ELSE
+			native_midi_start(music->data.nativemidi, music_loops);
+			goto skip;
+		}
+#endif
+#ifdef USE_FLUIDSYNTH_MIDI
+		if (fluidsynth_ok ) {
+			fluidsynth_start(music->data.fluidsynthmidi);
+			goto skip;
+		}
 #endif
 #ifdef USE_TIMIDITY_MIDI
 		if ( timidity_ok ) {
 			Timidity_Start(music->data.midi);
+			goto skip;
 		}
 #endif
 		break;
@@ -720,6 +965,7 @@ static int music_internal_play(Mix_Music *music, double position)
 		break;
 	}
 
+skip:
 	/* Set the playback position, note any errors if an offset is used */
 	if ( retval == 0 ) {
 		if ( position > 0.0 ) {
@@ -741,6 +987,11 @@ static int music_internal_play(Mix_Music *music, double position)
 int Mix_FadeInMusicPos(Mix_Music *music, int loops, int ms, double position)
 {
 	int retval;
+
+	if ( ms_per_step == 0 ) {
+		SDL_SetError("Audio device hasn't been opened");
+		return(-1);
+	}
 
 	/* Don't play null pointers :-) */
 	if ( music == NULL ) {
@@ -766,6 +1017,10 @@ int Mix_FadeInMusicPos(Mix_Music *music, int loops, int ms, double position)
 		SDL_LockAudio();
 	}
 	music_active = 1;
+	if (loops == 1) {
+		/* Loop is the number of times to play the audio */
+		loops = 0;
+	}
 	music_loops = loops;
 	retval = music_internal_play(music, position);
 	SDL_UnlockAudio();
@@ -787,6 +1042,11 @@ int music_internal_position(double position)
 	int retval = 0;
 
 	switch (music_playing->type) {
+#ifdef MODPLUG_MUSIC
+	    case MUS_MODPLUG:
+		modplug_jump_to_time(music_playing->data.modplug, position);
+		break;
+#endif
 #ifdef MOD_MUSIC
 	    case MUS_MOD:
 		MOD_jump_to_time(music_playing->data.module, position);
@@ -804,11 +1064,10 @@ int music_internal_position(double position)
 #endif
 #ifdef MP3_MUSIC
 	    case MUS_MP3:
+		smpeg.SMPEG_rewind(music_playing->data.mp3);
+		smpeg.SMPEG_play(music_playing->data.mp3);
 		if ( position > 0.0 ) {
 			smpeg.SMPEG_skip(music_playing->data.mp3, (float)position);
-		} else {
-			smpeg.SMPEG_rewind(music_playing->data.mp3);
-			smpeg.SMPEG_play(music_playing->data.mp3);
 		}
 		break;
 #endif
@@ -867,6 +1126,11 @@ static void music_internal_volume(int volume)
 		WAVStream_SetVolume(volume);
 		break;
 #endif
+#ifdef MODPLUG_MUSIC
+	    case MUS_MODPLUG:
+		modplug_setvolume(music_playing->data.modplug, volume);
+		break;
+#endif
 #ifdef MOD_MUSIC
 	    case MUS_MOD:
 		MOD_setvolume(music_playing->data.module, volume);
@@ -877,11 +1141,19 @@ static void music_internal_volume(int volume)
 #ifdef USE_NATIVE_MIDI
 		if ( native_midi_ok ) {
 			native_midi_setvolume(volume);
-		} MIDI_ELSE
+			return;
+		}
+#endif
+#ifdef USE_FLUIDSYNTH_MIDI
+		if ( fluidsynth_ok ) {
+			fluidsynth_setvolume(music_playing->data.fluidsynthmidi, volume);
+			return;
+		}
 #endif
 #ifdef USE_TIMIDITY_MIDI
 		if ( timidity_ok ) {
 			Timidity_SetVolume(volume);
+			return;
 		}
 #endif
 		break;
@@ -945,6 +1217,11 @@ static void music_internal_halt(void)
 		WAVStream_Stop();
 		break;
 #endif
+#ifdef MODPLUG_MUSIC
+	    case MUS_MODPLUG:
+		modplug_stop(music_playing->data.modplug);
+		break;
+#endif
 #ifdef MOD_MUSIC
 	    case MUS_MOD:
 		MOD_stop(music_playing->data.module);
@@ -955,11 +1232,19 @@ static void music_internal_halt(void)
 #ifdef USE_NATIVE_MIDI
 		if ( native_midi_ok ) {
 			native_midi_stop();
-		} MIDI_ELSE
+			goto skip;
+		}
+#endif
+#ifdef USE_FLUIDSYNTH_MIDI
+		if ( fluidsynth_ok ) {
+			fluidsynth_stop(music_playing->data.fluidsynthmidi);
+			goto skip;
+		}
 #endif
 #ifdef USE_TIMIDITY_MIDI
 		if ( timidity_ok ) {
 			Timidity_Stop();
+			goto skip;
 		}
 #endif
 		break;
@@ -988,6 +1273,8 @@ static void music_internal_halt(void)
 		/* Unknown music type?? */
 		return;
 	}
+
+skip:
 	music_playing->fading = MIX_NO_FADING;
 	music_playing = NULL;
 }
@@ -1006,6 +1293,11 @@ int Mix_HaltMusic(void)
 int Mix_FadeOutMusic(int ms)
 {
 	int retval = 0;
+
+	if ( ms_per_step == 0 ) {
+		SDL_SetError("Audio device hasn't been opened");
+		return 0;
+	}
 
 	if (ms <= 0) {  /* just halt immediately. */
 		Mix_HaltMusic();
@@ -1076,6 +1368,11 @@ int Mix_PausedMusic(void)
 static int music_internal_playing()
 {
 	int playing = 1;
+
+	if (music_playing == NULL) {
+		return 0;
+	}
+
 	switch (music_playing->type) {
 #ifdef CMD_MUSIC
 	    case MUS_CMD:
@@ -1087,6 +1384,13 @@ static int music_internal_playing()
 #ifdef WAV_MUSIC
 	    case MUS_WAV:
 		if ( ! WAVStream_Active() ) {
+			playing = 0;
+		}
+		break;
+#endif
+#ifdef MODPLUG_MUSIC
+	    case MUS_MODPLUG:
+		if ( ! modplug_playing(music_playing->data.modplug) ) {
 			playing = 0;
 		}
 		break;
@@ -1104,12 +1408,21 @@ static int music_internal_playing()
 		if ( native_midi_ok ) {
 			if ( ! native_midi_active() )
 				playing = 0;
-		} MIDI_ELSE
+			goto skip;
+		}
+#endif
+#ifdef USE_FLUIDSYNTH_MIDI
+		if ( fluidsynth_ok ) {
+			if ( ! fluidsynth_active(music_playing->data.fluidsynthmidi) )
+				playing = 0;
+			goto skip;
+		}
 #endif
 #ifdef USE_TIMIDITY_MIDI
 		if ( timidity_ok ) {
 			if ( ! Timidity_Active() )
 				playing = 0;
+			goto skip;
 		}
 #endif
 		break;
@@ -1145,6 +1458,8 @@ static int music_internal_playing()
 		playing = 0;
 		break;
 	}
+
+skip:
 	return(playing);
 }
 int Mix_PlayingMusic(void)
@@ -1153,7 +1468,7 @@ int Mix_PlayingMusic(void)
 
 	SDL_LockAudio();
 	if ( music_playing ) {
-		playing = music_internal_playing();
+		playing = music_loops || music_internal_playing();
 	}
 	SDL_UnlockAudio();
 
@@ -1165,11 +1480,11 @@ int Mix_SetMusicCMD(const char *command)
 {
 	Mix_HaltMusic();
 	if ( music_cmd ) {
-		free(music_cmd);
+		SDL_free(music_cmd);
 		music_cmd = NULL;
 	}
 	if ( command ) {
-		music_cmd = (char *)malloc(strlen(command)+1);
+		music_cmd = (char *)SDL_malloc(strlen(command)+1);
 		if ( music_cmd == NULL ) {
 			return(-1);
 		}
@@ -1198,6 +1513,9 @@ void close_music(void)
 #ifdef CMD_MUSIC
 	Mix_SetMusicCMD(NULL);
 #endif
+#ifdef MODPLUG_MUSIC
+	modplug_exit();
+#endif
 #ifdef MOD_MUSIC
 	MOD_exit();
 #endif
@@ -1208,149 +1526,72 @@ void close_music(void)
 #endif
 
 	/* rcg06042009 report available decoders at runtime. */
-	free(music_decoders);
+	SDL_free(music_decoders);
 	music_decoders = NULL;
 	num_decoders = 0;
+
+	ms_per_step = 0;
 }
 
-Mix_Music *Mix_LoadMUS_RW(SDL_RWops *rw)
+int Mix_SetSoundFonts(const char *paths)
 {
-	Uint8 magic[5];	  /*Apparently there is no way to check if the file is really a MOD,*/
-	/*		    or there are too many formats supported by MikMod or MikMod does */
-	/*		    this check by itself. If someone implements other formats (e.g. MP3) */
-	/*		    the check can be uncommented */
-	Uint8 moremagic[9];
-	Mix_Music *music;
-	int start;
-
-	if (!rw) {
-		Mix_SetError("RWops pointer is NULL");
-		return NULL;
-	}
-
-	/* Figure out what kind of file this is */
-	start = SDL_RWtell(rw);
-	if ( SDL_RWread(rw,magic,1,4) != 4 ||
-	     SDL_RWread(rw,moremagic,1,8) != 8 ) {
-		Mix_SetError("Couldn't read from RWops");
-		return NULL;
-	}
-	SDL_RWseek(rw, start, RW_SEEK_SET);
-	magic[4]='\0';
-	moremagic[8] = '\0';
-
-	/* Allocate memory for the music structure */
-	music=(Mix_Music *)malloc(sizeof(Mix_Music));
-	if (music==NULL ) {
-		Mix_SetError("Out of memory");
-		return(NULL);
-	}
-	music->error = 0;
-
-#ifdef WAV_MUSIC
-	/* WAVE files have the magic four bytes "RIFF"
-	   AIFF files have the magic 12 bytes "FORM" XXXX "AIFF"
-	 */
-	if ( ((strcmp((char *)magic, "RIFF") == 0) && (strcmp((char *)(moremagic+4), "WAVE") == 0)) ||
-	     (strcmp((char *)magic, "FORM") == 0) ) {
-		music->type = MUS_WAV;
-		music->data.wave = WAVStream_LoadSong_RW(rw, (char *)magic);
-		if ( music->data.wave == NULL ) {
-			music->error = 1;
-		}
-
-	} else
-#endif
-#ifdef OGG_MUSIC
-	/* Ogg Vorbis files have the magic four bytes "OggS" */
-	if ( strcmp((char *)magic, "OggS") == 0 ) {
-		music->type = MUS_OGG;
-		music->data.ogg = OGG_new_RW(rw);
-		if ( music->data.ogg == NULL ) {
-			music->error = 1;
-		}
-	} else
-#endif
-#ifdef FLAC_MUSIC
-	/* FLAC files have the magic four bytes "fLaC" */
-	if ( strcmp((char *)magic, "fLaC") == 0 ) {
-		music->type = MUS_FLAC;
-		music->data.flac = FLAC_new_RW(rw);
-		if ( music->data.flac == NULL ) {
-			music->error = 1;
-		}
-	} else
-#endif
-#ifdef MP3_MUSIC
-	if ( ( magic[0] == 0xFF && (magic[1] & 0xF0) == 0xF0) || ( strncmp((char *)magic, "ID3", 3) == 0 ) ) {
-		if ( Mix_Init(MIX_INIT_MP3) ) {
-			SMPEG_Info info;
-			music->type = MUS_MP3;
-			music->data.mp3 = smpeg.SMPEG_new_rwops(rw, &info, 0);
-			if ( !info.has_audio ) {
-				Mix_SetError("MPEG file does not have any audio stream.");
-				music->error = 1;
-			} else {
-				smpeg.SMPEG_actualSpec(music->data.mp3, &used_mixer);
-			}
-		} else {
-			music->error = 1;
-		}
-	} else
-#endif
-#ifdef MP3_MAD_MUSIC
-	if ( ( magic[0] == 0xFF && (magic[1] & 0xF0) == 0xF0) || ( strncmp((char *)magic, "ID3", 3) == 0 ) ) {
-		music->type = MUS_MP3_MAD;
-		music->data.mp3_mad = mad_openFileRW(rw, &used_mixer);
-		if (music->data.mp3_mad == 0) {
-			Mix_SetError("Could not initialize MPEG stream.");
-			music->error = 1;
-		}
-	} else
-#endif
 #ifdef MID_MUSIC
-	/* MIDI files have the magic four bytes "MThd" */
-	if ( strcmp((char *)magic, "MThd") == 0 ) {
-		music->type = MUS_MID;
-#ifdef USE_NATIVE_MIDI
-		if ( native_midi_ok ) {
-			music->data.nativemidi = native_midi_loadsong_RW(rw);
-	  		if ( music->data.nativemidi == NULL ) {
-		  		Mix_SetError("%s", native_midi_error());
-			  	music->error = 1;
-			}
-		} MIDI_ELSE
-#endif
-#ifdef USE_TIMIDITY_MIDI
-		if ( timidity_ok ) {
-			music->data.midi = Timidity_LoadSong_RW(rw);
-			if ( music->data.midi == NULL ) {
-				Mix_SetError("%s", Timidity_Error());
-				music->error = 1;
-			}
-		} else {
-			Mix_SetError("%s", Timidity_Error());
-			music->error = 1;
-		}
-#endif
-	} else
-#endif
-#ifdef MOD_MUSIC
-	if (1) {
-		music->type=MUS_MOD;
-		music->data.module = MOD_new_RW(rw);
-		if ( music->data.module == NULL ) {
-			music->error = 1;
-		}
-	} else
-#endif
-	{
-		Mix_SetError("Unrecognized music format");
-		music->error=1;
+	if (soundfont_paths) {
+		SDL_free(soundfont_paths);
+		soundfont_paths = NULL;
 	}
-	if (music->error) {
-		free(music);
-		music=NULL;
+
+	if (paths) {
+		if (!(soundfont_paths = SDL_strdup(paths))) {
+			Mix_SetError("Insufficient memory to set SoundFonts");
+			return 0;
+		}
 	}
-	return(music);
+#endif
+	return 1;
 }
+
+#ifdef MID_MUSIC
+const char* Mix_GetSoundFonts(void)
+{
+	const char* force = getenv("SDL_FORCE_SOUNDFONTS");
+
+	if (!soundfont_paths || (force && force[0] == '1')) {
+		return getenv("SDL_SOUNDFONTS");
+	} else {
+		return soundfont_paths;
+	}
+}
+
+int Mix_EachSoundFont(int (*function)(const char*, void*), void *data)
+{
+	char *context, *path, *paths;
+	const char* cpaths = Mix_GetSoundFonts();
+
+	if (!cpaths) {
+		Mix_SetError("No SoundFonts have been requested");
+		return 0;
+	}
+
+	if (!(paths = SDL_strdup(cpaths))) {
+		Mix_SetError("Insufficient memory to iterate over SoundFonts");
+		return 0;
+	}
+
+#if defined(__MINGW32__) || defined(__MINGW64__)
+	for (path = strtok(paths, ";"); path; path = strtok(NULL, ";")) {
+#elif defined(_WIN32)
+	for (path = strtok_s(paths, ";", &context); path; path = strtok_s(NULL, ";", &context)) {
+#else
+	for (path = strtok_r(paths, ":;", &context); path; path = strtok_r(NULL, ":;", &context)) {
+#endif
+		if (!function(path, data)) {
+			SDL_free(paths);
+			return 0;
+		}
+	}
+
+	SDL_free(paths);
+	return 1;
+}
+#endif

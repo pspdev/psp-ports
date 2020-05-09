@@ -1,9 +1,11 @@
-EXTRA_DIST = load_669.c \
+EXTRA_DIST = CMakeLists.txt \
+             load_669.c \
              load_amf.c \
-	     load_asy.c \
+             load_asy.c \
              load_dsm.c \
              load_far.c \
              load_gdm.c \
+             load_gt2.c \
              load_imf.c \
              load_it.c  \
              load_m15.c \
@@ -15,5 +17,6 @@ EXTRA_DIST = load_669.c \
              load_stm.c \
              load_stx.c \
              load_ult.c \
+             load_umx.c \
              load_uni.c \
              load_xm.c

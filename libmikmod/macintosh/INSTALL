@@ -39,7 +39,7 @@ To compile and build :
 A) Using CodeWarrior
 --------------------
 
-1) Open "libmikmod-cw#.mcp" with CodeWarrior IDE
+1) Import "libmikmod-cw#.xml" with CodeWarrior IDE
 2) Set Current Target : "¥ All Libraries"
 3) Make, or "Bring Up To Date"
 

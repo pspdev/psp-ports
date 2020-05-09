@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: load_far.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id$
 
   Farandole (FAR) module loader
 
@@ -92,11 +92,11 @@ static	FARHEADER1 *mh1 = NULL;
 static	FARHEADER2 *mh2 = NULL;
 static	FARNOTE *pat = NULL;
 
-static	unsigned char FARSIG[4+3]={'F','A','R',0xfe,13,10,26};
+static	const unsigned char FARSIG[4+3]={'F','A','R',0xfe,13,10,26};
 
 /*========== Loader code */
 
-BOOL FAR_Test(void)
+static BOOL FAR_Test(void)
 {
 	UBYTE id[47];
 
@@ -105,20 +105,23 @@ BOOL FAR_Test(void)
 	return 1;
 }
 
-BOOL FAR_Init(void)
+static BOOL FAR_Init(void)
 {
-	if(!(mh1 = (FARHEADER1*)_mm_malloc(sizeof(FARHEADER1)))) return 0;
-	if(!(mh2 = (FARHEADER2*)_mm_malloc(sizeof(FARHEADER2)))) return 0;
-	if(!(pat = (FARNOTE*)_mm_malloc(256*16*4*sizeof(FARNOTE)))) return 0;
+	if(!(mh1 = (FARHEADER1*)MikMod_malloc(sizeof(FARHEADER1)))) return 0;
+	if(!(mh2 = (FARHEADER2*)MikMod_malloc(sizeof(FARHEADER2)))) return 0;
+	if(!(pat = (FARNOTE*)MikMod_malloc(256*16*4*sizeof(FARNOTE)))) return 0;
 
 	return 1;
 }
 
-void FAR_Cleanup(void)
+static void FAR_Cleanup(void)
 {
-	_mm_free(mh1);
-	_mm_free(mh2);
-	_mm_free(pat);
+	MikMod_free(mh1);
+	MikMod_free(mh2);
+	MikMod_free(pat);
+	mh1 = NULL;
+	mh2 = NULL;
+	pat = NULL;
 }
 
 static UBYTE *FAR_ConvertTrack(FARNOTE* n,int rows)
@@ -173,7 +176,7 @@ static UBYTE *FAR_ConvertTrack(FARNOTE* n,int rows)
 	return UniDup();
 }
 
-BOOL FAR_Load(BOOL curious)
+static BOOL FAR_Load(BOOL curious)
 {
 	int t,u,tracks=0;
 	SAMPLE *q;
@@ -195,7 +198,7 @@ BOOL FAR_Load(BOOL curious)
 	mh1->stlen     = _mm_read_I_UWORD (modreader);
 
 	/* init modfile data */
-	of.modtype   = strdup(FAR_Version);
+	of.modtype   = MikMod_strdup(FAR_Version);
 	of.songname  = DupStr(mh1->songname,40,1);
 	of.numchn    = 16;
 	of.initspeed = mh1->speed;
@@ -206,7 +209,12 @@ BOOL FAR_Load(BOOL curious)
 
 	/* read songtext into comment field */
 	if(mh1->stlen)
-		if (!ReadLinedComment(mh1->stlen, 66)) return 0;
+		if (!ReadLinedComment(mh1->stlen, 132)) return 0;
+
+	if(_mm_eof(modreader)) {
+		_mm_errno = MMERR_LOADING_HEADER;
+		return 0;
+	}
 
 	/* try to read module header (second part) */
 	_mm_read_UBYTES(mh2->orders,256,modreader);
@@ -237,12 +245,14 @@ BOOL FAR_Load(BOOL curious)
 	if(!AllocPatterns()) return 0;
 
 	for(t=0;t<of.numpat;t++) {
-		UBYTE rows=0,tempo;
+		UBYTE rows=0;
+		UBYTE tempo;
 
 		memset(pat,0,256*16*4*sizeof(FARNOTE));
 		if(mh2->patsiz[t]) {
 			rows  = _mm_read_UBYTE(modreader);
 			tempo = _mm_read_UBYTE(modreader);
+			(void)tempo; /* unused */
 
 			crow = pat;
 			/* file often allocates 64 rows even if there are less in pattern */
@@ -283,7 +293,7 @@ BOOL FAR_Load(BOOL curious)
 	of.numins = 0;
 	for(t=0;t<64;t++)
 		if(smap[t>>3]&(1<<(t&7))) of.numins=t+1;
-	of.numsmp = of.numins;             
+	of.numsmp = of.numins;
 
 	/* alloc sample structs */
 	if(!AllocSamples()) return 0;
@@ -313,21 +323,21 @@ BOOL FAR_Load(BOOL curious)
 
 			q->seekpos    = _mm_ftell(modreader);
 			_mm_fseek(modreader,q->length,SEEK_CUR);
-		} else 
-			q->samplename = DupStr(NULL,0,0);
+		} else
+			q->samplename = MikMod_strdup("");
 		q++;
 	}
 	return 1;
 }
 
-CHAR *FAR_LoadTitle(void)
+static CHAR *FAR_LoadTitle(void)
 {
 	CHAR s[40];
 
 	_mm_fseek(modreader,4,SEEK_SET);
 	if(!_mm_read_UBYTES(s,40,modreader)) return NULL;
-   
-	return(DupStr(s,40,1));
+
+	return (DupStr(s,40,1));
 }
 
 /*========== Loader information */

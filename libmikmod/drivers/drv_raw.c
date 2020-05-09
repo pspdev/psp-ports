@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -19,8 +19,6 @@
 */
 
 /*==============================================================================
-
-  $Id: drv_raw.c,v 1.4 2004/01/31 22:39:40 raph Exp $
 
   Driver for output to a file called MUSIC.RAW
 
@@ -30,41 +28,36 @@
 #include "config.h"
 #endif
 
+#ifdef DRV_RAW
+
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef HAVE_FCNTL_H
-#include <fcntl.h>
-#endif
 
-#ifndef macintosh
-#include <sys/types.h>
-#include <sys/stat.h>
-#endif
+#include <stdio.h>
 
 #include "mikmod_internals.h"
+
+#ifdef __VBCC__
+#define unlink remove
+#endif
+#ifdef _WIN32
+#define unlink _unlink
+#endif
 
 #define BUFFERSIZE 32768
 #define FILENAME "music.raw"
 
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif
-
-#if defined(WIN32) && !defined(__MWERKS__)
-#define open _open
-#endif
-
-static	int rawout=-1;
+static	FILE *rawout=NULL;
 static	SBYTE *audiobuffer=NULL;
 static	CHAR *filename=NULL;
 
-static void RAW_CommandLine(CHAR *cmdline)
+static void RAW_CommandLine(const CHAR *cmdline)
 {
 	CHAR *ptr=MD_GetAtom("file",cmdline,0);
 
 	if(ptr) {
-		_mm_free(filename);
+		MikMod_free(filename);
 		filename=ptr;
 	}
 }
@@ -74,34 +67,33 @@ static BOOL RAW_IsThere(void)
 	return 1;
 }
 
-static BOOL RAW_Init(void)
+static int RAW_Init(void)
 {
-#if defined unix || (defined __APPLE__ && defined __MACH__)
+#if (MIKMOD_UNIX)
 	if(!MD_Access(filename?filename:FILENAME)) {
 		_mm_errno=MMERR_OPENING_FILE;
 		return 1;
 	}
 #endif
 
-	if((rawout=open(filename?filename:FILENAME,O_RDWR|O_TRUNC|O_CREAT|O_BINARY
-#if !defined(macintosh) && !defined(__MWERKS__)
-	                ,S_IREAD|S_IWRITE
-#endif
-	               ))<0) {
+	rawout=fopen(filename?filename:FILENAME,"wb");
+	if(!rawout) {
 		_mm_errno=MMERR_OPENING_FILE;
 		return 1;
 	}
 	md_mode|=DMODE_SOFT_MUSIC|DMODE_SOFT_SNDFX;
 
-	if (!(audiobuffer=(SBYTE*)_mm_malloc(BUFFERSIZE))) {
-		close(rawout);unlink(filename?filename:FILENAME);
-		rawout=-1;
+	if (!(audiobuffer=(SBYTE*)MikMod_malloc(BUFFERSIZE))) {
+		fclose(rawout);
+		unlink(filename?filename:FILENAME);
+		rawout=NULL;
 		return 1;
 	}
 
 	if ((VC_Init())) {
-		close(rawout);unlink(filename?filename:FILENAME);
-		rawout=-1;
+		fclose(rawout);
+		unlink(filename?filename:FILENAME);
+		rawout=NULL;
 		return 1;
 	}
 	return 0;
@@ -110,26 +102,24 @@ static BOOL RAW_Init(void)
 static void RAW_Exit(void)
 {
 	VC_Exit();
-	if (rawout!=-1) {
-		close(rawout);
-		rawout=-1;
+	if (rawout) {
+		fclose(rawout);
+		rawout=NULL;
 	}
-	_mm_free(audiobuffer);
+	MikMod_free(audiobuffer);
+	audiobuffer = NULL;
 }
 
 static void RAW_Update(void)
 {
-	write(rawout,audiobuffer,VC_WriteBytes(audiobuffer,BUFFERSIZE));
+	fwrite(audiobuffer,VC_WriteBytes(audiobuffer,BUFFERSIZE),1,rawout);
 }
 
-static BOOL RAW_Reset(void)
+static int RAW_Reset(void)
 {
-	close(rawout);
-	if((rawout=open(filename?filename:FILENAME,O_RDWR|O_TRUNC|O_CREAT|O_BINARY
-#if !defined(macintosh) && !defined(__MWERKS__)
-	                ,S_IREAD|S_IWRITE
-#endif
-	               ))<0) {
+	fclose(rawout);
+	rawout=fopen(filename?filename:FILENAME,"wb");
+	if(!rawout) {
 		_mm_errno=MMERR_OPENING_FILE;
 		return 1;
 	}
@@ -170,5 +160,11 @@ MIKMODAPI MDRIVER drv_raw={
 	VC_VoiceGetPosition,
 	VC_VoiceRealVolume
 };
+
+#else
+#include "mikmod_internals.h"
+MISSING(drv_raw);
+
+#endif
 
 /* ex:set ts=4: */

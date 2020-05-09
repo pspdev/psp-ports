@@ -6,21 +6,21 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 	02111-1307, USA.
 */
-  
+
 /*==============================================================================
 
-  $Id: drv_sgi.c,v 1.2 2004/01/31 22:39:40 raph Exp $
+  $Id$
 
   Driver for output on SGI audio system (needs libaudio from the dmedia
   package).
@@ -69,18 +69,18 @@ static	int sgi_fragsize=DEFAULT_SGI_FRAGSIZE;
 static	int sgi_bufsize=DEFAULT_SGI_BUFSIZE;
 static	SBYTE *audiobuffer=NULL;
 
-static void SGI_CommandLine(CHAR *cmdline)
+static void SGI_CommandLine(const CHAR *cmdline)
 {
 	CHAR *ptr;
-	
-	if ((ptr=MD_GetAtom("fragsize",cmdline,0))) {
+
+	if ((ptr=MD_GetAtom("fragsize",cmdline,0)) != NULL) {
 		sgi_fragsize=atol(ptr);
-		free(ptr);
+		MikMod_free(ptr);
 	} else sgi_fragsize=DEFAULT_SGI_FRAGSIZE;
 
-	if ((ptr=MD_GetAtom("bufsize",cmdline,0))) {
+	if ((ptr=MD_GetAtom("bufsize",cmdline,0)) != NULL) {
 		sgi_bufsize=atol(ptr);
-		free(ptr);
+		MikMod_free(ptr);
 	} else sgi_bufsize=DEFAULT_SGI_BUFSIZE;
 }
 
@@ -90,7 +90,7 @@ static BOOL SGI_IsThere(void)
 	return(ALqueryparams(AL_DEFAULT_DEVICE,0,0))?1:0;
 }
 
-static BOOL SGI_Init(void)
+static int SGI_Init(void)
 {
 	long chpars[] = { AL_OUTPUT_RATE, AL_RATE_22050 };
 
@@ -127,7 +127,7 @@ static BOOL SGI_Init(void)
 		_mm_errno=MMERR_OPENING_AUDIO;
 		return 1;
 	}
-	
+
 	if (md_mode&DMODE_16BITS) {
 		if (ALsetwidth(sgi_config,AL_SAMPLE_16)<0) {
 			_mm_errno=MMERR_SGI_16BIT;
@@ -167,15 +167,16 @@ static BOOL SGI_Init(void)
 		return 1;
 	}
 
-	if(!(audiobuffer=(SBYTE*)_mm_malloc(sgi_fragsize))) return 1;
-	
+	if(!(audiobuffer=(SBYTE*)MikMod_malloc(sgi_fragsize))) return 1;
+
 	return VC_Init();
 }
 
 static void SGI_Exit(void)
 {
 	VC_Exit();
-	_mm_free(audiobuffer);
+	MikMod_free(audiobuffer);
+	audiobuffer=NULL;
 }
 
 static void SGI_Update(void)

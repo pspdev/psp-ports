@@ -1,23 +1,22 @@
 /*
-    native_midi_mac:  Native Midi support on MacOS for the SDL_mixer library
-    Copyright (C) 2001  Max Horn
+  native_midi_mac:  Native Midi support on MacOS for the SDL_mixer library
+  Copyright (C) 2001  Max Horn <max@quendi.de>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
 
-    You should have received a copy of the GNU Library General Public
-    License along with this library; if not, write to the Free
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-    Max Horn
-    max@quendi.de
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
 */
 #include "SDL_config.h"
 #include "SDL_endian.h"
@@ -89,75 +88,7 @@ int native_midi_detect()
 	return 1;
 }
 
-NativeMidiSong *native_midi_loadsong(const char *midifile)
-{
-	NativeMidiSong	*song = NULL;
-	MIDIEvent		*evntlist = NULL;
-	int				part_to_inst[32];
-	int				part_poly_max[32];
-	int				numParts = 0;
-	Uint16			ppqn;
-	SDL_RWops		*rw;
-
-	/* Init the arrays */
-	memset(part_poly_max,0,sizeof(part_poly_max));
-	memset(part_to_inst,-1,sizeof(part_to_inst));
-	
-	/* Attempt to load the midi file */
-	rw = SDL_RWFromFile(midifile, "rb");
-	if (rw) {
-		evntlist = CreateMIDIEventList(rw, &ppqn);
-		SDL_RWclose(rw);
-		if (!evntlist)
-			goto bail;
-	}
-
-	/* Allocate memory for the song struct */
-	song = malloc(sizeof(NativeMidiSong));
-	if (!song)
-		goto bail;
-
-	/* Build a tune sequence from the event list */
-	song->tuneSequence = BuildTuneSequence(evntlist, ppqn, part_poly_max, part_to_inst, &numParts);
-	if(!song->tuneSequence)
-		goto bail;
-
-	/* Now build a tune header from the data we collect above, create
-	   all parts as needed and assign them the correct instrument.
-	*/
-	song->tuneHeader = BuildTuneHeader(part_poly_max, part_to_inst, numParts);
-	if(!song->tuneHeader)
-		goto bail;
-	
-	/* Increment the instance count */
-	gInstaceCount++;
-	if (gTunePlayer == NULL)
-		gTunePlayer = OpenDefaultComponent(kTunePlayerComponentType, 0);
-
-	/* Finally, free the event list */
-	FreeMIDIEventList(evntlist);
-	
-	return song;
-	
-bail:
-	if (evntlist)
-		FreeMIDIEventList(evntlist);
-	
-	if (song)
-	{
-		if(song->tuneSequence)
-			free(song->tuneSequence);
-		
-		if(song->tuneHeader)
-			DisposePtr((Ptr)song->tuneHeader);
-
-		free(song);
-	}
-	
-	return NULL;
-}
-
-NativeMidiSong *native_midi_loadsong_RW(SDL_RWops *rw)
+NativeMidiSong *native_midi_loadsong_RW(SDL_RWops *rw, int freerw)
 {
 	NativeMidiSong	*song = NULL;
 	MIDIEvent		*evntlist = NULL;
@@ -199,7 +130,10 @@ NativeMidiSong *native_midi_loadsong_RW(SDL_RWops *rw)
 
 	/* Finally, free the event list */
 	FreeMIDIEventList(evntlist);
-	
+
+	if (freerw) {
+		SDL_RWclose(rw);
+	}
 	return song;
 	
 bail:
@@ -217,6 +151,9 @@ bail:
 		free(song);
 	}
 	
+	if (freerw) {
+		SDL_RWclose(rw);
+	}
 	return NULL;
 }
 
@@ -243,12 +180,15 @@ void native_midi_freesong(NativeMidiSong *song)
 	}
 }
 
-void native_midi_start(NativeMidiSong *song)
+void native_midi_start(NativeMidiSong *song, int loops)
 {
 	UInt32		queueFlags = 0;
 	ComponentResult tpError;
 	
 	assert (gTunePlayer != NULL);
+
+	/* FIXME: is this code even used anymore? */
+	assert (loops == 0);
 	
 	SDL_PauseAudio(1);
 	SDL_UnlockAudio();

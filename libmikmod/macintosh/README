@@ -2,7 +2,7 @@
   Hello folks !
 
 
-This is libmikmod, version 3.2.0-beta1, a portable sound library for Unix.
+This is libmikmod, version 3.3.11, a portable sound library for Unix.
 Check out the file 'NEWS' for more history information.
 
 
@@ -14,7 +14,6 @@ Check out the file 'NEWS' for more history information.
 
 - If you are building for Mac OS X only, you might want to look at the
   top-level "macosx" directory instead which has the new Mach-O stuff ?
-  
 
 libmikmod can be built using Metrowerks Codewarrior (Version Pro 5/6
 were being used to create the two project files) or Apple's MPW.
@@ -57,14 +56,14 @@ package written by Lance Norskog and Jef Poskanzer. The following
 copyright notice applies to these parts:
 
   Copyright (C) 1989 by Jef Poskanzer.
-   
+
   Permission to use, copy, modify, and distribute this software and its
   documentation for any purpose and without fee is hereby granted, provided
   that the above copyright notice appear in all copies and that both that
   copyright notice and this permission notice appear in supporting
   documentation.  This software is provided "as is" without express or
   implied warranty.
-  
+
 Note that none of these parts are used in the MacOS version of the
 libmikmod library.
 
@@ -72,13 +71,14 @@ libmikmod library.
 >> CONTACT AND DOWNLOAD INFO
 ----------------------------
 
-* email:
-  Please send all your libmikmod related e-mail to me, at:
-  raph@mikmod.org
+libmikmod home page is located at SourceForge:
 
-* web:
-  libmikmod home page is located at:
-    http://mikmod.raphnet.net
+    http://mikmod.sourceforge.net/
+    http://sourceforge.net/projects/mikmod/
+
+There's a mailing list (mikmod-public) for discussing the development
+of MikMod (new features, bugs, ideas...) Look for more information on
+the web site.
 
 
 >> LAST NOTES

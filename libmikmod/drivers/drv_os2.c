@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_os2.c,v 1.2 2004/01/31 22:39:40 raph Exp $
+  $Id$
 
   Driver for output on OS/2 using MMPM/2 MCI interface
 
@@ -33,15 +33,20 @@
 
 */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#ifdef DRV_OS2
+
 #define INCL_DOS
 #define INCL_OS2MM
 #include <os2.h>
-/* Prevent a warning: PPFN redefined */
-#define PPFN _PPFN
 #include <os2me.h>
-#undef PPFN
 
 #include <stdlib.h>
+#include <string.h>
+#include <process.h> /* _beginthread */
 
 #include "mikmod_internals.h"
 
@@ -53,7 +58,7 @@ static ULONG DeviceIndex = 0;
 static ULONG BufferSize = (ULONG)-1;
 static ULONG DeviceID = 0;
 static PVOID AudioBuffer = NULL;
-static TID ThreadID = NULLHANDLE;
+static int ThreadID = -1;
 static BOOL FinishPlayback;		/* flag for update thread to die */
 static HEV Play = NULLHANDLE;	/* posted on PlayStart event */
 static HEV Update = NULLHANDLE;	/* timer event semaphore */
@@ -75,8 +80,8 @@ void OS2_UpdateBufferThread(void *dummy)
 	DosSetPriority(PRTYS_THREAD, PRTYC_TIMECRITICAL, PRTYD_MAXIMUM - 1, 0);
 
 	while (!FinishPlayback) {
+		static ULONG NextBuffer = 0;  /* next fragment to be filled */
 		ULONG count;
-static	ULONG NextBuffer = 0;	/* next fragment to be filled */
 
 		/* wait for play enable */
 		DosWaitEventSem(Play, SEM_INDEFINITE_WAIT);
@@ -105,25 +110,25 @@ static	ULONG NextBuffer = 0;	/* next fragment to be filled */
 		}
 	}
 	/* Tell main thread we're done */
-	ThreadID = 0;
+	ThreadID = -1;
 }
 
-static void OS2_CommandLine(CHAR *cmdline)
+static void OS2_CommandLine(const CHAR *cmdline)
 {
 	char *ptr;
 	int buf;
 
-	if ((ptr = MD_GetAtom("buffer", cmdline, 0))) {
+	if ((ptr = MD_GetAtom("buffer", cmdline, 0)) != NULL) {
 		buf = atoi(ptr);
 		if (buf >= 12 && buf <= 16)
 			BufferSize = 1 << buf;
-		free(ptr);
+		MikMod_free(ptr);
 	}
-	if ((ptr = MD_GetAtom("device", cmdline, 0))) {
+	if ((ptr = MD_GetAtom("device", cmdline, 0)) != NULL) {
 		buf = atoi(ptr);
 		if (buf >= 0 && buf <= 8)
 			DeviceIndex = buf;
-		free(ptr);
+		MikMod_free(ptr);
 	}
 }
 
@@ -148,7 +153,7 @@ static BOOL OS2_IsPresent(void)
 	return 1;
 }
 
-static BOOL OS2_Init(void)
+static int OS2_Init(void)
 {
 	MCI_OPEN_PARMS mciOpenParms;
 	MCI_WAVE_SET_PARMS mciWaveSetParms;
@@ -158,8 +163,8 @@ static BOOL OS2_Init(void)
 	if (VC_Init())
 		return 1;
 
+	ThreadID = -1;
 	DeviceID = 0;
-	ThreadID = 0;
 	Timer = NULLHANDLE;
 	Update = NULLHANDLE;
 	Play = NULLHANDLE;
@@ -190,7 +195,7 @@ static BOOL OS2_Init(void)
 	   sizes (16K for 44KHz, 16 bit stereo). */
 
 	/* Allocate buffer */
-	if (!(AudioBuffer = _mm_malloc(BufferSize * FRAGMENTS))) {
+	if (!(AudioBuffer = MikMod_malloc(BufferSize * FRAGMENTS))) {
 		_mm_errno = MMERR_OUT_OF_MEMORY;
 		return 1;
 	}
@@ -254,7 +259,7 @@ static BOOL OS2_Init(void)
 	/* Create thread for buffer updates */
 	FinishPlayback = FALSE;
 	ThreadID = _beginthread(OS2_UpdateBufferThread, NULL, 0x4000, NULL);
-	if (!ThreadID) {
+	if (ThreadID == -1) {
 		_mm_errno = MMERR_OS2_THREAD;
 		return 1;
 	}
@@ -267,7 +272,7 @@ static void OS2_Exit(void)
 	MCI_GENERIC_PARMS mciGenericParms;
 
 	FinishPlayback = TRUE;
-	while (ThreadID) {
+	while (ThreadID != -1) {
 		DosPostEventSem(Play);
 		DosPostEventSem(Update);
 		DosSleep(1);
@@ -284,17 +289,18 @@ static void OS2_Exit(void)
 		DosCloseEventSem(Play);
 		Play = NULLHANDLE;
 	}
-	VC_Exit();
 	if (DeviceID) {
 		mciGenericParms.hwndCallback = (HWND) NULL;
 		mciSendCommand(DeviceID, MCI_CLOSE, MCI_WAIT,
 					   (PVOID) & mciGenericParms, 0);
 		DeviceID = 0;
 	}
-	_mm_free(AudioBuffer);
+	VC_Exit();
+	MikMod_free(AudioBuffer);
+	AudioBuffer = NULL;
 }
 
-static BOOL OS2_PlayStart(void)
+static int OS2_PlayStart(void)
 {
 	MCI_PLAY_PARMS mciPlayParms;
 	int i;
@@ -343,7 +349,7 @@ MIKMODAPI MDRIVER drv_os2 = {
 	0,255,
 	"os2",
 	"device:r:0,8,0:Waveaudio device index to use (0 - default)\n"
-        "buffer:r:12,16:Audio buffer log2 size\n",
+		"buffer:r:12,16:Audio buffer log2 size\n",
 	OS2_CommandLine,
 	OS2_IsPresent,
 	VC_SampleLoad,
@@ -371,4 +377,10 @@ MIKMODAPI MDRIVER drv_os2 = {
 	VC_VoiceRealVolume
 };
 
+#else
+
+#include "mikmod_internals.h"
+MISSING(drv_os2);
+
+#endif
 /* ex:set ts=4: */

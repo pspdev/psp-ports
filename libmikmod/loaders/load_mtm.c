@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: load_mtm.c,v 1.1.1.1 2004/01/21 01:36:35 raph Exp $
+  $Id$
 
   MTM module loader
 
@@ -87,7 +87,7 @@ static CHAR MTM_Version[] = "MTM";
 
 /*========== Loader code */
 
-BOOL MTM_Test(void)
+static BOOL MTM_Test(void)
 {
 	UBYTE id[3];
 
@@ -96,18 +96,20 @@ BOOL MTM_Test(void)
 	return 0;
 }
 
-BOOL MTM_Init(void)
+static BOOL MTM_Init(void)
 {
-	if(!(mtmtrk=(MTMNOTE*)_mm_calloc(64,sizeof(MTMNOTE)))) return 0;
-	if(!(mh=(MTMHEADER*)_mm_malloc(sizeof(MTMHEADER)))) return 0;
+	if(!(mtmtrk=(MTMNOTE*)MikMod_calloc(64,sizeof(MTMNOTE)))) return 0;
+	if(!(mh=(MTMHEADER*)MikMod_malloc(sizeof(MTMHEADER)))) return 0;
 
 	return 1;
 }
 
-void MTM_Cleanup(void)
+static void MTM_Cleanup(void)
 {
-	_mm_free(mtmtrk);
-	_mm_free(mh);
+	MikMod_free(mtmtrk);
+	MikMod_free(mh);
+	mtmtrk=NULL;
+	mh=NULL;
 }
 
 static UBYTE* MTM_Convert(void)
@@ -140,7 +142,7 @@ static UBYTE* MTM_Convert(void)
 	return UniDup();
 }
 
-BOOL MTM_Load(BOOL curious)
+static BOOL MTM_Load(BOOL curious)
 {
 	int t,u;
 	MTMSAMPLE s;
@@ -168,7 +170,7 @@ BOOL MTM_Load(BOOL curious)
 	/* set module variables */
 	of.initspeed = 6;
 	of.inittempo = 125;
-	of.modtype   = strdup(MTM_Version);
+	of.modtype   = MikMod_strdup(MTM_Version);
 	of.numchn    = mh->numchannels;
 	of.numtrk    = mh->numtracks+1;           /* get number of channels */
 	of.songname  = DupStr(mh->songname,20,1); /* make a cstr of songname */
@@ -192,7 +194,7 @@ BOOL MTM_Load(BOOL curious)
 		s.attribute =_mm_read_UBYTE(modreader);
 
 		if(_mm_eof(modreader)) {
-			_mm_errno = MMERR_LOADING_SAMPLEINFO; 
+			_mm_errno = MMERR_LOADING_SAMPLEINFO;
 			return 0;
 		}
 
@@ -219,7 +221,7 @@ BOOL MTM_Load(BOOL curious)
 	if(!AllocPositions(of.numpos)) return 0;
 	for(t=0;t<of.numpos;t++)
 		of.positions[t]=_mm_read_UBYTE(modreader);
-	for(;t<128;t++) _mm_read_UBYTE(modreader);
+	for(;t<128;t++) _mm_skip_BYTE(modreader);
 	if(_mm_eof(modreader)) {
 		_mm_errno = MMERR_LOADING_HEADER;
 		return 0;
@@ -230,12 +232,12 @@ BOOL MTM_Load(BOOL curious)
 
 	of.tracks[0]=MTM_Convert();		/* track 0 is empty */
 	for(t=1;t<of.numtrk;t++) {
-		int s;
+		int s_idx;
 
-		for(s=0;s<64;s++) {
-			mtmtrk[s].a=_mm_read_UBYTE(modreader);
-			mtmtrk[s].b=_mm_read_UBYTE(modreader);
-			mtmtrk[s].c=_mm_read_UBYTE(modreader);
+		for(s_idx=0;s_idx<64;s_idx++) {
+			mtmtrk[s_idx].a=_mm_read_UBYTE(modreader);
+			mtmtrk[s_idx].b=_mm_read_UBYTE(modreader);
+			mtmtrk[s_idx].c=_mm_read_UBYTE(modreader);
 		}
 
 		if(_mm_eof(modreader)) {
@@ -259,7 +261,7 @@ BOOL MTM_Load(BOOL curious)
 	return 1;
 }
 
-CHAR *MTM_LoadTitle(void)
+static CHAR *MTM_LoadTitle(void)
 {
 	CHAR s[20];
 

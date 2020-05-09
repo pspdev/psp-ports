@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_wss.c,v 1.4 2004/02/10 17:52:18 raph Exp $
+  $Id$
 
   Driver for Windows Sound System under DOS
 
@@ -49,21 +49,21 @@
 
 #include "doswss.h"
 
-static void WSS_CommandLine(CHAR *cmdline)
+static void WSS_CommandLine(const CHAR *cmdline)
 {
 	char *ptr, *end;
-	
-	if ((ptr=MD_GetAtom("port",cmdline,0))) {
+
+	if ((ptr=MD_GetAtom("port",cmdline,0)) != NULL) {
 		wss.port = strtol(ptr, &end, 16);
-		free(ptr);
+		MikMod_free(ptr);
 	}
-	if ((ptr=MD_GetAtom("irq",cmdline,0))) {
+	if ((ptr=MD_GetAtom("irq",cmdline,0)) != NULL) {
 		wss.irq = strtol(ptr, &end, 10);
-		free(ptr);
+		MikMod_free(ptr);
 	}
-	if ((ptr=MD_GetAtom("dma",cmdline,0))) {
+	if ((ptr=MD_GetAtom("dma",cmdline,0)) != NULL) {
 		wss.dma = strtol(ptr, &end, 10);
-		free(ptr);
+		MikMod_free(ptr);
 	}
 }
 
@@ -72,7 +72,7 @@ static BOOL WSS_IsThere(void)
 	return wss_detect();
 }
 
-static BOOL WSS_Init(void)
+static int WSS_Init(void)
 {
 	if (!wss_open()) {
 		_mm_errno = MMERR_INVALID_DEVICE;
@@ -114,15 +114,15 @@ static void WSS_Callback(void)
 
 	/* If DMA pointer still didn't wrapped around ... */
 	if (dma_pos > buff_tail) {
-		buff_tail += mixer (wss.dma_buff->linear + buff_tail, dma_pos - buff_tail);
+		buff_tail += mixer ((SBYTE *)(wss.dma_buff->linear + buff_tail), dma_pos - buff_tail);
 		/* If we arrived right to the DMA buffer end, jump to the beginning */
 		if (buff_tail >= dma_size)
 			buff_tail = 0;
 	} else {
 		/* If wrapped around, fill first to the end of buffer */
-		mixer (wss.dma_buff->linear + buff_tail, dma_size - buff_tail);
+		mixer ((SBYTE *)(wss.dma_buff->linear + buff_tail), dma_size - buff_tail);
 		/* Now fill from buffer beginning to current DMA pointer */
-		buff_tail = mixer (wss.dma_buff->linear, dma_pos);
+		buff_tail = mixer ((SBYTE *)wss.dma_buff->linear, dma_pos);
 	}
 }
 
@@ -131,7 +131,7 @@ static void WSS_Update(void)
 	/* Do nothing: the real update is done during SB interrupts */
 }
 
-static BOOL WSS_PlayStart(void)
+static int WSS_PlayStart(void)
 {
 	if (VC_PlayStart())
 		return 1;
@@ -154,7 +154,7 @@ static BOOL WSS_PlayStart(void)
 	return 0;
 }
 
-static BOOL WSS_Reset(void)
+static int WSS_Reset(void)
 {
 	wss_reset();
 	VC_Exit();
@@ -209,6 +209,7 @@ MDRIVER drv_wss =
 
 #else /* ifdef DRV_WSS */
 
+#include "mikmod_internals.h"
 MISSING(drv_wss);
 
 #endif

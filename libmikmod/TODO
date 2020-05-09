@@ -1,7 +1,7 @@
 TODO list for future versions (or ROADMAP if you prefer)
 =============================
 
-**** for the next major release, libmikmod 3.2:
+**** for the next major release, libmikmod 3.4:
 
 - bugfixes
 - ability to have several modules in memory (it doesn't work in all cases in
@@ -31,7 +31,7 @@ TODO list for future versions (or ROADMAP if you prefer)
 
 - bugfixes
 - a TFMX loader (see with Claudio, too)
-  
+
 **** Plans for the 4.x series and later:
 
 - bugfixes
@@ -39,7 +39,7 @@ TODO list for future versions (or ROADMAP if you prefer)
   share the same loader code (in cooperation with Claudio, of course)
 - extending the feature list, at the request of the users: midi support ?
   mp3 support ? cdda support ? suggestions welcome.
-  
-  
+
+
 Want something else ? Drop me a note at <miod@mikmod.org> and I'll
 see what I can do for you...

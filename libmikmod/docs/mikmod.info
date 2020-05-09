@@ -1,7 +1,7 @@
-This is mikmod.info, produced by makeinfo version 4.0 from mikmod.texi.
+This is mikmod.info, produced by makeinfo version 4.13 from mikmod.texi.
 
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Miodrag Vallat and others
--- see file AUTHORS for complete list.
+Copyright (C) 1998-2014 Miodrag Vallat and others -- see file AUTHORS
+for complete list.
 
    This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License as
@@ -29,7 +29,7 @@ File: mikmod.info,  Node: Top,  Next: Introduction,  Prev: (dir),  Up: (dir)
 MikMod Sound Library
 ********************
 
-This manual documents the MikMod Sound Library, version 3.1.12.
+This manual documents the MikMod Sound Library, version 3.3.11.
 
 * Menu:
 
@@ -42,10 +42,10 @@ This manual documents the MikMod Sound Library, version 3.1.12.
 
 File: mikmod.info,  Node: Introduction,  Next: Tutorial,  Prev: Top,  Up: Top
 
-Introduction
-************
+1 Introduction
+**************
 
-   The MikMod sound library is an excellent way for a programmer to add
+The MikMod sound library is an excellent way for a programmer to add
 music and sound effects to an application. It is a powerful and
 flexible library, with a simple and easy-to-learn API.
 
@@ -64,15 +64,15 @@ capabilities, as they appear.
 
 File: mikmod.info,  Node: Tutorial,  Next: Using the Library,  Prev: Introduction,  Up: Top
 
-Tutorial
-********
+2 Tutorial
+**********
 
-   This chapter will describe how to quickly incorporate MikMod's power
+This chapter will describe how to quickly incorporate MikMod's power
 into your programs. It doesn't cover everything, but that's a start and
 I hope it will help you understand the library philosophy.
 
    If you have a real tutorial to put here, you're welcome ! Please
-send it to me....
+send it to me...
 
 * Menu:
 
@@ -85,10 +85,10 @@ send it to me....
 
 File: mikmod.info,  Node: MikMod Concepts,  Next: A Skeleton Program,  Prev: Tutorial,  Up: Tutorial
 
-MikMod Concepts
-===============
+2.1 MikMod Concepts
+===================
 
-   MikMod's sound output is composed of several sound _voices_ which are
+MikMod's sound output is composed of several sound _voices_ which are
 mixed, either in software or in hardware, depending of your hardware
 configuration. Simple sounds, like sound effects, use only one voice,
 whereas sound modules, which are complex arrangements of sound effects,
@@ -107,10 +107,10 @@ select it (this is exactly what the module plugin of xmms does).
 
 File: mikmod.info,  Node: A Skeleton Program,  Next: Playing Modules,  Prev: MikMod Concepts,  Up: Tutorial
 
-A Skeleton Program
-==================
+2.2 A Skeleton Program
+======================
 
-   To use MikMod in your program, there are a few steps required:
+To use MikMod in your program, there are a few steps required:
 
    * Include `mikmod.h' in your program.
 
@@ -127,19 +127,19 @@ A Skeleton Program
    Here's a program which meets all those conditions:
 
      /* MikMod Sound Library example program: a skeleton */
-     
+
      #include <mikmod.h>
-     
+
      main()
      {
      	/* register all the drivers */
      	MikMod_RegisterAllDrivers();
-     
+
      	/* initialize the library */
      	MikMod_Init("");
-     
+
      	/* we could play some sound here... */
-     
+
      	/* give up */
      	MikMod_Exit();
      }
@@ -159,30 +159,30 @@ sound hardware.
 
 File: mikmod.info,  Node: Playing Modules,  Next: Playing Sound Effects,  Prev: A Skeleton Program,  Up: Tutorial
 
-Playing Modules
-===============
+2.3 Playing Modules
+===================
 
-   Our program is not really useful if it doesn't produce sound. Let's
+Our program is not really useful if it doesn't produce sound. Let's
 suppose you've got this good old module, "Beyond music", in the file
 `beyond music.mod'. How about playing it ?
 
    To do this, we'll use the following code:
 
      /* MikMod Sound Library example program: a simple module player */
-     
+
      #include <unistd.h>
      #include <mikmod.h>
-     
+
      main()
      {
          MODULE *module;
-     
+
          /* register all the drivers */
          MikMod_RegisterAllDrivers();
-     
+
          /* register all the module loaders */
          MikMod_RegisterAllLoaders();
-     
+
          /* initialize the library */
          md_mode |= DMODE_SOFT_MUSIC;
          if (MikMod_Init("")) {
@@ -190,25 +190,25 @@ suppose you've got this good old module, "Beyond music", in the file
                      MikMod_strerror(MikMod_errno));
              return;
          }
-     
+
          /* load module */
          module = Player_Load("beyond music.mod", 64, 0);
          if (module) {
              /* start module */
              Player_Start(module);
-     
+
              while (Player_Active()) {
                  /* we're playing */
                  usleep(10000);
                  MikMod_Update();
              }
-     
+
              Player_Stop();
              Player_Free(module);
          } else
              fprintf(stderr, "Could not load module, reason: %s\n",
                      MikMod_strerror(MikMod_errno));
-     
+
          /* give up */
          MikMod_Exit();
      }
@@ -257,20 +257,20 @@ with `Player_Stop', and we free the module with `Player_Free'.
 
 File: mikmod.info,  Node: Playing Sound Effects,  Next: More Sound Effects,  Prev: Playing Modules,  Up: Tutorial
 
-Playing Sound Effects
-=====================
+2.4 Playing Sound Effects
+=========================
 
-   MikMod is not limited to playing modules, it can also play sound
+MikMod is not limited to playing modules, it can also play sound
 effects, that is, module samples. It's a bit more complex than playing
 a module, because the module player does a lot of things for us, but
 here we'll get more control over what is actually played by the
 program. Let's look at an example:
 
      /* MikMod Sound Library example program: sound effects */
-     
+
      #include <unistd.h>
      #include <mikmod.h>
-     
+
      main()
      {
          int i;
@@ -278,10 +278,10 @@ program. Let's look at an example:
          SAMPLE *sfx1, *sfx2;
          /* voices */
          int v1, v2;
-     
+
          /* register all the drivers */
          MikMod_RegisterAllDrivers();
-     
+
          /* initialize the library */
          md_mode |= DMODE_SOFT_SNDFX;
          if (MikMod_Init("")) {
@@ -289,7 +289,7 @@ program. Let's look at an example:
                      MikMod_strerror(MikMod_errno));
              return;
          }
-     
+
          /* load samples */
          sfx1 = Sample_Load("first.wav");
          if (!sfx1) {
@@ -306,32 +306,32 @@ program. Let's look at an example:
                      MikMod_strerror(MikMod_errno));
              return;
          }
-     
+
          /* reserve 2 voices for sound effects */
          MikMod_SetNumVoices(-1, 2);
-     
+
          /* get ready to play */
          MikMod_EnableOutput();
-     
+
          /* play first sample */
          v1 = Sample_Play(sfx1, 0, 0);
          for(i = 0; i < 5; i++) {
              MikMod_Update();
              usleep(100000);
          }
-     
+
          /* half a second later, play second sample */
          v2 = Sample_Play(sfx2, 0, 0);
          do {
              MikMod_Update();
              usleep(100000);
          } while (!Voice_Stopped(v2));
-     
+
          MikMod_DisableOutput();
-     
+
          Sample_Free(sfx2);
          Sample_Free(sfx1);
-     
+
          MikMod_Exit();
      }
 
@@ -341,7 +341,7 @@ by modifying the variable `md_mode'.
 
    It's time to load our files, with the `Sample_Load' function. Don't
 forget to test the return value -- it looks ugly here on such a small
-example, but it's a good practice....
+example, but it's a good practice...
 
    Since we want to play two samples, we have to use at least two
 voices for this, so we reserve them with a `MikMod_SetNumVoices' call.
@@ -370,12 +370,12 @@ regardless of the length of the first sample.
 
 File: mikmod.info,  Node: More Sound Effects,  Prev: Playing Sound Effects,  Up: Tutorial
 
-More Sound Effects
-==================
+2.5 More Sound Effects
+======================
 
-   Sound effects have some attributes that can be affected to control
-the playback.  These are speed, panning, and volume. Given a voice
-number, you can affect these attributes with the `Voice_SetFrequency',
+Sound effects have some attributes that can be affected to control the
+playback.  These are speed, panning, and volume. Given a voice number,
+you can affect these attributes with the `Voice_SetFrequency',
 `Voice_SetPanning' and `Voice_SetVolume' functions.
 
    In the previous example, we'll replace the actual sound code,
@@ -429,11 +429,10 @@ doesn't have the bit `DMODE_SURROUND' set.
 
 File: mikmod.info,  Node: Using the Library,  Next: Library Reference,  Prev: Tutorial,  Up: Top
 
-Using the Library
-*****************
+3 Using the Library
+*******************
 
-   This chapter describes the various parts of the library and their
-uses.
+This chapter describes the various parts of the library and their uses.
 
 * Menu:
 
@@ -448,10 +447,10 @@ uses.
 
 File: mikmod.info,  Node: Library Version,  Next: Type Definitions,  Prev: Using the Library,  Up: Using the Library
 
-Library Version
-===============
+3.1 Library Version
+===================
 
-   If your program is dynamically linked with the MikMod library, you
+If your program is dynamically linked with the MikMod library, you
 should check which version of the library you're working with.  To do
 this, the library defines a few constants and a function to help you
 determine if the current library is adequate for your needs or if it
@@ -487,7 +486,7 @@ user that he has to upgrade the library:
 
      {
          long engineversion = MikMod_GetVersion();
-     
+
          if (engineversion < LIBMIKMOD_VERSION) {
              printf("MikMod library version (%ld.%ld.%ld) is too old.\n",
                     (engineversion >> 16) & 255,
@@ -505,12 +504,12 @@ user that he has to upgrade the library:
 
 File: mikmod.info,  Node: Type Definitions,  Next: Error Handling,  Prev: Library Version,  Up: Using the Library
 
-Type Definitions
-================
+3.2 Type Definitions
+====================
 
-   MikMod defines several data types to deal with modules and sample
-data.  These types have the same memory size on every platform MikMod
-has been ported to.
+MikMod defines several data types to deal with modules and sample data.
+These types have the same memory size on every platform MikMod has been
+ported to.
 
    These types are:
    * `CHAR' is a printable character. For now it is the same as the
@@ -537,12 +536,12 @@ has been ported to.
 
 File: mikmod.info,  Node: Error Handling,  Next: Library Initialization,  Prev: Type Definitions,  Up: Using the Library
 
-Error Handling
-==============
+3.3 Error Handling
+==================
 
-   Although MikMod does its best to do its work, there are times where
-it can't.  For example, if you're trying to play a corrupted file,
-well, it can't.
+Although MikMod does its best to do its work, there are times where it
+can't.  For example, if you're trying to play a corrupted file, well,
+it can't.
 
    A lot of MikMod functions return pointers or `BOOL' values. If the
 pointer is `NULL' or the `BOOL' is 0 (false), an error has occurred.
@@ -573,23 +572,23 @@ previous handler, so you can chain handlers if you want to.
 
 File: mikmod.info,  Node: Library Initialization,  Next: Samples and Voice Control,  Prev: Error Handling,  Up: Using the Library
 
-Library Initialization and Core Functions
-=========================================
+3.4 Library Initialization and Core Functions
+=============================================
 
-   To initialize the library, you must register some sound drivers
-first. You can either register all the drivers embedded in the library
-for your platform with `MikMod_RegisterAllDrivers', or register only
-some of them with `MikMod_RegisterDriver'. If you choose to register
-the drivers manually, you must be careful in their order, since
+To initialize the library, you must register some sound drivers first.
+You can either register all the drivers embedded in the library for
+your platform with `MikMod_RegisterAllDrivers', or register only some
+of them with `MikMod_RegisterDriver'. If you choose to register the
+drivers manually, you must be careful in their order, since
 `MikMod_Init' will try them in the order you registered them. The
 `MikMod_RegisterAllDrivers' function registers the network drivers
 first (for playing sound over the network), then the hardware drivers,
 then the disk writers, and in last resort, the nosound driver.
-Registering the nosound driver first would not be a very good idea....
+Registering the nosound driver first would not be a very good idea...
 
    You can get some printable information regarding the registered
-drivers with `MikMod_InfoDriver'; don't forget to call `free' on the
-returned string when you don't need it anymore.
+drivers with `MikMod_InfoDriver'; don't forget to call `MikMod_free' on
+the returned string when you don't need it anymore.
 
    After you've registered your drivers, you can initialize the sound
 playback with `MikMod_Init', passing specific information to the driver
@@ -639,14 +638,13 @@ version of libmikmod at compile-time.
 
 File: mikmod.info,  Node: Samples and Voice Control,  Next: Modules and Player Control,  Prev: Library Initialization,  Up: Using the Library
 
-Samples and Voice Control
-=========================
+3.5 Samples and Voice Control
+=============================
 
-   Currently, MikMod only supports uncompressed mono WAV files as
-samples. You can load a sample by calling `Sample_Load' with a
-filename, or by calling `Sample_LoadFP' with an open `FILE*' pointer.
-These functions return a pointer to a `SAMPLE' structure, or `NULL' in
-case of error.
+Currently, MikMod only supports uncompressed mono WAV files as samples.
+You can load a sample by calling `Sample_Load' with a filename, or by
+calling `Sample_LoadFP' with an open `FILE*' pointer. These functions
+return a pointer to a `SAMPLE' structure, or `NULL' in case of error.
 
    The `SAMPLE' structure has a few interesting fields:
    - `speed' contains the default frequency of the sample.
@@ -701,11 +699,11 @@ memory with `Sample_Free'.
 
 File: mikmod.info,  Node: Modules and Player Control,  Next: Loading Data from Memory,  Prev: Samples and Voice Control,  Up: Using the Library
 
-Modules and Player Control
-==========================
+3.6 Modules and Player Control
+==============================
 
-   As for the sound drivers, you have to register the module loaders
-you want to use for MikMod to be able to load modules. You can either
+As for the sound drivers, you have to register the module loaders you
+want to use for MikMod to be able to load modules. You can either
 register all the module loaders with `MikMod_RegisterAllLoaders', or
 only a few of them with `MikMod_RegisterLoader'. Be careful if you
 choose this solution, as the 15 instrument MOD loader has to be
@@ -715,15 +713,16 @@ fully reliable, so other modules might be mistaken as 15 instrument MOD
 files.
 
    You can get some printable information regarding the registered
-loaders with `MikMod_InfoLoader'; don't forget to call `free' on the
-returned string when you don't need it anymore.
+loaders with `MikMod_InfoLoader'; don't forget to call `MikMod_free' on
+the returned string when you don't need it anymore.
 
    Note that, contrary to the sound drivers, you can register module
 loaders at any time, it doesn't matter.
 
    For playlists, you might be interested in knowing the module title
 first, and `Player_LoadTitle' will give you this information. Don't
-forget to `free' the returned text when you don't need it anymore.
+forget to call `MikMod_free' on the returned text when you don't need
+it anymore.
 
    You can load a module either with `Player_Load' and the name of the
 module, or with `Player_LoadFP' and an open `FILE*' pointer. These
@@ -796,10 +795,10 @@ isn't needed anymore, get rid of it with `Player_Free'.
 
 File: mikmod.info,  Node: Loading Data from Memory,  Prev: Modules and Player Control,  Up: Using the Library
 
-Loading Data from Memory
-========================
+3.7 Loading Data from Memory
+============================
 
-   If you need to load modules or sound effects from other places than
+If you need to load modules or sound effects from other places than
 plain files, you can use the `MREADER' and `MWRITER' objects to achieve
 this.
 
@@ -818,12 +817,12 @@ object, and use `Player_LoadGeneric' instead of `Player_Load' or
 
 File: mikmod.info,  Node: Library Reference,  Next: Index,  Prev: Using the Library,  Up: Top
 
-Library Reference
-*****************
+4 Library Reference
+*******************
 
-   This chapter describes in more detail all the functions and
-variables provided by the library. *Note Type Definitions::, for the
-basic type reference.
+This chapter describes in more detail all the functions and variables
+provided by the library. *Note Type Definitions::, for the basic type
+reference.
 
 * Menu:
 
@@ -837,18 +836,18 @@ basic type reference.
 
 File: mikmod.info,  Node: Variable Reference,  Next: Structure Reference,  Prev: Library Reference,  Up: Library Reference
 
-Variable Reference
-==================
+4.1 Variable Reference
+======================
 
-Error Variables
----------------
+4.1.1 Error Variables
+---------------------
 
-   The following variables are set by the library to return error
+The following variables are set by the library to return error
 information.
 
 `int MikMod_errno'
      When an error occurs, this variable contains the error code.
-     *Note Error Reference::, for more information.
+     *Note Error Reference::, for more information.  
 
 `BOOL MikMod_critical'
      When an error occurs, this variable informs of the severity of the
@@ -861,40 +860,40 @@ information.
      or that it doesn't has enough voices for your needs if you called
      `MikMod_SetNumVoices'.
 
-Sound Settings
---------------
+4.1.2 Sound Settings
+--------------------
 
-   The following variables control the sound output parameters and
-their changes take effect immediately.
+The following variables control the sound output parameters and their
+changes take effect immediately.
 
 `UBYTE md_musicvolume'
      Volume of the module. Allowed values range from 0 to 128. The
-     default value is 128.
+     default value is 128.  
 
 `UBYTE md_pansep'
      Stereo channels separation. Allowed values range from 0 (no
      separation, thus mono sound) to 128 (full channel separation). The
-     default value is 128.
+     default value is 128.  
 
 `UBYTE md_reverb'
      Amount of sound reverberation. Allowed values range from 0 (no
      reverberation) to 15 (a rough estimate for chaos...). The default
-     value is 0.
+     value is 0.  
 
 `UBYTE md_sndfxvolume'
      Volume of the sound effects. Allowed values range from 0 to 128.
-     The default value is 128.
+     The default value is 128.  
 
 `UBYTE md_volume'
      Overall sound volume. Allowed values range from 0 to 128. The
      default value is 128.
 
-Driver Settings
----------------
+4.1.3 Driver Settings
+---------------------
 
-   The following variables control more in-depth sound output
-parameters. Except for some `md_mode' flags, their changes do not have
-any effect until you call `MikMod_Init' or `MikMod_Reset'.
+The following variables control more in-depth sound output parameters.
+Except for some `md_mode' flags, their changes do not have any effect
+until you call `MikMod_Init' or `MikMod_Reset'.
 
 `UWORD md_device'
      This variable contains the order, in the list of the registered
@@ -902,7 +901,7 @@ any effect until you call `MikMod_Init' or `MikMod_Reset'.
      playback. This order is one-based; if this variable is set to
      zero, the driver is autodetected, which means the list is tested
      until a driver is present on the system. The default value is 0,
-     thus driver is autodetected.
+     thus driver is autodetected.  
 
 `MDRIVER* md_driver'
      This variable points to the driver which is being used for sound
@@ -910,14 +909,14 @@ any effect until you call `MikMod_Init' or `MikMod_Reset'.
      (before `MikMod_Init' and after `MikMod_Exit'). This variable is
      for information only, you should never attempt to change its
      value. Use `md_driver' and `MikMod_Init' (or `MikMod_Reset')
-     instead.
+     instead.  
 
 `UWORD md_mixfreq'
      Sound playback frequency, in hertz. High values yield high sound
      quality, but need more computing power than lower values. The
      default value is 44100 Hz, which is compact disc quality. Other
      common values are 22100 Hz (radio quality), 11025 Hz (phone
-     quality), and 8000 Hz (mu-law quality).
+     quality), and 8000 Hz (mu-law quality).  
 
 `UWORD md_mode'
      This variable is a combination of several flags, to select which
@@ -968,23 +967,23 @@ any effect until you call `MikMod_Init' or `MikMod_Reset'.
 
 File: mikmod.info,  Node: Structure Reference,  Next: Error Reference,  Prev: Variable Reference,  Up: Library Reference
 
-Structure Reference
-===================
+4.2 Structure Reference
+=======================
 
-   Only the useful fields are described here; if a structure field is
-not described, you must assume that it's an internal field which must
-not be modified.
+Only the useful fields are described here; if a structure field is not
+described, you must assume that it's an internal field which must not be
+modified.
 
-Drivers
--------
+4.2.1 Drivers
+-------------
 
-   The `MDRIVER' structure is not meant to be used by anything else
-than the core of the library, but its first four fields contain useful
+The `MDRIVER' structure is not meant to be used by anything else than
+the core of the library, but its first four fields contain useful
 information for your programs:
-`CHAR* Name'
+`const CHAR* Name'
      Name of the driver, usually never more than 20 characters.
 
-`CHAR* Description'
+`const CHAR* Description'
      Description of the driver, usually never more than 50 characters.
 
 `UBYTE HardVoiceLimit'
@@ -995,21 +994,21 @@ information for your programs:
      Maximum number of software voices for this driver, 0 if the driver
      has no software mixing support.
 
-`CHAR* Alias'
+`const CHAR* Alias'
      A short name for the driver, without spaces, usually never more
      than 10 characters.
 
-Modules
--------
+4.2.2 Modules
+-------------
 
-   The `MODULE' structure gathers all the necessary information needed
-to play a module file, regardless of its initial format.
+The `MODULE' structure gathers all the necessary information needed to
+play a module file, regardless of its initial format.
 
-General Module Information
-..........................
+4.2.2.1 General Module Information
+..................................
 
-   The fields described in this section contain general information
-about the module and should not be modified.
+The fields described in this section contain general information about
+the module and should not be modified.
 
 `CHAR* songname'
      Name of the module.
@@ -1105,10 +1104,10 @@ about the module and should not be modified.
      millisecond). To convert this value to seconds, divide by 1024,
      not 1000 !
 
-Playback Settings
-.................
+4.2.2.2 Playback Settings
+.........................
 
-   The fields described here control the module playback and can be
+The fields described here control the module playback and can be
 modified at any time, unless otherwise specified.
 
 `UBYTE initspeed'
@@ -1186,21 +1185,21 @@ modified at any time, unless otherwise specified.
      the module tempo to define the actual playback speed. The default
      value is 0, which make modules play at their intended speed.
 
-Module Instruments
-------------------
+4.2.3 Module Instruments
+------------------------
 
-   Although the `INSTRUMENT' structure is intended for internal use, you
+Although the `INSTRUMENT' structure is intended for internal use, you
 might need to know its name:
 
 `CHAR* insname'
      The instrument text, theoretically its name, but often a message
      line.
 
-Samples
--------
+4.2.4 Samples
+-------------
 
-   The `SAMPLE' structure is used for sound effects and module samples
-as well. You can play with the following fields:
+The `SAMPLE' structure is used for sound effects and module samples as
+well. You can play with the following fields:
 
 `SWORD panning'
      Panning value of the sample. Valid values range from PAN_LEFT (0)
@@ -1268,12 +1267,12 @@ as well. You can play with the following fields:
      Loop ending position, relative to the start of the sample, in
      samples.
 
-MREADER
--------
+4.2.5 MREADER
+-------------
 
-   The `MREADER' contains the following function pointers:
+The `MREADER' contains the following function pointers:
 
-`BOOL (*Seek)(struct MREADER*, long offset, int whence)'
+`int (*Seek)(struct MREADER*, long offset, int whence)'
      This function should have the same behaviour as `fseek', with
      offset 0 meaning the start of the object (module, sample) being
      loaded.
@@ -1294,15 +1293,23 @@ MREADER
 `BOOL (*Eof)(struct MREADER*)'
      This function should have the same behaviour as `feof'.
 
+`long iobase'
+     Data start base offset. Managed by libmikmod, do not manipulate.
+
+`long prev_iobase'
+     Data start base offset, previous value. Managed by libmikmod, do
+     not manipulate.
+
    For an example of how to build an `MREADER' object, please refer to
-the `MFILEREADER' object in file `mmio/mmio.c' in the library sources.
+the `MFILEREADER' and `MMEMREADER' objects in file `mmio/mmio.c' in the
+library source, as well as the `splayMEM' example application.
 
-MWRITER
--------
+4.2.6 MWRITER
+-------------
 
-   The `MREADER' contains the following function pointers:
+The `MWRITER' contains the following function pointers:
 
-`BOOL (*Seek)(struct MWRITER*, long offset, int whence);'
+`int (*Seek)(struct MWRITER*, long offset, int whence);'
      This function should have the same behaviour as `fseek', with
      offset 0 meaning the start of the object being written.
 
@@ -1310,11 +1317,11 @@ MWRITER
      This function should have the same behaviour as `ftell', with
      offset 0 meaning the start of the object being written.
 
-`BOOL (*Write)(struct MWRITER*, void *dest, size_t length);'
-     This function should copy `length' bytes of data from `dest', and
+`BOOL (*Write)(struct MWRITER*, const void *src, size_t length);'
+     This function should copy `length' bytes of data from `src', and
      return zero if an error occured, and any nonzero value otherwise.
 
-`BOOL (*Put)(struct MWRITER*, int data);'
+`int (*Put)(struct MWRITER*, int data);'
      This function should have the same behaviour as `fputc'.
 
    For an example of how to build an `MWRITER' object, please refer to
@@ -1323,13 +1330,13 @@ the `MFILEWRITER' object in file `mmio/mmio.c' in the library sources.
 
 File: mikmod.info,  Node: Error Reference,  Next: Function Reference,  Prev: Structure Reference,  Up: Library Reference
 
-Error Reference
-===============
+4.3 Error Reference
+===================
 
-   The following errors are currently defined:
+The following errors are currently defined:
 
-General Errors
---------------
+4.3.1 General Errors
+--------------------
 
 `MMERR_DYNAMIC_LINKING'
      This error occurs when a specific driver was requested, but the
@@ -1349,8 +1356,8 @@ General Errors
      do any resource tuning, your program has to use the `setrlimit'
      function to do this if it needs to load very huge samples.
 
-Sample Errors
--------------
+4.3.2 Sample Errors
+-------------------
 
 `MMERR_SAMPLE_TOO_BIG'
      This error occurs when the memory allocation of the sample data
@@ -1365,8 +1372,8 @@ Sample Errors
      This error occurs when you're trying to load a sample which format
      is not recognized.
 
-Module Errors
--------------
+4.3.3 Module Errors
+-------------------
 
 `MMERR_ITPACK_INVALID_DATA'
      This error occurs when a compressed module sample is corrupt.
@@ -1399,11 +1406,11 @@ Module Errors
      This error occurs when you're trying to load a sample with a
      sample which format is not recognized.
 
-Driver Errors
--------------
+4.3.4 Driver Errors
+-------------------
 
-Generic Driver Errors
-.....................
+4.3.4.1 Generic Driver Errors
+.............................
 
 `MMERR_16BIT_ONLY'
      This error occurs when the sound device doesn't support non-16 bit
@@ -1441,15 +1448,19 @@ Generic Driver Errors
      (which implies mono, 8 bit, and 8000 Hz sampling rate), which
      isn't the requested setting.
 
-AudioFile Driver Specific Error
-...............................
+`MMERR_NO_FLOAT32'
+     This error occurs when the sound device doesn't support 32 bit
+     float sound output, which is the requested setting.
+
+4.3.4.2 AudioFile Driver Specific Error
+.......................................
 
 `MMERR_AF_AUDIO_PORT'
      This error occurs when the AudioFile driver can not find a
      suitable AudioFile port.
 
-AIX Driver Specific Errors
-..........................
+4.3.4.3 AIX Driver Specific Errors
+..................................
 
 `MMERR_AIX_CONFIG_CONTROL'
      This error occurs when the "Control" step of the device
@@ -1463,8 +1474,8 @@ AIX Driver Specific Errors
      This error occurs when the "Start" step of the device
      configuration has failed.
 
-Ultra Driver Specific Errors
-............................
+4.3.4.4 Ultra Driver Specific Errors
+....................................
 
 `MMERR_GUS_RESET'
      This error occurs when the sound device couldn't be reset.
@@ -1478,8 +1489,8 @@ Ultra Driver Specific Errors
      This error occurs when the ultra driver could not setup the
      playback timer.
 
-HP-UX Driver Specific Errors
-............................
+4.3.4.5 HP-UX Driver Specific Errors
+....................................
 
 `MMERR_HP_AUDIO_DESC'
      This error occurs when the HP driver can not get the audio
@@ -1505,8 +1516,46 @@ HP-UX Driver Specific Errors
      This error occurs when the HP driver can not set the requested
      sample rate.
 
-Open Sound System Driver Specific Errors
-........................................
+4.3.4.6 ALSA Driver Specific Errors
+...................................
+
+`MMERR_ALSA_NOCONFIG'
+     This error occurs when no ALSA playback configuration is available.
+
+`MMERR_ALSA_SETPARAMS'
+     This error occurs when the ALSA driver can not set the requested
+     sample format, sample rate, number of channels, access type, or
+     latency values.
+
+`MMERR_ALSA_SETFORMAT'
+     This error occurs when the ALSA driver can not set the requested
+     sample format.
+
+`MMERR_ALSA_SETRATE'
+     This error occurs when the ALSA driver does not support the
+     requested sample rate.
+
+`MMERR_ALSA_SETCHANNELS'
+     This error occurs when the ALSA driver does not support the
+     requested number of channels.
+
+`MMERR_ALSA_BUFFERSIZE'
+     This error occurs when the ALSA driver can not retrieve the buffer
+     or period size.
+
+`MMERR_ALSA_PCM_START'
+     This error occurs when the ALSA driver can not start the pcm
+     playback.
+
+`MMERR_ALSA_PCM_WRITE'
+     This error occurs when the ALSA driver encounters a write error.
+
+`MMERR_ALSA_PCM_RECOVER'
+     This error occurs when the ALSA driver encounters an error
+     recovery failure.
+
+4.3.4.7 Open Sound System Driver Specific Errors
+................................................
 
 `MMERR_OSS_SETFRAGMENT'
      This error occurs when the OSS driver can not set audio fragment
@@ -1524,8 +1573,8 @@ Open Sound System Driver Specific Errors
      This error occurs when the OSS driver can not set the requested
      number of channels.
 
-SGI Driver Specific Errors
-..........................
+4.3.4.8 SGI Driver Specific Errors
+..................................
 
 `MMERR_SGI_MONO'
      This error occurs when the hardware only supports stereo sound.
@@ -1543,14 +1592,14 @@ SGI Driver Specific Errors
 `MMERR_SGI_8BIT'
      This error occurs when the hardware only supports 8 bit sound.
 
-Sun Driver Specific Error
-.........................
+4.3.4.9 Sun Driver Specific Error
+.................................
 
 `MMERR_SUN_INIT'
      This error occurs when the sound device initialization failed.
 
-OS/2 Driver Specific Errors
-...........................
+4.3.4.10 OS/2 Driver Specific Errors
+....................................
 
 `MMERR_OS2_MIXSETUP'
      This error occurs when the DART driver can not set the mixing
@@ -1568,8 +1617,8 @@ OS/2 Driver Specific Errors
      This error occurs when the MMPM/2 driver can not create the timer
      needed for playback.
 
-DirectX Driver Specific Errors
-..............................
+4.3.4.11 DirectX Driver Specific Errors
+.......................................
 
 `MMERR_DS_BUFFER'
      This error occurs when the DirectX driver can not allocate the
@@ -1599,8 +1648,8 @@ DirectX Driver Specific Errors
      This error occurs when the DirectX driver can not initialize the
      playback thread.
 
-Windows Multimedia API Driver Specific Errors
-.............................................
+4.3.4.12 Windows Multimedia API Driver Specific Errors
+......................................................
 
 `MMERR_WINMM_ALLOCATED'
      This error occurs when the playback resource is already allocated
@@ -1622,8 +1671,8 @@ Windows Multimedia API Driver Specific Errors
      This error should not occur ! If you get this error, please
      contact the libmikmod development mailing list.
 
-MacOS Driver Specific Errors
-............................
+4.3.4.13 MacOS Driver Specific Errors
+.....................................
 
 `MMERR_MAC_SPEED'
      This error occurs when the playback speed is not supported by the
@@ -1631,6 +1680,93 @@ MacOS Driver Specific Errors
 
 `MMERR_MAC_START'
      This error occurs when the MacOS driver can not start playback.
+
+4.3.5 MaxOS X Driver Specific Errors
+------------------------------------
+
+`MMERR_OSX_UNKNOWN_DEVICE'
+     This error occurs if the default audio output device is not an
+     audio device! If this happens, please contact the maintainer.
+
+`MMERR_OSX_BAD_PROPERTY'
+     This error occurs when the driver encounters a bad parameter when
+     setting device the properties.
+
+`MMERR_OSX_UNSUPPORTED_FORMAT'
+     This error occurs when the detected audio device does not support
+     the required format (Linear PCM).
+
+`MMERR_OSX_SET_STEREO'
+     This error occurs when the driver does not support the requested
+     channels setting.
+
+`MMERR_OSX_BUFFER_ALLOC'
+     This error occurs if the driver fails to allocate the audio
+     buffers.
+
+`MMERR_OSX_ADD_IO_PROC'
+     This error occurs if the driver fails to add its Audio IO Proc.
+
+`MMERR_OSX_DEVICE_START'
+     This error occurs if the driver fails to start the audio IO Proc.
+
+`MMERR_OSX_PTHREAD'
+     This error occurs if the initialization of the mutex fails.
+
+4.3.6 Dos "Windows Sound System" Driver Specific Errors
+-------------------------------------------------------
+
+`MMERR_DOSWSS_STARTDMA'
+     This error occurs if the driver failed to start the cyclic DMA
+     transfer.
+
+4.3.7 Dos "SoundBlaster" Driver Specific Errors
+-----------------------------------------------
+
+`MMERR_DOSSB_STARTDMA'
+     This error occurs if the driver failed to start the cyclic DMA
+     transfer.
+
+4.3.8 OpenAL Driver Specific Errors
+-----------------------------------
+
+`MMERR_OPENAL_CREATECTX'
+     This error occurs if OpenAL fails to create a context during
+     initialization.
+
+`MMERR_OPENAL_CTXCURRENT'
+     This error occurs if OpenAL fails to set current context during
+     initialization.
+
+`MMERR_OPENAL_GENBUFFERS'
+     This error occurs if OpenAL fails to generate buffers during
+     initialization.
+
+`MMERR_OPENAL_GENSOURCES'
+     This error occurs if OpenAL fails to generate a source during
+     initialization.
+
+`MMERR_OPENAL_SOURCE'
+     This error occurs if OpenAL fails to set source parameters during
+     initialization.
+
+`MMERR_OPENAL_QUEUEBUFFERS'
+     This error occurs if OpenAL fails to queue buffers on a source.
+
+`MMERR_OPENAL_UNQUEUEBUFFERS'
+     This error occurs if OpenAL fails to remove buffers from the queue.
+
+`MMERR_OPENAL_BUFFERDATA'
+     This error occurs if OpenAL fails to fill a buffer with audio data.
+
+`MMERR_OPENAL_GETSOURCE'
+     This error occurs if OpenAL fails to get source parameters.
+
+`MMERR_OPENAL_SOURCEPLAY'
+     This error occurs if OpenAL fails to play the source.
+
+`MMERR_OPENAL_SOURCESTOP'
+     This error occurs if OpenAL fails to stop the source.
 
    ---------- Footnotes ----------
 
@@ -1641,8 +1777,8 @@ invoking `Player_Loadxx'.
 
 File: mikmod.info,  Node: Function Reference,  Next: Library Core Functions,  Prev: Error Reference,  Up: Library Reference
 
-Function Reference
-==================
+4.4 Function Reference
+======================
 
 * Menu:
 
@@ -1654,13 +1790,13 @@ Function Reference
 
 File: mikmod.info,  Node: Library Core Functions,  Next: Module Player Functions,  Prev: Function Reference,  Up: Function Reference
 
-Library Core Functions
-----------------------
+4.4.1 Library Core Functions
+----------------------------
 
-MikMod_Active
-.............
+4.4.1.1 MikMod_Active
+.....................
 
-   `BOOL MikMod_Active(void)'
+`BOOL MikMod_Active(void)'
 Description
      This function returns whether sound output is enabled or not.
 
@@ -1678,8 +1814,8 @@ Notes
 See also
      `MikMod_DisableOutput', `MikMod_EnableOutput'.
 
-MikMod_DisableOutput
-....................
+4.4.1.2 MikMod_DisableOutput
+............................
 
    `void MikMod_DisableOutput(void)'
 Description
@@ -1692,10 +1828,10 @@ Notes
 See also
      `MikMod_Active', `MikMod_EnableOutput'.
 
-MikMod_EnableOutput
-...................
+4.4.1.3 MikMod_EnableOutput
+...........................
 
-   `BOOL MikMod_EnableOutput(void)'
+   `int MikMod_EnableOutput(void)'
 Description
      This function starts the sound mixing.
 
@@ -1713,8 +1849,8 @@ Notes
 See also
      `MikMod_Active', `MikMod_DisableOutput'.
 
-MikMod_Exit
-...........
+4.4.1.4 MikMod_Exit
+...................
 
    `void MikMod_Exit(void)'
 Description
@@ -1724,8 +1860,8 @@ Description
 See also
      `MikMod_Init', `MikMod_Reset'.
 
-MikMod_GetVersion
-.................
+4.4.1.5 MikMod_GetVersion
+.........................
 
    `long MikMod_GetVersion(void)'
 Description
@@ -1736,8 +1872,8 @@ Result
      where `maj' is the major version number, `min' is the minor version
      number, and `rev' is the revision number.
 
-MikMod_InfoDriver
-.................
+4.4.1.6 MikMod_InfoDriver
+.........................
 
    `CHAR* MikMod_InfoDriver(void)'
 Description
@@ -1748,14 +1884,14 @@ Result
      A pointer to a text buffer, or `NULL' if no drivers are registered.
 
 Notes
-     The buffer is created with `malloc'; the caller must free it when
-     it is no longer necessary.
+     The buffer is created with `MikMod_malloc'; the caller must free it
+     with `MikMod_free' when it is no longer necessary.
 
 See also
      `MikMod_RegisterDriver', `MikMod_RegisterAllDrivers'.
 
-MikMod_InfoLoader
-.................
+4.4.1.7 MikMod_InfoLoader
+.........................
 
    `CHAR* MikMod_InfoLoader(void)'
 Description
@@ -1766,16 +1902,16 @@ Result
      A pointer to a text buffer, or `NULL' if no loaders are registered.
 
 Notes
-     The buffer is created with `malloc'; the caller must free it when
-     it is no longer necessary.
+     The buffer is created with `MikMod_malloc'; the caller must free it
+     with `MikMod_free' when it is no longer necessary.
 
 See also
      `MikMod_RegisterLoader', `MikMod_RegisterAllLoaders'.
 
-MikMod_Init
-...........
+4.4.1.8 MikMod_Init
+...................
 
-   `BOOL MikMod_Init(CHAR *parameters)'
+   `int MikMod_Init(const CHAR *parameters)'
 Description
      This function performs the library initialization, including the
      sound driver choice and configuration, and all the necessary
@@ -1801,8 +1937,8 @@ Notes
 See also
      `MikMod_Exit', `MikMod_InitThreads', `MikMod_Reset'.
 
-MikMod_InitThreads
-..................
+4.4.1.9 MikMod_InitThreads
+..........................
 
    `BOOL MikMod_InitThreads(void)'
 Description
@@ -1822,8 +1958,8 @@ Notes
 See also
      `MikMod_Lock', `MikMod_Unlock'.
 
-MikMod_Lock
-...........
+4.4.1.10 MikMod_Lock
+....................
 
    `void MikMod_Lock(void)'
 Description
@@ -1843,8 +1979,8 @@ Notes
 See also
      `MikMod_InitThreads', `MikMod_Unlock'.
 
-MikMod_RegisterAllDrivers
-.........................
+4.4.1.11 MikMod_RegisterAllDrivers
+..................................
 
    `void MikMod_RegisterAllDrivers(void)'
 Description
@@ -1853,8 +1989,8 @@ Description
 See also
      `MikMod_InfoDriver', `MikMod_RegisterDriver'.
 
-MikMod_RegisterAllLoaders
-.........................
+4.4.1.12 MikMod_RegisterAllLoaders
+..................................
 
    `void MikMod_RegisterAllLoaders(void)'
 Description
@@ -1863,8 +1999,8 @@ Description
 See also
      `MikMod_InfoLoader', `MikMod_RegisterLoader'.
 
-MikMod_RegisterDriver
-.....................
+4.4.1.13 MikMod_RegisterDriver
+..............................
 
    `void MikMod_RegisterDriver(struct MDRIVER* newdriver)'
 Description
@@ -1885,8 +2021,8 @@ Notes
 See also
      `MikMod_InfoDriver', `MikMod_RegisterAllDrivers'.
 
-MikMod_RegisterErrorHandler
-...........................
+4.4.1.14 MikMod_RegisterErrorHandler
+....................................
 
    `MikMod_handler_t MikMod_RegisterErrorHandler(MikMod_handler_t
 newhandler)'
@@ -1909,8 +2045,8 @@ Notes
      but not always immediately (the library has to resume to a stable
      state before calling your callback).
 
-MikMod_RegisterLoader
-.....................
+4.4.1.15 MikMod_RegisterLoader
+..............................
 
    `void MikMod_RegisterLoader(struct MLOADER* newloader)'
 Description
@@ -1933,8 +2069,8 @@ Notes
 See also
      `MikMod_InfoLoader', `MikMod_RegisterAllLoaders'.
 
-MikMod_RegisterPlayer
-.....................
+4.4.1.16 MikMod_RegisterPlayer
+..............................
 
    `MikMod_player_t MikMod_RegisterPlayer(MikMod_player_t newplayer)'
 Description
@@ -1961,18 +2097,18 @@ Notes
      change from its initial value when requested by the module.
      When changing the playback function, you should make sure that you
      chain to the default MikMod playback function, otherwise you won't
-     get module sound anymore....
+     get module sound anymore...
 
 Example
               MikMod_player_t oldroutine;
-          
+
               void MyPlayer(void)
               {
                   oldroutine();
                   /* your stuff here */
                   ...
               }
-          
+
               main()
               {
                   ...
@@ -1981,10 +2117,10 @@ Example
                   ...
               }
 
-MikMod_Reset
-............
+4.4.1.17 MikMod_Reset
+.....................
 
-   `BOOL MikMod_Reset(CHAR *parameters)'
+   `int MikMod_Reset(const CHAR *parameters)'
 Description
      This function resets MikMod and reinitialize the sound hardware.
 
@@ -2010,10 +2146,10 @@ Notes
 See also
      `MikMod_Exit', `MikMod_Init'.
 
-MikMod_SetNumVoices
-...................
+4.4.1.18 MikMod_SetNumVoices
+............................
 
-   `BOOL MikMod_SetNumVoices(int musicvoices, int samplevoices)'
+   `int MikMod_SetNumVoices(int musicvoices, int samplevoices)'
 Description
      This function sets the number of mixed voices which can be used
      for music and sound effects playback.
@@ -2043,8 +2179,8 @@ Notes
 See also
      `MikMod_Init', `MikMod_Reset'.
 
-MikMod_Unlock
-.............
+4.4.1.19 MikMod_Unlock
+......................
 
    `void MikMod_Unlock(void)'
 Description
@@ -2064,8 +2200,8 @@ Notes
 See also
      `MikMod_InitThreads', `MikMod_Lock'.
 
-MikMod_Update
-.............
+4.4.1.20 MikMod_Update
+......................
 
    `void MikMod_Update(void)'
 Description
@@ -2087,15 +2223,15 @@ Notes
      If you plan on modifying voice information with the `Voice_xx'
      functions, you should do this before calling `MikMod_Update'.
 
-MikMod_strerror
-...............
+4.4.1.21 MikMod_strerror
+........................
 
-   `char* MikMod_strerror(int errno)'
+   `const char* MikMod_strerror(int errnum)'
 Description
      This function associates a descriptive message to an error code.
 
 Parameters
-errno
+errnum
      The MikMod error code.
 
 Result
@@ -2104,13 +2240,13 @@ Result
 
 File: mikmod.info,  Node: Module Player Functions,  Next: Sample Functions,  Prev: Library Core Functions,  Up: Function Reference
 
-Module Player Functions
------------------------
+4.4.2 Module Player Functions
+-----------------------------
 
-Player_Active
-.............
+4.4.2.1 Player_Active
+.....................
 
-   `BOOL Player_Active(void)'
+`BOOL Player_Active(void)'
 Description
      This function returns whether the module player is active or not.
 
@@ -2129,8 +2265,8 @@ See also
      `Player_Paused', `Player_TogglePause', `Player_Start',
      `Player_Stop'
 
-Player_Free
-...........
+4.4.2.2 Player_Free
+...................
 
    `void Player_Free(MODULE* module)'
 Description
@@ -2144,8 +2280,8 @@ module
 See also
      `Player_Load', `Player_LoadFP'.
 
-Player_GetChannelVoice
-......................
+4.4.2.3 Player_GetChannelVoice
+..............................
 
    `int Player_GetChannelVoice(UBYTE channel)'
 Description
@@ -2167,8 +2303,8 @@ See also
      `Voice_SetPanning', `Voice_SetVolume', `Player_Mute',
      `Player_ToggleMute', `Player_Unmute'.
 
-Player_GetModule
-................
+4.4.2.4 Player_GetModule
+........................
 
    `MODULE* Player_GetModule(void)'
 Description
@@ -2181,10 +2317,11 @@ Result
 See also
      `Player_Stop', `Player_Start'.
 
-Player_Load
-...........
+4.4.2.5 Player_Load
+...................
 
-   `MODULE* Player_Load(CHAR* filename, int maxchan, BOOL curious)'
+   `MODULE* Player_Load(const CHAR* filename, int maxchan, BOOL
+curious)'
 Description
      This function loads a music module.
 
@@ -2220,8 +2357,8 @@ See also
      `Player_Free', `Player_LoadFP', `Player_LoadTitle',
      `Player_LoadTitleFP', `Player_Start'.
 
-Player_LoadFP
-.............
+4.4.2.6 Player_LoadFP
+.....................
 
    `MODULE* Player_LoadFP(FILE* file, int maxchan, BOOL curious)'
 Description
@@ -2261,10 +2398,10 @@ See also
      `Player_Free', `Player_Load', `Player_LoadTitle',
      `Player_LoadTitleFP', `Player_Start'.
 
-Player_LoadTitle
-................
+4.4.2.7 Player_LoadTitle
+........................
 
-   `MODULE* Player_LoadTitle(CHAR* filename)'
+   `MODULE* Player_LoadTitle(const CHAR* filename)'
 Description
      This function retrieves the title of a module file.
 
@@ -2277,14 +2414,14 @@ Result
      title or an error has occurred.
 
 Notes
-     The title buffer is created with `malloc'; the caller must free it
-     when it is no longer necessary.
+     The title buffer is created with `MikMod_malloc'; the caller must
+     free it with `MikMod_free' when it is no longer necessary.
 
 See also
      `Player_Load', `Player_LoadFP', `Player_LoadTitleFP'.
 
-Player_LoadTitleFP
-..................
+4.4.2.8 Player_LoadTitleFP
+..........................
 
    `MODULE* Player_LoadTitleFP(FILE* file)'
 Description
@@ -2299,14 +2436,14 @@ Result
      title or an error has occurred.
 
 Notes
-     The title buffer is created with `malloc'; the caller must free it
-     when it is no longer necessary.
+     The title buffer is created with `MikMod_malloc'; the caller must
+     free it with `MikMod_free' when it is no longer necessary.
 
 See also
      `Player_Load', `Player_LoadFP', `Player_LoadTitle'.
 
-Player_Mute
-...........
+4.4.2.9 Player_Mute
+...................
 
    `void Player_Mute(SLONG operation, ...)'
 Description
@@ -2335,8 +2472,8 @@ Example
 See also
      `Player_Muted', `Player_ToggleMute', `Player_Unmute'.
 
-Player_Muted
-............
+4.4.2.10 Player_Muted
+.....................
 
    `BOOL Player_Muted(UBYTE channel)'
 Description
@@ -2356,8 +2493,8 @@ Result
 See also
      `Player_Mute', `Player_ToggleMute', `Player_Unmute'.
 
-Player_NextPosition
-...................
+4.4.2.11 Player_NextPosition
+............................
 
    `void Player_NextPosition(void)'
 Description
@@ -2370,8 +2507,8 @@ Notes
 See also
      `Player_PrevPosition', `Player_SetPosition'.
 
-Player_Paused
-.............
+4.4.2.12 Player_Paused
+......................
 
    `BOOL Player_Paused(void)'
 Description
@@ -2387,8 +2524,8 @@ Result
 See also
      `Player_TogglePause'.
 
-Player_PrevPosition
-...................
+4.4.2.13 Player_PrevPosition
+............................
 
    `void Player_PrevPosition(void)'
 Description
@@ -2401,8 +2538,8 @@ Notes
 See also
      `Player_NextPosition', `Player_SetPosition'.
 
-Player_SetPosition
-..................
+4.4.2.14 Player_SetPosition
+...........................
 
    `void Player_SetPosition(UWORD position)'
 Description
@@ -2419,8 +2556,8 @@ Notes
 See also
      `Player_NextPosition', `Player_PrevPosition'.
 
-Player_SetSpeed
-...............
+4.4.2.15 Player_SetSpeed
+........................
 
    `void Player_SetSpeed(UWORD speed)'
 Description
@@ -2433,8 +2570,8 @@ speed
 See also
      `Player_SetTempo'.
 
-Player_SetTempo
-...............
+4.4.2.16 Player_SetTempo
+........................
 
    `void Player_SetTempo(UWORD tempo)'
 Description
@@ -2447,8 +2584,8 @@ tempo
 See also
      `Player_SetSpeed'.
 
-Player_SetVolume
-................
+4.4.2.17 Player_SetVolume
+.........................
 
    `void Player_SetVolume(SWORD volume)'
 Description
@@ -2458,8 +2595,8 @@ Parameters
 volume
      The new overall module playback volume, in the range 0-128.
 
-Player_Start
-............
+4.4.2.18 Player_Start
+.....................
 
    `void Player_Start(MODULE* module)'
 Description
@@ -2476,8 +2613,8 @@ Notes
 See also
      `Player_Stop'.
 
-Player_Stop
-...........
+4.4.2.19 Player_Stop
+....................
 
    `void Player_Stop(void)'
 Description
@@ -2486,8 +2623,8 @@ Description
 See also
      `Player_Start'.
 
-Player_ToggleMute
-.................
+4.4.2.20 Player_ToggleMute
+..........................
 
    `void Player_ToggleMute(SLONG operation, ...)'
 Description
@@ -2516,8 +2653,8 @@ Example
 See also
      `Player_Mute', `Player_Muted', `Player_Unmute'.
 
-Player_TogglePause
-..................
+4.4.2.21 Player_TogglePause
+...........................
 
    `void Player_TogglePause(void)'
 Description
@@ -2530,8 +2667,8 @@ Notes
 See also
      `Player_Paused', `Player_Start', `Player_Stop'.
 
-Player_Unmute
-.............
+4.4.2.22 Player_Unmute
+......................
 
    `void Player_Unmute(SLONG operation, ...)'
 Description
@@ -2563,13 +2700,13 @@ See also
 
 File: mikmod.info,  Node: Sample Functions,  Next: Voice Functions,  Prev: Module Player Functions,  Up: Function Reference
 
-Sample Functions
-----------------
+4.4.3 Sample Functions
+----------------------
 
-Sample_Free
-...........
+4.4.3.1 Sample_Free
+...................
 
-   `void Sample_Free(SAMPLE* sample)'
+`void Sample_Free(SAMPLE* sample)'
 Description
      This function unloads a sample from memory.
 
@@ -2580,10 +2717,10 @@ sample
 See also
      `Sample_Load', `Sample_LoadFP'.
 
-Sample_Load
-...........
+4.4.3.2 Sample_Load
+...................
 
-   `SAMPLE* Sample_Load(CHAR* filename)'
+   `SAMPLE* Sample_Load(const CHAR* filename)'
 Description
      This function loads a sample.
 
@@ -2598,8 +2735,8 @@ Result
 See also
      `Sample_Free', `Sample_LoadFP'.
 
-Sample_LoadFP
-.............
+4.4.3.3 Sample_LoadFP
+.....................
 
    `SAMPLE* Sample_LoadFP(FILE* file)'
 Description
@@ -2620,8 +2757,8 @@ Notes
 See also
      `Sample_Free', `Sample_Load'.
 
-Sample_Play
-...........
+4.4.3.4 Sample_Play
+...................
 
    `SBYTE Sample_Play(SAMPLE* sample, ULONG start, UBYTE flags)'
 Description
@@ -2657,13 +2794,13 @@ See also
 
 File: mikmod.info,  Node: Voice Functions,  Next: Loader Reference,  Prev: Sample Functions,  Up: Function Reference
 
-Voice Functions
----------------
+4.4.4 Voice Functions
+---------------------
 
-Voice_GetFrequency
-..................
+4.4.4.1 Voice_GetFrequency
+..........................
 
-   `ULONG Voice_GetFrequency(SBYTE voice)'
+`ULONG Voice_GetFrequency(SBYTE voice)'
 Description
      This function returns the frequency of the sample currently
      playing on the specified voice.
@@ -2679,8 +2816,8 @@ Result
 See also
      `Voice_SetFrequency'.
 
-Voice_GetPanning
-................
+4.4.4.2 Voice_GetPanning
+........................
 
    `ULONG Voice_GetPanning(SBYTE voice)'
 Description
@@ -2699,8 +2836,8 @@ Result
 See also
      `Voice_SetPanning'.
 
-Voice_GetPosition
-.................
+4.4.4.3 Voice_GetPosition
+.........................
 
    `SLONG Voice_GetPosition(SBYTE voice)'
 Description
@@ -2724,8 +2861,8 @@ Notes
 See also
      `Sample_Play', `Voice_Play'.
 
-Voice_GetVolume
-...............
+4.4.4.4 Voice_GetVolume
+.......................
 
    `UWORD Voice_GetVolume(SBYTE voice)'
 Description
@@ -2743,8 +2880,8 @@ Result
 See also
      `Voice_RealVolume', `Voice_SetVolume'.
 
-Voice_Play
-..........
+4.4.4.5 Voice_Play
+..................
 
    `void Voice_Play(SBYTE voice, SAMPLE* sample, ULONG start)'
 Description
@@ -2770,8 +2907,8 @@ See also
      `Sample_Play', `Voice_SetFrequency', `Voice_SetPanning',
      `Voice_SetVolume'.
 
-Voice_RealVolume
-................
+4.4.4.6 Voice_RealVolume
+........................
 
    `ULONG Voice_RealVolume(SBYTE voice)'
 Description
@@ -2796,8 +2933,8 @@ Notes
 See also
      `Sample_Play', `Voice_GetVolume', `Voice_Play', `Voice_SetVolume'.
 
-Voice_SetFrequency
-..................
+4.4.4.7 Voice_SetFrequency
+..........................
 
    `void Voice_SetFrequency(SBYTE voice, ULONG frequency)'
 Description
@@ -2814,8 +2951,8 @@ See also
      `Sample_Play', `Voice_GetFrequency', `Voice_Play',
      `Voice_SetPanning', `Voice_SetVolume', `Voice_Stop'.
 
-Voice_SetPanning
-................
+4.4.4.8 Voice_SetPanning
+........................
 
    `void Voice_SetPanning(SBYTE voice, ULONG panning)'
 Description
@@ -2837,8 +2974,8 @@ See also
      `Sample_Play', `Voice_GetPanning', `Voice_Play',
      `Voice_SetFrequency', `Voice_SetVolume', `Voice_Stop'.
 
-Voice_SetVolume
-...............
+4.4.4.9 Voice_SetVolume
+.......................
 
    `void Voice_SetVolume(SBYTE voice, UWORD volume)'
 Description
@@ -2855,8 +2992,8 @@ See also
      `Sample_Play', `Voice_GetVolume', `Voice_Play',
      `Voice_SetFrequency', `Voice_SetPanning', `Voice_Stop'.
 
-Voice_Stop
-..........
+4.4.4.10 Voice_Stop
+...................
 
    `void Voice_Stop(SBYTE voice)'
 Description
@@ -2876,8 +3013,8 @@ See also
      `Sample_Play', `Voice_Play', `Voice_SetFrequency',
      `Voice_SetPanning', `Voice_SetVolume'.
 
-Voice_Stopped
-.............
+4.4.4.11 Voice_Stopped
+......................
 
    `BOOL Voice_Stopped(SBYTE voice)'
 Description
@@ -2905,8 +3042,8 @@ See also
 
 File: mikmod.info,  Node: Loader Reference,  Next: Module Loaders,  Prev: Voice Functions,  Up: Library Reference
 
-Loader Reference
-================
+4.5 Loader Reference
+====================
 
 * Menu:
 
@@ -2916,11 +3053,11 @@ Loader Reference
 
 File: mikmod.info,  Node: Module Loaders,  Next: Sample Loaders,  Prev: Loader Reference,  Up: Loader Reference
 
-Module Loaders
---------------
+4.5.1 Module Loaders
+--------------------
 
-   MikMod presents a large choice of module loaders, for the most
-common formats as well as for some less-known exotic formats.
+MikMod presents a large choice of module loaders, for the most common
+formats as well as for some less-known exotic formats.
 
 `load_669'
      This loader recognizes "Composer 669" and "Unis 669" modules. The
@@ -2939,6 +3076,11 @@ common formats as well as for some less-known exotic formats.
      Player.
      DMP and the DSMI library were written by Otto Chrons. DSMI was
      first released in 1993.
+
+`load_asy'
+     This loader recognize the "ASYLUM Music Format", which was used in
+     Crusader series of games by Origin. This format uses the .amf
+     extension, but is very similar to a 8 Channel Mod file.
 
 `load_dsm'
      This loader recognizes the internal DSIK format, which is the
@@ -3044,6 +3186,13 @@ common formats as well as for some less-known exotic formats.
      "UltraTracker" was written by MAS of Prophecy, a.k.a. Marc Andre
      Schallehn, and released in 1993.
 
+`load_umx'
+     This loader recognizes the modules in "umx" files from games like
+     "Unreal", "DeusEx", etc. To libmikmod, UMX is just a container and
+     the real music format may be one of "ScreamTracker 3", "Impulse
+     Tracker", "FastTracker 2", or possibly a "Protracker" compatible
+     one.
+
 `load_uni'
      This loader recognizes "UNIMOD" modules. This is the internal
      format used by MikMod and APlayer. Use of this format is
@@ -3060,17 +3209,17 @@ common formats as well as for some less-known exotic formats.
 
 File: mikmod.info,  Node: Sample Loaders,  Next: Driver Reference,  Prev: Module Loaders,  Up: Loader Reference
 
-Sample Loaders
---------------
+4.5.2 Sample Loaders
+--------------------
 
-   Currently, the only file type than can be loaded as a sample is the
-RIFF WAVE file. Stereo or compressed WAVE files are not supported yet.
+Currently, the only file type than can be loaded as a sample is the RIFF
+WAVE file. Stereo or compressed WAVE files are not supported yet.
 
 
 File: mikmod.info,  Node: Driver Reference,  Next: Network Drivers,  Prev: Sample Loaders,  Up: Library Reference
 
-Driver Reference
-================
+4.6 Driver Reference
+====================
 
 * Menu:
 
@@ -3082,10 +3231,10 @@ Driver Reference
 
 File: mikmod.info,  Node: Network Drivers,  Next: Hardware Drivers,  Prev: Driver Reference,  Up: Driver Reference
 
-Network Drivers
----------------
+4.6.1 Network Drivers
+---------------------
 
-   These drivers send the generated sound over the network to a server
+These drivers send the generated sound over the network to a server
 program, which sends the sound to the real sound hardware. The server
 program can be on the same machine than your program, but MikMod does
 not have access to the hardware. Network drivers only support software
@@ -3103,15 +3252,33 @@ mixing.
      the `ESPEAKER' environment variable, and MikMod is ready to send
      it sound.
 
+`drv_nas'
+     This driver works with the "Network Audio System".
+     Start the nas server on the machine you want, and set its hostname
+     with the `server' driver command line argument.
+
+`drv_pulseaudio'
+     This driver works with the "PulseAudio" server.
+     Start the pulseaudio server on the machine you want, set the
+     server name with `server' and the device name with `sink' driver
+     command line arguments. Without the optional `server' and `sink'
+     arguments, the driver leaves the server:device decision to the
+     pulseaudio library defaults.
+
 
 File: mikmod.info,  Node: Hardware Drivers,  Next: Disk Writer Drivers,  Prev: Network Drivers,  Up: Driver Reference
 
-Hardware Drivers
-----------------
+4.6.2 Hardware Drivers
+----------------------
 
-   These drivers access to the sound hardware of the machine they run
-on.  Depending on your Unix flavor, you'll end with one or more drivers
-from this list:
+These drivers access to the sound hardware of the machine they run on.
+Depending on your Unix flavor, you'll end with one or more drivers from
+this list:
+
+`drv_ahi'
+     This driver is only available under AmigaOS and its variants like
+     MorphOS and AROS, and it outputs to native Amiga AHI device.
+     This driver only supports software mixing.
 
 `drv_aix'
      This driver is only available under AIX, and access its audio
@@ -3130,14 +3297,45 @@ from this list:
      (Warp), and uses the "Direct Audio Real-Time" interface.
      This driver only supports software mixing.
 
+`drv_dc'
+     This driver is only for the Dreamcast platform, and outputs a
+     stream to the AICA SPU of a Dreamcast.
+     This driver only supports software mixing. This driver is not
+     tested yet.
+
+`drv_ds'
+     This driver is only available under WIN32, and uses the
+     "DirectSound" api.
+     This driver only supports software mixing.
+
+`drv_gp32'
+     This driver is only for the GP32 platform, and uses the "GP32" api.
+     This driver only supports software mixing. This driver is not
+     tested yet.
+
 `drv_hp'
      This driver is only available under HP-UX, and access its audio
      device.
      This driver only supports software mixing.
 
+`drv_mac'
+     This driver is only available under MacOS, and uses the "Sound
+     Manager".
+     This driver supports the Classic and Carbon environments, and does
+     only software mixing.
+
+`drv_openal'
+     This driver is available for all platforms where "OpenAL" is
+     supported, and uses the "OpenAL" api.
+     This driver only supports software mixing.
+
 `drv_os2'
      This driver is only available under OS/2 version 3 and higher
      (Warp), and OS/2 2.x with MMPM/2.
+     This driver only supports software mixing.
+
+`drv_osles'
+     This driver is only available under Android and uses OpenSL ES.
      This driver only supports software mixing.
 
 `drv_oss'
@@ -3147,14 +3345,40 @@ from this list:
      this driver.
      This driver only supports software mixing.
 
+`drv_osx'
+     This driver is available under MacOS X and Darwin, and uses the
+     "CoreAudio" interface.
+     This driver only supports software mixing.
+
+`drv_psp'
+     This driver is only for the Playstation Portable platform, and is
+     not tested yet.
+     This driver only supports software mixing.
+
 `drv_sam9407'
      This driver is only available under Linux, and requires the Linux
      sam9407 driver to be compiled for your current kernel.
      This driver only supports hardware mixing.
 
+`drv_sb'
+     This driver is only available under DOS, and supports the
+     SoundBlaster/Pro/16/AWE32.
+     This driver only supports hardware mixing. This driver needs to be
+     tested.
+
+`drv_sdl'
+     This driver is available for all platforms where "SDL" is
+     supported, and uses the "Simple DirectMedia Layer" apis.
+     This driver only supports software mixing.
+
 `drv_sgi'
      This driver is only available under IRIX, and uses the SGI audio
      library.
+     This driver only supports software mixing.
+
+`drv_sndio'
+     This driver is only available under OpenBSD and uses the "sndio"
+     interface.
      This driver only supports software mixing.
 
 `drv_sun'
@@ -3164,23 +3388,46 @@ from this list:
      This driver only supports software mixing.
 
 `drv_ultra'
-     This driver is only available under Linux, and requires the Linux
+     This driver is available under Linux, and requires the Linux
      Ultrasound driver (the ancestor of ALSA) to be compiled for your
-     current kernel.
-     This driver only supports hardware mixing.
+     current kernel. This driver is also available under DOS/DJGPP and
+     OS/2.
+     This driver only supports hardware mixing. The DOS/DJGPP and OS/2
+     parts needs to be tested.
+
+`drv_win'
+     This driver is only available under WIN32, and uses the
+     "multimedia API".
+     This driver only supports software mixing.
+
+`drv_wss'
+     This driver is only available under DOS, and supports Windows
+     Sound System compatible sound cards.
+     This driver only supports software mixing. This driver needs to be
+     tested.
+
+`drv_xaudio2'
+     This driver is only available under Windows XP and newer Windows
+     versions and uses the "XAudio2" 2.7 or 2.8 apis.
+     This driver only supports software mixing.
 
 
 File: mikmod.info,  Node: Disk Writer Drivers,  Next: Other Drivers,  Prev: Hardware Drivers,  Up: Driver Reference
 
-Disk Writer Drivers
--------------------
+4.6.3 Disk Writer Drivers
+-------------------------
 
-   These drivers work on any machine, since the generated sound is not
+These drivers work on any machine, since the generated sound is not
 sent to hardware, but written in a file. Disk writer drivers only
 support software mixing.
 
+`drv_aiff'
+     This driver outputs the sound data in a AIFF (Audio Interchange
+     File Format) file by default named `music.aiff' or `music.aif' on
+     win32/dos in the current directory.
+
 `drv_raw'
-     This driver outputs the sound date in a file by default named
+     This driver outputs the sound data in a file by default named
      `music.raw' in the current directory. The file has no header and
      only contains the sound output.
 
@@ -3191,10 +3438,10 @@ support software mixing.
 
 File: mikmod.info,  Node: Other Drivers,  Prev: Disk Writer Drivers,  Up: Driver Reference
 
-Other Drivers
--------------
+4.6.4 Other Drivers
+-------------------
 
-   These drivers are of little interest, but are handy sometimes.
+These drivers are of little interest, but are handy sometimes.
 
 `drv_stdout'
      This driver outputs the sound data to the program's standard
@@ -3219,8 +3466,8 @@ Other Drivers
 
 File: mikmod.info,  Node: Index,  Next: Function Index,  Prev: Library Reference,  Up: Top
 
-Index
-*****
+5 Index
+*******
 
 * Menu:
 
@@ -3233,66 +3480,110 @@ File: mikmod.info,  Node: Function Index,  Next: Type and Variable Index,  Prev:
 Function Index
 **************
 
+ [index ]
 * Menu:
 
 * MikMod_Active:                         Library Core Functions.
+                                                              (line   9)
 * MikMod_DisableOutput:                  Library Core Functions.
+                                                              (line  30)
 * MikMod_EnableOutput:                   Library Core Functions.
+                                                              (line  44)
 * MikMod_Exit:                           Library Core Functions.
+                                                              (line  65)
 * MikMod_GetVersion:                     Library Core Functions.
+                                                              (line  76)
 * MikMod_InfoDriver:                     Library Core Functions.
+                                                              (line  88)
 * MikMod_InfoLoader:                     Library Core Functions.
+                                                              (line 106)
 * MikMod_Init:                           Library Core Functions.
+                                                              (line 124)
 * MikMod_InitThreads:                    Library Core Functions.
+                                                              (line 153)
 * MikMod_Lock:                           Library Core Functions.
+                                                              (line 174)
 * MikMod_RegisterAllDrivers:             Library Core Functions.
+                                                              (line 195)
 * MikMod_RegisterAllLoaders:             Library Core Functions.
+                                                              (line 205)
 * MikMod_RegisterDriver:                 Library Core Functions.
+                                                              (line 215)
 * MikMod_RegisterErrorHandler:           Library Core Functions.
+                                                              (line 237)
 * MikMod_RegisterLoader:                 Library Core Functions.
+                                                              (line 261)
 * MikMod_RegisterPlayer:                 Library Core Functions.
+                                                              (line 285)
 * MikMod_Reset:                          Library Core Functions.
+                                                              (line 333)
 * MikMod_SetNumVoices:                   Library Core Functions.
+                                                              (line 362)
 * MikMod_strerror:                       Library Core Functions.
+                                                              (line 439)
 * MikMod_Unlock:                         Library Core Functions.
+                                                              (line 395)
 * MikMod_Update:                         Library Core Functions.
+                                                              (line 416)
 * Player_Active:                         Module Player Functions.
+                                                              (line   9)
 * Player_Free:                           Module Player Functions.
+                                                              (line  31)
 * Player_GetChannelVoice:                Module Player Functions.
+                                                              (line  46)
 * Player_GetModule:                      Module Player Functions.
+                                                              (line  69)
 * Player_Load:                           Module Player Functions.
+                                                              (line  83)
 * Player_LoadFP:                         Module Player Functions.
+                                                              (line 123)
 * Player_LoadTitle:                      Module Player Functions.
+                                                              (line 164)
 * Player_LoadTitleFP:                    Module Player Functions.
+                                                              (line 186)
 * Player_Mute:                           Module Player Functions.
+                                                              (line 208)
 * Player_Muted:                          Module Player Functions.
+                                                              (line 238)
 * Player_NextPosition:                   Module Player Functions.
+                                                              (line 259)
 * Player_Paused:                         Module Player Functions.
+                                                              (line 273)
 * Player_PrevPosition:                   Module Player Functions.
+                                                              (line 290)
 * Player_SetPosition:                    Module Player Functions.
+                                                              (line 304)
 * Player_SetSpeed:                       Module Player Functions.
+                                                              (line 322)
 * Player_SetTempo:                       Module Player Functions.
+                                                              (line 336)
 * Player_SetVolume:                      Module Player Functions.
+                                                              (line 350)
 * Player_Start:                          Module Player Functions.
+                                                              (line 361)
 * Player_Stop:                           Module Player Functions.
+                                                              (line 379)
 * Player_ToggleMute:                     Module Player Functions.
+                                                              (line 389)
 * Player_TogglePause:                    Module Player Functions.
+                                                              (line 419)
 * Player_Unmute:                         Module Player Functions.
-* Sample_Free:                           Sample Functions.
-* Sample_Load:                           Sample Functions.
-* Sample_LoadFP:                         Sample Functions.
-* Sample_Play:                           Sample Functions.
-* Voice_GetFrequency:                    Voice Functions.
-* Voice_GetPanning:                      Voice Functions.
-* Voice_GetPosition:                     Voice Functions.
-* Voice_GetVolume:                       Voice Functions.
-* Voice_Play:                            Voice Functions.
-* Voice_RealVolume:                      Voice Functions.
-* Voice_SetFrequency:                    Voice Functions.
-* Voice_SetPanning:                      Voice Functions.
-* Voice_SetVolume:                       Voice Functions.
-* Voice_Stop:                            Voice Functions.
-* Voice_Stopped:                         Voice Functions.
+                                                              (line 433)
+* Sample_Free:                           Sample Functions.    (line   9)
+* Sample_Load:                           Sample Functions.    (line  23)
+* Sample_LoadFP:                         Sample Functions.    (line  41)
+* Sample_Play:                           Sample Functions.    (line  63)
+* Voice_GetFrequency:                    Voice Functions.     (line   9)
+* Voice_GetPanning:                      Voice Functions.     (line  28)
+* Voice_GetPosition:                     Voice Functions.     (line  48)
+* Voice_GetVolume:                       Voice Functions.     (line  73)
+* Voice_Play:                            Voice Functions.     (line  92)
+* Voice_RealVolume:                      Voice Functions.     (line 119)
+* Voice_SetFrequency:                    Voice Functions.     (line 145)
+* Voice_SetPanning:                      Voice Functions.     (line 163)
+* Voice_SetVolume:                       Voice Functions.     (line 186)
+* Voice_Stop:                            Voice Functions.     (line 204)
+* Voice_Stopped:                         Voice Functions.     (line 225)
 
 
 File: mikmod.info,  Node: Type and Variable Index,  Prev: Function Index,  Up: Index
@@ -3300,67 +3591,68 @@ File: mikmod.info,  Node: Type and Variable Index,  Prev: Function Index,  Up: I
 Type and Variable Index
 ***********************
 
+ [index ]
 * Menu:
 
-* INSTRUMENT:                            Structure Reference.
-* md_device:                             Variable Reference.
-* md_driver:                             Variable Reference.
-* md_mixfreq:                            Variable Reference.
-* md_mode:                               Variable Reference.
-* md_musicvolume:                        Variable Reference.
-* md_pansep:                             Variable Reference.
-* md_reverb:                             Variable Reference.
-* md_sndfxvolume:                        Variable Reference.
-* md_volume:                             Variable Reference.
-* MDRIVER:                               Structure Reference.
-* MikMod_critical:                       Variable Reference.
-* MikMod_errno:                          Variable Reference.
-* MODULE:                                Structure Reference.
-* MREADER:                               Structure Reference.
-* MWRITER:                               Structure Reference.
-* SAMPLE:                                Structure Reference.
+* INSTRUMENT:                            Structure Reference. (line 224)
+* md_device:                             Variable Reference.  (line  62)
+* md_driver:                             Variable Reference.  (line  68)
+* md_mixfreq:                            Variable Reference.  (line  76)
+* md_mode:                               Variable Reference.  (line  83)
+* md_musicvolume:                        Variable Reference.  (line  33)
+* md_pansep:                             Variable Reference.  (line  35)
+* md_reverb:                             Variable Reference.  (line  40)
+* md_sndfxvolume:                        Variable Reference.  (line  45)
+* md_volume:                             Variable Reference.  (line  49)
+* MDRIVER:                               Structure Reference. (line  13)
+* MikMod_critical:                       Variable Reference.  (line  14)
+* MikMod_errno:                          Variable Reference.  (line  12)
+* MODULE:                                Structure Reference. (line  37)
+* MREADER:                               Structure Reference. (line 306)
+* MWRITER:                               Structure Reference. (line 343)
+* SAMPLE:                                Structure Reference. (line 234)
 
 
 
 Tag Table:
-Node: Top1019
-Node: Introduction1471
-Node: Tutorial2349
-Node: MikMod Concepts3079
-Node: A Skeleton Program4039
-Node: Playing Modules5617
-Node: Playing Sound Effects9459
-Node: More Sound Effects13485
-Ref: More Sound Effects-Footnote-115908
-Node: Using the Library16094
-Node: Library Version16494
-Node: Type Definitions18669
-Node: Error Handling19716
-Node: Library Initialization21347
-Ref: Library Initialization-Footnote-124571
-Node: Samples and Voice Control24675
-Node: Modules and Player Control27532
-Node: Loading Data from Memory31805
-Node: Library Reference32718
-Node: Variable Reference33149
-Node: Structure Reference38148
-Node: Error Reference48997
-Ref: Error Reference-Footnote-158116
-Node: Function Reference58277
-Node: Library Core Functions58664
-Node: Module Player Functions70888
-Node: Sample Functions81890
-Node: Voice Functions83989
-Node: Loader Reference90192
-Node: Module Loaders90392
-Node: Sample Loaders96856
-Node: Driver Reference97145
-Node: Network Drivers97390
-Node: Hardware Drivers98283
-Node: Disk Writer Drivers100587
-Node: Other Drivers101226
-Node: Index102257
-Node: Function Index102421
-Node: Type and Variable Index106255
+Node: Top998
+Node: Introduction1450
+Node: Tutorial2329
+Node: MikMod Concepts3059
+Node: A Skeleton Program4024
+Node: Playing Modules5582
+Node: Playing Sound Effects9384
+Node: More Sound Effects13354
+Ref: More Sound Effects-Footnote-115782
+Node: Using the Library15968
+Node: Library Version16369
+Node: Type Definitions18544
+Node: Error Handling19595
+Node: Library Initialization21231
+Ref: Library Initialization-Footnote-124466
+Node: Samples and Voice Control24570
+Node: Modules and Player Control27432
+Node: Loading Data from Memory31732
+Node: Library Reference32650
+Node: Variable Reference33082
+Node: Structure Reference38132
+Node: Error Reference49345
+Ref: Error Reference-Footnote-162649
+Node: Function Reference62810
+Node: Library Core Functions63205
+Node: Module Player Functions75845
+Node: Sample Functions87298
+Node: Voice Functions89476
+Node: Loader Reference95868
+Node: Module Loaders96076
+Node: Sample Loaders103065
+Node: Driver Reference103363
+Node: Network Drivers103616
+Node: Hardware Drivers105089
+Node: Disk Writer Drivers110081
+Node: Other Drivers110922
+Node: Index111962
+Node: Function Index112130
+Node: Type and Variable Index119336
 
 End Tag Table

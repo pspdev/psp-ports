@@ -1,4 +1,5 @@
-EXTRA_DIST = mdreg.c   \
+EXTRA_DIST = CMakeLists.txt \
+             mdreg.c   \
              mdriver.c \
              mdulaw.c  \
              mloader.c \

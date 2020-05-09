@@ -6,12 +6,12 @@
 	it under the terms of the GNU Library General Public License as
 	published by the Free Software Foundation; either version 2 of
 	the License, or (at your option) any later version.
- 
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU Library General Public License for more details.
- 
+
 	You should have received a copy of the GNU Library General Public
 	License along with this library; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
@@ -20,7 +20,7 @@
 
 /*==============================================================================
 
-  $Id: drv_alsa.c,v 1.2 2004/01/31 22:39:40 raph Exp $
+  $Id$
 
   Driver for Advanced Linux Sound Architecture (ALSA)
 
@@ -47,312 +47,296 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <sys/asoundlib.h>
-#if defined(SND_LIB_VERSION) && (SND_LIB_VERSION >= 0x500)
+#include <alsa/asoundlib.h>
+#if defined(SND_LIB_VERSION) && (SND_LIB_VERSION >= 0x20000)
 #undef DRV_ALSA
 #endif
 
+#if defined(SND_LIB_VERSION) && (SND_LIB_VERSION < 0x600)
+#error ALSA Version too old. Please upgrade your Linux distribution.
 #endif
+#endif /* DRV_ALSA */
+
 #ifdef DRV_ALSA
 
 #ifdef MIKMOD_DYNAMIC
 /* runtime link with libasound */
-static unsigned int(*alsa_cards_mask)(void);
-static int(*alsa_ctl_close)(snd_ctl_t*);
-static int(*alsa_ctl_hw_info)(snd_ctl_t*,struct snd_ctl_hw_info*);
-static int(*alsa_ctl_open)(snd_ctl_t**,int);
-static int(*alsa_ctl_pcm_info)(snd_ctl_t*,int,snd_pcm_info_t*);
-#if defined(SND_LIB_VERSION) && (SND_LIB_VERSION >= 0x400)
-static int(*alsa_ctl_pcm_playback_info)(snd_ctl_t*,int,int,snd_pcm_playback_info_t*);
-#else
-static int(*alsa_ctl_pcm_playback_info)(snd_ctl_t*,int,snd_pcm_playback_info_t*);
-#endif
-static int(*alsa_pcm_close)(snd_pcm_t*);
-static int(*alsa_pcm_drain_playback)(snd_pcm_t*);
-static int(*alsa_pcm_flush_playback)(snd_pcm_t*);
-static int(*alsa_pcm_open)(snd_pcm_t**,int,int,int);
-static int(*alsa_pcm_playback_format)(snd_pcm_t*,snd_pcm_format_t*);
-static int(*alsa_pcm_playback_info)(snd_pcm_t*,snd_pcm_playback_info_t*);
-static int(*alsa_pcm_playback_params)(snd_pcm_t*,snd_pcm_playback_params_t*);
-static int(*alsa_pcm_playback_status)(snd_pcm_t*,snd_pcm_playback_status_t*);
-static int(*alsa_pcm_write)(snd_pcm_t*,const void*,size_t);
-static void* libasound=NULL;
 #ifndef HAVE_RTLD_GLOBAL
 #define RTLD_GLOBAL (0)
 #endif
+static int (*alsa_pcm_subformat_mask_malloc)(snd_pcm_subformat_mask_t **);
+static const char * (*alsa_strerror)(int);
+static int (*alsa_pcm_resume)(snd_pcm_t *);
+static int (*alsa_pcm_prepare)(snd_pcm_t *);
+static int (*alsa_pcm_hw_params_any)(snd_pcm_t *, snd_pcm_hw_params_t *);
+static int (*alsa_pcm_hw_params)(snd_pcm_t *, snd_pcm_hw_params_t *);
+static int (*alsa_pcm_hw_params_current)(snd_pcm_t *, snd_pcm_hw_params_t *);
+static int (*alsa_pcm_hw_params_set_access)(snd_pcm_t *, snd_pcm_hw_params_t *, snd_pcm_access_t);
+static int (*alsa_pcm_hw_params_set_format)(snd_pcm_t *, snd_pcm_hw_params_t *, snd_pcm_format_t);
+static int (*alsa_pcm_hw_params_set_rate_near)(snd_pcm_t *, snd_pcm_hw_params_t *, unsigned int *, int *);
+static int (*alsa_pcm_hw_params_set_channels_near)(snd_pcm_t *, snd_pcm_hw_params_t *, unsigned int *);
+static int (*alsa_pcm_hw_params_set_buffer_time_near)(snd_pcm_t *, snd_pcm_hw_params_t *, unsigned int *, int *);
+static int (*alsa_pcm_hw_params_set_period_time_near)(snd_pcm_t *, snd_pcm_hw_params_t *, unsigned int *, int *);
+static int (*alsa_pcm_hw_params_get_buffer_size)(const snd_pcm_hw_params_t *, snd_pcm_uframes_t *);
+static int (*alsa_pcm_hw_params_get_period_size)(const snd_pcm_hw_params_t *, snd_pcm_uframes_t *, int *);
+static int (*alsa_pcm_sw_params_sizeof)(void);
+static int (*alsa_pcm_hw_params_sizeof)(void);
+static int (*alsa_pcm_open)(snd_pcm_t**, const char *, int, int);
+static int (*alsa_pcm_close)(snd_pcm_t*);
+static int (*alsa_pcm_drain)(snd_pcm_t*);
+static int (*alsa_pcm_drop)(snd_pcm_t*);
+static int (*alsa_pcm_start)(snd_pcm_t *);
+static snd_pcm_sframes_t (*alsa_pcm_writei)(snd_pcm_t*,const void*,snd_pcm_uframes_t);
+
+static void* libasound = NULL;
+
 #else
 /* compile-time link with libasound */
-#define alsa_cards_mask				snd_cards_mask
-#define alsa_ctl_close				snd_ctl_close
-#define alsa_ctl_hw_info			snd_ctl_hw_info
-#define alsa_ctl_open				snd_ctl_open
-#define alsa_ctl_pcm_info			snd_ctl_pcm_info
-#define alsa_ctl_pcm_playback_info	snd_ctl_pcm_playback_info
+#define alsa_pcm_subformat_mask_malloc		snd_pcm_subformat_mask_malloc
+#define alsa_strerror				snd_strerror
+#define alsa_pcm_hw_params_any			snd_pcm_hw_params_any
+#define alsa_pcm_hw_params			snd_pcm_hw_params
+#define alsa_pcm_hw_params_current		snd_pcm_hw_params_current
+#define alsa_pcm_hw_params_set_access		snd_pcm_hw_params_set_access
+#define alsa_pcm_hw_params_set_format		snd_pcm_hw_params_set_format
+#define alsa_pcm_hw_params_set_rate_near	snd_pcm_hw_params_set_rate_near
+#define alsa_pcm_hw_params_set_channels_near	snd_pcm_hw_params_set_channels_near
+#define alsa_pcm_hw_params_set_buffer_time_near	snd_pcm_hw_params_set_buffer_time_near
+#define alsa_pcm_hw_params_set_period_time_near	snd_pcm_hw_params_set_period_time_near
+#define alsa_pcm_hw_params_get_buffer_size	snd_pcm_hw_params_get_buffer_size
+#define alsa_pcm_hw_params_get_period_size	snd_pcm_hw_params_get_period_size
+#define alsa_pcm_resume				snd_pcm_resume
+#define alsa_pcm_prepare			snd_pcm_prepare
 #define alsa_pcm_close				snd_pcm_close
-#define alsa_pcm_drain_playback		snd_pcm_drain_playback
-#define alsa_pcm_flush_playback		snd_pcm_flush_playback
+#define alsa_pcm_drain				snd_pcm_drain
+#define alsa_pcm_drop				snd_pcm_drop
+#define alsa_pcm_start				snd_pcm_start
 #define alsa_pcm_open				snd_pcm_open
-#define alsa_pcm_playback_format	snd_pcm_playback_format
-#define alsa_pcm_playback_info		snd_pcm_playback_info
-#define alsa_pcm_playback_params	snd_pcm_playback_params
-#define alsa_pcm_playback_status	snd_pcm_playback_status
-#define alsa_pcm_write				snd_pcm_write
+#define alsa_pcm_writei				snd_pcm_writei
 #endif /* MIKMOD_DYNAMIC */
 
-#define DEFAULT_NUMFRAGS 4
-
-static	snd_pcm_t *pcm_h=NULL;
-static	int fragmentsize,numfrags=DEFAULT_NUMFRAGS;
-static	SBYTE *audiobuffer=NULL;
-static	int cardmin=0,cardmax=SND_CARDS;
-static	int device=-1;
+#if defined(MIKMOD_DEBUG)
+# define dbgprint			fprintf
+#elif defined (__GNUC__) && !(defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
+# define dbgprint(f, fmt, args...)	do {} while (0)
+#else
+# define dbgprint(f, ...)		do {} while (0)
+#endif
+static BOOL enabled = 0;
+static snd_pcm_t *pcm_h = NULL;
+static SBYTE *audiobuffer = NULL;
+static snd_pcm_sframes_t period_size;
+static int bytes_written = 0, bytes_played = 0;
+static int global_frame_size;
 
 #ifdef MIKMOD_DYNAMIC
-static BOOL ALSA_Link(void)
+static int ALSA_Link(void)
 {
-	if(libasound) return 0;
+	if (libasound) return 0;
 
 	/* load libasound.so */
-	libasound=dlopen("libasound.so",RTLD_LAZY|RTLD_GLOBAL);
-	if(!libasound) return 1;
+	libasound = dlopen("libasound.so.2",RTLD_LAZY|RTLD_GLOBAL);
+	if (!libasound) libasound = dlopen("libasound.so",RTLD_LAZY|RTLD_GLOBAL);
+	if (!libasound) return 1;
 
-	/* resolve function references */
-	if(!(alsa_cards_mask           =dlsym(libasound,"snd_cards_mask"))) return 1;
-	if(!(alsa_ctl_close            =dlsym(libasound,"snd_ctl_close"))) return 1;
-	if(!(alsa_ctl_hw_info          =dlsym(libasound,"snd_ctl_hw_info"))) return 1;
-	if(!(alsa_ctl_open             =dlsym(libasound,"snd_ctl_open"))) return 1;
-	if(!(alsa_ctl_pcm_info         =dlsym(libasound,"snd_ctl_pcm_info"))) return 1;
-	if(!(alsa_ctl_pcm_playback_info=dlsym(libasound,"snd_ctl_pcm_playback_info"))) return 1;
-	if(!(alsa_pcm_close            =dlsym(libasound,"snd_pcm_close"))) return 1;
-	if(!(alsa_pcm_drain_playback   =dlsym(libasound,"snd_pcm_drain_playback"))) return 1;
-	if(!(alsa_pcm_flush_playback   =dlsym(libasound,"snd_pcm_flush_playback"))) return 1;
-	if(!(alsa_pcm_open             =dlsym(libasound,"snd_pcm_open"))) return 1;
-	if(!(alsa_pcm_playback_format  =dlsym(libasound,"snd_pcm_playback_format"))) return 1;
-	if(!(alsa_pcm_playback_info    =dlsym(libasound,"snd_pcm_playback_info"))) return 1;
-	if(!(alsa_pcm_playback_params  =dlsym(libasound,"snd_pcm_playback_params"))) return 1;
-	if(!(alsa_pcm_playback_status  =dlsym(libasound,"snd_pcm_playback_status"))) return 1;
-	if(!(alsa_pcm_write            =dlsym(libasound,"snd_pcm_write"))) return 1;
+	if (!(alsa_pcm_subformat_mask_malloc = (int (*)(snd_pcm_subformat_mask_t **))
+						 dlsym(libasound,"snd_pcm_subformat_mask_malloc"))) return 1;
+	if (!(alsa_strerror = (const char* (*)(int))
+						 dlsym(libasound,"snd_strerror"))) return 1;
+	if (!(alsa_pcm_prepare = (int (*)(snd_pcm_t *))
+						 dlsym(libasound,"snd_pcm_prepare"))) return 1;
+	if (!(alsa_pcm_sw_params_sizeof = (int (*)(void))
+						 dlsym(libasound,"snd_pcm_sw_params_sizeof"))) return 1;
+	if (!(alsa_pcm_hw_params_sizeof = (int (*)(void))
+						 dlsym(libasound,"snd_pcm_hw_params_sizeof"))) return 1;
+	if (!(alsa_pcm_resume = (int (*)(snd_pcm_t *))
+						 dlsym(libasound,"snd_pcm_resume"))) return 1;
+	if (!(alsa_pcm_hw_params_any = (int (*)(snd_pcm_t *, snd_pcm_hw_params_t *))
+						 dlsym(libasound,"snd_pcm_hw_params_any"))) return 1;
+	if (!(alsa_pcm_hw_params = (int (*)(snd_pcm_t *, snd_pcm_hw_params_t *))
+						 dlsym(libasound,"snd_pcm_hw_params"))) return 1;
+	if (!(alsa_pcm_hw_params_current = (int (*)(snd_pcm_t *, snd_pcm_hw_params_t *))
+						 dlsym(libasound,"snd_pcm_hw_params_current"))) return 1;
+	if (!(alsa_pcm_hw_params_set_access = (int (*)(snd_pcm_t *, snd_pcm_hw_params_t *, snd_pcm_access_t))
+						 dlsym(libasound,"snd_pcm_hw_params_set_access"))) return 1;
+	if (!(alsa_pcm_hw_params_set_format = (int (*)(snd_pcm_t *, snd_pcm_hw_params_t *, snd_pcm_format_t))
+						 dlsym(libasound,"snd_pcm_hw_params_set_format"))) return 1;
+	if (!(alsa_pcm_hw_params_set_rate_near = (int (*)(snd_pcm_t *, snd_pcm_hw_params_t *, unsigned int *, int *))
+						 dlsym(libasound,"snd_pcm_hw_params_set_rate_near"))) return 1;
+	if (!(alsa_pcm_hw_params_set_channels_near = (int (*)(snd_pcm_t *, snd_pcm_hw_params_t *, unsigned int *))
+						 dlsym(libasound,"snd_pcm_hw_params_set_channels_near"))) return 1;
+	if (!(alsa_pcm_hw_params_set_buffer_time_near = (int (*)(snd_pcm_t *, snd_pcm_hw_params_t *, unsigned int *, int *))
+						 dlsym(libasound,"snd_pcm_hw_params_set_buffer_time_near"))) return 1;
+	if (!(alsa_pcm_hw_params_set_period_time_near = (int (*)(snd_pcm_t *, snd_pcm_hw_params_t *, unsigned int *, int *))
+						 dlsym(libasound,"snd_pcm_hw_params_set_period_time_near"))) return 1;
+	if (!(alsa_pcm_hw_params_get_buffer_size = (int (*)(const snd_pcm_hw_params_t *, snd_pcm_uframes_t *))
+						 dlsym(libasound,"snd_pcm_hw_params_get_buffer_size"))) return 1;
+	if (!(alsa_pcm_hw_params_get_period_size = (int (*)(const snd_pcm_hw_params_t *, snd_pcm_uframes_t *, int *))
+						 dlsym(libasound,"snd_pcm_hw_params_get_period_size"))) return 1;
+	if (!(alsa_pcm_open = (int (*)(snd_pcm_t**, const char *, int, int))
+						 dlsym(libasound,"snd_pcm_open"))) return 1;
+	if (!(alsa_pcm_close = (int (*)(snd_pcm_t*))
+						 dlsym(libasound,"snd_pcm_close"))) return 1;
+	if (!(alsa_pcm_drain = (int (*)(snd_pcm_t*))
+						 dlsym(libasound,"snd_pcm_drain"))) return 1;
+	if (!(alsa_pcm_drop = (int (*)(snd_pcm_t*))
+						 dlsym(libasound,"snd_pcm_drop"))) return 1;
+	if (!(alsa_pcm_start = (int (*)(snd_pcm_t *))
+						 dlsym(libasound,"snd_pcm_start"))) return 1;
+	if (!(alsa_pcm_writei = (snd_pcm_sframes_t (*)(snd_pcm_t*,const void*,snd_pcm_uframes_t))
+						 dlsym(libasound,"snd_pcm_writei"))) return 1;
 
 	return 0;
 }
 
 static void ALSA_Unlink(void)
 {
-	alsa_cards_mask           =NULL;
-	alsa_ctl_close            =NULL;
-	alsa_ctl_hw_info          =NULL;
-	alsa_ctl_open             =NULL;
-	alsa_ctl_pcm_info         =NULL;
-	alsa_ctl_pcm_playback_info=NULL;
-	alsa_pcm_close            =NULL;
-	alsa_pcm_drain_playback   =NULL;
-	alsa_pcm_flush_playback   =NULL;
-	alsa_pcm_open             =NULL;
-	alsa_pcm_playback_format  =NULL;
-	alsa_pcm_playback_info    =NULL;
-	alsa_pcm_playback_params  =NULL;
-	alsa_pcm_playback_status  =NULL;
-	alsa_pcm_write            =NULL;
+	alsa_pcm_subformat_mask_malloc = NULL;
+	alsa_strerror = NULL;
+	alsa_pcm_resume = NULL;
+	alsa_pcm_prepare = NULL;
+	alsa_pcm_hw_params_any = NULL;
+	alsa_pcm_hw_params = NULL;
+	alsa_pcm_hw_params_current = NULL;
+	alsa_pcm_hw_params_set_access = NULL;
+	alsa_pcm_hw_params_set_format = NULL;
+	alsa_pcm_hw_params_set_rate_near = NULL;
+	alsa_pcm_hw_params_set_channels_near = NULL;
+	alsa_pcm_hw_params_set_buffer_time_near = NULL;
+	alsa_pcm_hw_params_set_period_time_near = NULL;
+	alsa_pcm_hw_params_get_buffer_size = NULL;
+	alsa_pcm_hw_params_get_period_size = NULL;
+	alsa_pcm_close = NULL;
+	alsa_pcm_drain = NULL;
+	alsa_pcm_drop = NULL;
+	alsa_pcm_start = NULL;
+	alsa_pcm_open = NULL;
+	alsa_pcm_writei = NULL;
 
-	if(libasound) {
+	if (libasound) {
 		dlclose(libasound);
-		libasound=NULL;
+		libasound = NULL;
 	}
 }
+
+/* This is done to override the identifiers expanded
+ * in the macros provided by the ALSA includes which are
+ * not available.
+ * */
+#define snd_strerror			alsa_strerror
+#define snd_pcm_sw_params_sizeof	alsa_pcm_sw_params_sizeof
+#define snd_pcm_hw_params_sizeof	alsa_pcm_hw_params_sizeof
 #endif /* MIKMOD_DYNAMIC */
 
-static void ALSA_CommandLine(CHAR *cmdline)
+static void ALSA_CommandLine(const CHAR *cmdline)
 {
-	CHAR *ptr;
-
-	if((ptr=MD_GetAtom("card",cmdline,0))) {
-		cardmin=atoi(ptr);cardmax=cardmin+1;
-		free(ptr);
-	} else {
-		cardmin=0;cardmax=SND_CARDS;
-	}
-	if((ptr=MD_GetAtom("pcm",cmdline,0))) {
-		device=atoi(ptr);
-		free(ptr);
-	} else device=-1;
-	if((ptr=MD_GetAtom("buffer",cmdline,0))) {
-		numfrags=atoi(ptr);
-		if ((numfrags<2)||(numfrags>16)) numfrags=DEFAULT_NUMFRAGS;
-		free(ptr);
-	} else numfrags=DEFAULT_NUMFRAGS;
+		/* no options */
 }
 
 static BOOL ALSA_IsThere(void)
 {
-	int retval;
+	snd_pcm_subformat_mask_t *ptr = NULL;
+	BOOL retval;
 
 #ifdef MIKMOD_DYNAMIC
 	if (ALSA_Link()) return 0;
 #endif
-	retval=(alsa_cards_mask())?1:0;
+	retval = (alsa_pcm_subformat_mask_malloc(&ptr) == 0) && (ptr != NULL);
+	free(ptr);
 #ifdef MIKMOD_DYNAMIC
 	ALSA_Unlink();
 #endif
 	return retval;
 }
 
-static BOOL ALSA_Init_internal(void)
+static int ALSA_Init_internal(void)
 {
 	snd_pcm_format_t pformat;
-	int mask,card;
-
-	/* adjust user-configurable settings */
-	if((getenv("MM_NUMFRAGS"))&&(numfrags==DEFAULT_NUMFRAGS)) {
-		numfrags=atoi(getenv("MM_NUMFRAGS"));
-		if ((numfrags<2)||(numfrags>16)) numfrags=DEFAULT_NUMFRAGS;
-	}
-	if((getenv("ALSA_CARD"))&&(!cardmin)&&(cardmax==SND_CARDS)) {
-		cardmin=atoi(getenv("ALSA_CARD"));
-		cardmax=cardmin+1;
-		if(getenv("ALSA_PCM"))
-			device=atoi(getenv("ALSA_PCM"));
-	}
+	unsigned int btime = 250000;	/* 250ms */
+	unsigned int ptime = 50000;	/* 50ms */
+	snd_pcm_uframes_t psize;
+	snd_pcm_uframes_t bsize;
+	unsigned int rate, channels;
+	snd_pcm_hw_params_t * hwparams;
+	int err;
 
 	/* setup playback format structure */
-	memset(&pformat,0,sizeof(pformat));
-#ifdef SND_LITTLE_ENDIAN
-	pformat.format=(md_mode&DMODE_16BITS)?SND_PCM_SFMT_S16_LE:SND_PCM_SFMT_U8;
-#else
-	pformat.format=(md_mode&DMODE_16BITS)?SND_PCM_SFMT_S16_BE:SND_PCM_SFMT_U8;
-#endif
-	pformat.channels=(md_mode&DMODE_STEREO)?2:1;
-	pformat.rate=md_mixfreq;
+	pformat = (md_mode&DMODE_FLOAT)? SND_PCM_FORMAT_FLOAT :
+			(md_mode&DMODE_16BITS)? SND_PCM_FORMAT_S16 : SND_PCM_FORMAT_U8;
+	channels = (md_mode&DMODE_STEREO)?2:1;
+	rate = md_mixfreq;
 
-	/* scan for appropriate sound card */
-	mask=alsa_cards_mask();
-	_mm_errno=MMERR_OPENING_AUDIO;
-	for (card=cardmin;card<cardmax;card++) {
-		struct snd_ctl_hw_info info;
-		snd_ctl_t *ctl_h;
-		int dev,devmin,devmax;
-
-		/* no card here, onto the next */
-		if (!(mask&(1<<card))) continue;
-
-		/* try to open the card in query mode */
-		if(alsa_ctl_open(&ctl_h,card)<0)
-			continue;
-
-		/* get hardware information */
-		if(alsa_ctl_hw_info(ctl_h,&info)<0) {
-			alsa_ctl_close(ctl_h);
-			continue;
-		}
-
-		/* scan subdevices */
-		if(device==-1) {
-			devmin=0;devmax=info.pcmdevs;
-		} else
-			devmin=devmax=device;
-		for(dev=devmin;dev<devmax;dev++) {
-			snd_pcm_info_t pcminfo;
-			snd_pcm_playback_info_t ctlinfo;
-			struct snd_pcm_playback_info pinfo;
-			struct snd_pcm_playback_params pparams;
-			int size,bps;
-
-			/* get PCM capabilities */
-			if(alsa_ctl_pcm_info(ctl_h,dev,&pcminfo)<0)
-				continue;
-
-			/* look for playback capability */
-			if(!(pcminfo.flags&SND_PCM_INFO_PLAYBACK))
-				continue;
-
-			/* get playback information */
-#if defined(SND_LIB_VERSION) && (SND_LIB_VERSION >= 0x400)
-			if(alsa_ctl_pcm_playback_info(ctl_h,dev,0,&ctlinfo)<0)
-				continue;
-#else
-			if(alsa_ctl_pcm_playback_info(ctl_h,dev,&ctlinfo)<0)
-				continue;
-#endif
-
-	/*
-	   If control goes here, we have found a sound device able to play PCM data.
-	   Let's open in in playback mode and see if we have compatible playback
-	   settings.
-	*/
-
-			if (alsa_pcm_open(&pcm_h,card,dev,SND_PCM_OPEN_PLAYBACK)<0)
-				continue;
-
-			if (alsa_pcm_playback_info(pcm_h,&pinfo)<0) {
-				alsa_pcm_close(pcm_h);
-				pcm_h=NULL;
-				continue;
-			}
-
-			/* check we have compatible settings */
-			if((pinfo.min_rate>pformat.rate)||(pinfo.max_rate<pformat.rate)||
-			   (!(pinfo.formats&(1<<pformat.format)))) {
-				alsa_pcm_close(pcm_h);
-				pcm_h=NULL;
-				continue;
-			}
-
-			fragmentsize=pinfo.buffer_size/numfrags;
-#ifdef MIKMOD_DEBUG
-			if ((fragmentsize<512)||(fragmentsize>16777216L))
-				fprintf(stderr,"\rweird pinfo.buffer_size:%d\n",pinfo.buffer_size);
-#endif
-
-			alsa_pcm_flush_playback(pcm_h);
-
-			/* set new parameters */
-			if(alsa_pcm_playback_format(pcm_h,&pformat)<0) {
-				alsa_pcm_close(pcm_h);
-				pcm_h=NULL;
-				continue;
-			}
-
-			/* compute a fragmentsize hint
-			   each fragment should be shorter than, but close to, half a
-			   second of playback */
-			bps=(pformat.rate*pformat.channels*(md_mode&DMODE_16BITS?2:1))>>1;
-			size=fragmentsize;while (size>bps) size>>=1;
-#ifdef MIKMOD_DEBUG
-			if (size < 16) {
-				fprintf(stderr,"\rweird hint result:%d from %d, bps=%d\n",size,fragmentsize,bps);
-				size=16;
-			}
-#endif
-
-			memset(&pparams,0,sizeof(pparams));
-			pparams.fragment_size=size;
-			pparams.fragments_max=-1; /* choose the best */
-			pparams.fragments_room=-1;
-			if(alsa_pcm_playback_params(pcm_h,&pparams)<0) {
-				alsa_pcm_close(pcm_h);
-				pcm_h=NULL;
-				continue;
-			}
-
-			if (!(audiobuffer=(SBYTE*)_mm_malloc(fragmentsize))) {
-				alsa_ctl_close(ctl_h);
-				return 1;
-			}
-
-			/* sound device is ready to work */
-			if (VC_Init()) {
-				alsa_ctl_close(ctl_h);
-				return 1;
-			} else
-			  return 0;
-		}
-
-		alsa_ctl_close(ctl_h);
+#define MIKMOD_ALSA_DEVICE "default"
+	if ((err = alsa_pcm_open(&pcm_h, MIKMOD_ALSA_DEVICE, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK)) < 0) {
+		_mm_errno = MMERR_OPENING_AUDIO;
+		goto END;
 	}
+
+	snd_pcm_hw_params_alloca(&hwparams);
+	err = alsa_pcm_hw_params_any(pcm_h, hwparams);
+	if (err < 0) {
+		_mm_errno = MMERR_ALSA_NOCONFIG;
+		goto END;
+	}
+
+	err = alsa_pcm_hw_params_set_access(pcm_h, hwparams, SND_PCM_ACCESS_RW_INTERLEAVED);
+	if (!err) err = alsa_pcm_hw_params_set_format(pcm_h, hwparams, pformat);
+	if (!err) err = alsa_pcm_hw_params_set_rate_near(pcm_h, hwparams, &rate, NULL);
+	if (!err) err = alsa_pcm_hw_params_set_channels_near(pcm_h, hwparams, &channels);
+	if (!err) err = alsa_pcm_hw_params_set_buffer_time_near(pcm_h, hwparams, &btime, NULL);
+	if (!err) err = alsa_pcm_hw_params_set_period_time_near(pcm_h, hwparams, &ptime, NULL);
+	if (!err) err = alsa_pcm_hw_params(pcm_h, hwparams);
+	if (err < 0) {
+		_mm_errno = MMERR_ALSA_SETPARAMS;
+		goto END;
+	}
+
+	if (rate != md_mixfreq) {
+		_mm_errno = MMERR_ALSA_SETRATE;
+		goto END;
+	}
+	if (!(md_mode&DMODE_STEREO) && channels != 1) {
+		_mm_errno = MMERR_ALSA_SETCHANNELS;
+		goto END;
+	}
+	if ((md_mode&DMODE_STEREO) && channels != 2) {
+		_mm_errno = MMERR_ALSA_SETCHANNELS;
+		goto END;
+	}
+
+	err = alsa_pcm_hw_params_current(pcm_h, hwparams);
+	if (!err) err = alsa_pcm_hw_params_get_buffer_size(hwparams, &bsize);
+	if (!err) err = alsa_pcm_hw_params_get_period_size(hwparams, &psize, NULL);
+	if (err < 0) {
+		_mm_errno = MMERR_ALSA_BUFFERSIZE;
+		goto END;
+	}
+
+	period_size = psize;
+	global_frame_size = channels *
+				((md_mode&DMODE_FLOAT)? 4 : (md_mode&DMODE_16BITS)? 2 : 1);
+
+	if (!(audiobuffer=(SBYTE*)MikMod_malloc(period_size * global_frame_size))) {
+		_mm_errno = MMERR_OUT_OF_MEMORY;
+		goto END;
+	}
+
+	/* sound device is ready to work */
+	if (!VC_Init()) {
+		enabled = 1;
+		return 0;
+	}
+END:
+	alsa_pcm_close(pcm_h);
+	pcm_h = NULL;
 	return 1;
 }
 
-static BOOL ALSA_Init(void)
+static int ALSA_Init(void)
 {
+#ifdef HAVE_SSE2
+/* TODO : Detect SSE2, then set  md_mode |= DMODE_SIMDMIXER;*/
+#endif
 #ifdef MIKMOD_DYNAMIC
 	if (ALSA_Link()) {
 		_mm_errno=MMERR_DYNAMIC_LINKING;
@@ -364,13 +348,15 @@ static BOOL ALSA_Init(void)
 
 static void ALSA_Exit_internal(void)
 {
+	enabled = 0;
 	VC_Exit();
 	if (pcm_h) {
-		alsa_pcm_drain_playback(pcm_h);
+		alsa_pcm_drain(pcm_h);
 		alsa_pcm_close(pcm_h);
-		pcm_h=NULL;
+		pcm_h = NULL;
 	}
-	_mm_free(audiobuffer);
+	MikMod_free(audiobuffer);
+	audiobuffer = NULL;
 }
 
 static void ALSA_Exit(void)
@@ -381,55 +367,93 @@ static void ALSA_Exit(void)
 #endif
 }
 
+/* Underrun and suspend recovery - from alsa-lib:test/pcm.c
+ */
+static int xrun_recovery(snd_pcm_t *handle, int err)
+{
+	if (err == -EPIPE) {	/* under-run */
+		err = alsa_pcm_prepare(handle);
+		if (err < 0)
+			dbgprint(stderr, "Can't recover from underrun, prepare failed: %s\n", snd_strerror(err));
+		return 0;
+	}
+	else if (err == -ESTRPIPE) {
+		while ((err = alsa_pcm_resume(handle)) == -EAGAIN)
+			sleep(1);	/* wait until the suspend flag is released */
+		if (err < 0) {
+			err = alsa_pcm_prepare(handle);
+			if (err < 0)
+				dbgprint(stderr, "Can't recover from suspend, prepare failed: %s\n", snd_strerror(err));
+		}
+		return 0;
+	}
+	return err;
+}
+
 static void ALSA_Update(void)
 {
-	snd_pcm_playback_status_t status;
-	int total, count;
+	int err;
 
-	if (alsa_pcm_playback_status(pcm_h, &status) >= 0) {
-		/* Update md_mixfreq if necessary */
-		if (md_mixfreq != status.rate)
-			md_mixfreq = status.rate;
+	if (!enabled) return;
 
-		/* Using status.count would cause clicks, as this is always less than
-		   the freespace  in the buffer - so compute how many bytes we can
-		   afford */
-		total = status.fragments * status.fragment_size - status.queue;
-		if (total < fragmentsize)
-			total = fragmentsize;
-	} else
-		total = fragmentsize;
-	
-	/* Don't send data if ALSA is too busy */
-	while (total) {
-		count = fragmentsize > total ? total : fragmentsize;
-		total -= count;
-		alsa_pcm_write(pcm_h,audiobuffer,VC_WriteBytes(audiobuffer,count));
+	if (bytes_written == 0 || bytes_played == bytes_written) {
+		bytes_written = VC_WriteBytes(audiobuffer,period_size * global_frame_size);
+		bytes_played = 0;
 	}
+
+	while (bytes_played < bytes_written)
+	{
+		err = alsa_pcm_writei(pcm_h, &audiobuffer[bytes_played], (bytes_written - bytes_played) / global_frame_size);
+		if (err == -EAGAIN)
+			continue;
+		if (err < 0) {
+			if ((err = xrun_recovery(pcm_h, err)) < 0) {
+				_mm_errno = MMERR_ALSA_PCM_RECOVER;
+				enabled = 0;
+				dbgprint(stderr, "Write error: %s\n", alsa_strerror(err));
+			}
+			break;
+		}
+		bytes_played += err * global_frame_size;
+	}
+}
+
+static int ALSA_PlayStart(void)
+{
+	int err;
+
+	if (pcm_h == NULL) return 1;
+	err = alsa_pcm_prepare(pcm_h);
+	if (err == 0)
+	    err = alsa_pcm_start(pcm_h);
+	if (err < 0) {
+		enabled = 0;
+		_mm_errno = MMERR_ALSA_PCM_START;
+		return 1;
+	}
+
+	return VC_PlayStart();
 }
 
 static void ALSA_PlayStop(void)
 {
 	VC_PlayStop();
-	
-	alsa_pcm_flush_playback(pcm_h);
+	if (pcm_h) alsa_pcm_drop(pcm_h);
 }
 
-static BOOL ALSA_Reset(void)
+static int ALSA_Reset(void)
 {
 	ALSA_Exit_internal();
 	return ALSA_Init_internal();
 }
 
-MIKMODAPI MDRIVER drv_alsa={
+MIKMODAPI MDRIVER drv_alsa = {
 	NULL,
 	"ALSA",
-	"Advanced Linux Sound Architecture (ALSA) driver v0.4",
+	"Advanced Linux Sound Architecture (ALSA) driver v1.11",
 	0,255,
 	"alsa",
-	"card:r:0,31,0:Soundcard number\n"
-        "pcm:r:0,3,0:PCM device number\n"
-        "buffer:r:2,16,4:Number of buffer fragments\n",	
+	NULL,
 	ALSA_CommandLine,
 	ALSA_IsThere,
 	VC_SampleLoad,
@@ -440,7 +464,7 @@ MIKMODAPI MDRIVER drv_alsa={
 	ALSA_Exit,
 	ALSA_Reset,
 	VC_SetNumVoices,
-	VC_PlayStart,
+	ALSA_PlayStart,
 	ALSA_PlayStop,
 	ALSA_Update,
 	NULL,
@@ -463,4 +487,4 @@ MISSING(drv_alsa);
 
 #endif
 
-/* ex:set ts=4: */
+/* ex:set ts=8: */
