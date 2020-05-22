@@ -1,5 +1,5 @@
 libpspvram
-Copyright (c) 2007 Alexander Berl 'Raphael' <raphael@fx-world.org>
+Copyright (c) 2007 Alexander Berl 'Raphael' <a.berl@outlook.com>
 http://wordpress.fx-world.org
 
 

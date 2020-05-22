@@ -33,7 +33,6 @@ PSPDIR=$(shell psp-config --psp-prefix)
 include $(PSPSDK)/lib/build.mak
 
 install: pspvalloc pspvram
-	@mkdir -p $(PSPDIR)/include $(PSPDIR)/lib
 	@cp -v $(TARGET_LIB_VRAM) $(TARGET_LIB_VALLOC) $(PSPDIR)/lib
 	@cp -v *.h $(PSPDIR)/include
 	@echo "Done."
