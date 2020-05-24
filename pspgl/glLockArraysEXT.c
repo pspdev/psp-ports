@@ -1,3 +1,4 @@
+#include <psptypes.h>
 #include <stdlib.h>
 #include <malloc.h>
 #include <pspge.h>
