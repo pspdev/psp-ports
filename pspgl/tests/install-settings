@@ -1,3 +1,0 @@
-# Put your settings for psp-install here
-INSTALLFLAGS=--psp-revision=1.50
-#PSP_MOUNTDIR=/mnt/stick
