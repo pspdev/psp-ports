@@ -3,8 +3,10 @@
 
 #include <sys/types.h>
 
+// newlib 1.20 does not have it, but 3.3.0 *does*
+#ifndef _UINT32_T_DECLARED
 typedef unsigned uint32_t;
-
+#endif
 
 /* Return a pointer to uncached address space.  The pointer and size
    must both be a multiple CACHELINE_SIZE.  */
