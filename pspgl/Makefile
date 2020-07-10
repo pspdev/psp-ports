@@ -6,7 +6,7 @@ CC = $(ARCH)gcc -std=gnu99
 AR = $(ARCH)ar
 RANLIB = $(ARCH)ranlib
 RM = rm -f
-CFLAGS = -g -Wall -Wmissing-prototypes -Os -G0 -fsingle-precision-constant -I. -I $(PSPPATH)/include -I $(PSPSDK)/include -funit-at-a-time
+CFLAGS = -g -Wall -Wmissing-prototypes -Os -G0 -fsingle-precision-constant -I. -I $(PSPPATH)/include -I $(PSPSDK)/include
 LFLAGS = -g -Wall -Os -G0 -L$(PSPPATH)/lib
 
 DEPDIR = .deps
