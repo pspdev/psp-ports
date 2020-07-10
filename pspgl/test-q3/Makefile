@@ -58,12 +58,12 @@ $(SOURCEDIR):
 	@echo "--------------------------------------------------------------------------"
 	@echo " Compiling... "
 	@echo "--------------------------------------------------------------------------"
-	@make
+	@$(MAKE)
 
 $(TARGET): $(SOURCEDIR) $(OBJS)
 	$(CC) -o $@ $(OBJS) $(LFLAGS)
 
-.c.o: $(SOURCEDIR)
+.c.o:
 	@echo "compile: $<"
 	@$(CC) $(CFLAGS) -c $< -o $@
 

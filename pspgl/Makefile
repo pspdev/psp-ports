@@ -211,10 +211,10 @@ tar: clean
 
 clean:
 	$(RM) -rf *.o *.a $(DEPDIR) pspgl_proctable.h
-	make -C tools clean
-	make -C tests clean
-	make -C test-q3 clean
-	make -C test-vfpu clean
+	$(MAKE) -C tools clean
+	$(MAKE) -C tests clean
+	$(MAKE) -C test-q3 clean
+	$(MAKE) -C test-vfpu clean
 
 install: all
 	mkdir -p $(PSPPATH)/include $(PSPPATH)/lib
