@@ -31,16 +31,3 @@ These SDL libraries are hosted at dedicated branches in these repositories:
 | SDL_gfx    | [SDL_gfx-psp @ pspdev/SDL_gfx](https://github.com/pspdev/SDL_gfx/tree/SDL_gfx-psp)           |
 | SDL2_gfx   | [SDL2_gfx-psp @ pspdev/SDL_gfx](https://github.com/pspdev/SDL_gfx/tree/SDL2_gfx-psp)         |
 
-
-
-To fix support for compiling on aarch64/arm64 I have replaced the config.guess file with an updated version. You may need to do this for future OS or system architectures.
-
-```
-curl 'http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD' \
-  -H 'Accept: text/plain' \
-  --insecure \
-  -o new-config.guess
-
-
-find . -name "config.guess" -exec cp ./new-config.guess {} \;
-```
