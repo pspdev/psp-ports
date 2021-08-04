@@ -1,6 +1,7 @@
 all: 
 	$(MAKE) -C src
-install:
+
+install: all
 	$(MAKE) -C src install
 
 clean:
