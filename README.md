@@ -1,5 +1,7 @@
 # PSP ports
 
+**This repo is no longer being used! It has been superseded by [psp-packages](https://github.com/pspdev/psp-packages) and upstream libraries!**
+
 A collection of open source software ported to the PSP.
 
 This repo contains various libraries with their associated patches.
